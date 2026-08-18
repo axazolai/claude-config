@@ -41,6 +41,7 @@
 - [RISK-ULTRAPOWERS-006 — Agent registry adds resident context cost every session](#risk-ultrapowers-006-agent-registry-adds-resident-context-cost-every-session)
 - [RISK-ULTRAPOWERS-008 — Upstream may change its licence or its direction](#risk-ultrapowers-008-upstream-may-change-its-licence-or-its-direction)
 - [RISK-ULTRAPOWERS-010 — `/gsd-update` reinstalls gsd-core at any time](#risk-ultrapowers-010-gsd-update-reinstalls-gsd-core-at-any-time)
+- [RISK-ULTRAPOWERS-011 — `/up-update update` cannot land an update that re-authors a delta](#risk-ultrapowers-011-up-update-update-cannot-land-an-update-that-re-authors-a-delta)
 - [RISK-VARIANT-001 — Variant switch could delete a file the user hand-edited under `~/.claude`](#risk-variant-001-variant-switch-could-delete-a-file-the-user-hand-edited-under-claude)
 - [RISK-VARIANT-002 — `managedPlugins` marketplace ids can drift from the live marketplace](#risk-variant-002-managedplugins-marketplace-ids-can-drift-from-the-live-marketplace)
 - [RISK-VARIANT-003 — The gsd-core detector edits hook entries this bundle does not own](#risk-variant-003-the-gsd-core-detector-edits-hook-entries-this-bundle-does-not-own)
@@ -837,6 +838,30 @@
   hook that polices another product's installation on every session — a standing background
   behaviour to remove software the user may have just deliberately installed. That is a worse
   trade than periodic drift, and it is out of scope for this feature.
+
+### RISK-ULTRAPOWERS-011 — `/up-update update` cannot land an update that re-authors a delta
+
+- **Status:** Active (opened 2026-08-18)
+- **Context:** `update` runs two gates in a fixed order. Before it moves the base it asserts that
+  `main` matches a fresh build against the CURRENT base; only afterwards does it fetch the new
+  upstream tag and re-run the build. Whenever an upstream release changes text a delta patches,
+  the delta must be re-authored against the NEW base — and that re-authored delta no longer
+  applies to the old one, so the pre-flight fails and the command returns before the base ever
+  moves. The same holds for `inventory.json`: manifest entries for paths only the new release
+  ships are reported as "upstream no longer ships" against the old base. Observed on 6.2.0 ->
+  6.3.0, where delta 002 needed one added line. On refusal the working clone is discarded, so
+  there is no bumped tree to author against either.
+- **Impact:** the tool handles only the updates that need no re-authoring, which are the easy
+  ones. Every update that actually costs something falls back to the local procedure in the fork's
+  own README (`inventory.mjs check`, `node --test`, `build-cli.mjs check`, `build-cli.mjs commit`,
+  then push `patch`/`main`/`original` and the tag), performed by hand — which is exactly the path
+  the tool exists to keep people off.
+- **Mitigation:** none yet. The shape of a fix is a mode that moves the base first and keeps the
+  clone, letting the human re-author inside a tree that already describes the new upstream; the
+  drift assertion would then run against that tree rather than the old one. `describesTree` and
+  `describesTag` in `inventory.json` also have to move with the base — `update` writes only
+  `config.json`, so today they are a third thing the human must remember.
+- **Owner:** `payload/bin/up-update.mjs`, `payload/bin/lib/up-update-lib.mjs`
 
 ### RISK-VARIANT-001 — Variant switch could delete a file the user hand-edited under `~/.claude`
 
