@@ -7,7 +7,7 @@
 // reasoning for splitting out the workflow target).
 //
 // Unlike the agent/workflow modules these are NOT marker-wrapped prose blocks but frontmatter
-// scalar re-tunes (Phase 5 §6.1: `effort: max` -> `effort: xhigh`), so idempotency and
+// scalar re-tunes (Phase 5 §6.1, retargeted for gsd-core 1.10.0), so idempotency and
 // non-clobbering come from setFrontmatterField's value comparison, not version markers.
 //   - checkGsdSkillPatches(claudeDir)  -> read-only. Returns { "<skill>/SKILL.md": [id, ...] }.
 //   - applyGsdSkillPatches(claudeDir)  -> writes. Returns { applied, skippedForeign,
@@ -20,13 +20,14 @@ const safe = (fn) => { try { return fn(); } catch { return undefined; } };
 const MARKER_RE = /^<!--\s*CURATED:NOEDIT\s*-->$/;
 const isCurated = (content) => content.split(/\r?\n/).some((l) => MARKER_RE.test(l.trim()));
 
-// Opus 5 migration §6.1: these three skills ran at `max` (which overthinks on Opus 5); `xhigh`
-// is the recommended start for coding/agentic work. `from` is a list so a future re-tune can add
-// the prior target and still catch a machine sitting on the original `max`.
+// Opus 5 migration §6.1: these three skills ran at `max`, which overthinks on Opus 5. gsd-core
+// 1.10.0 moved all three to `high` itself, so `from` carries both values and a machine on either
+// one lands on the same target. gsd-execute-phase keeps upstream's `high`; the two orchestrators
+// that plan rather than execute go to `xhigh`, the recommended start for agentic work.
 export const SKILL_PATCHES = [
-  { id: "plan-phase-effort", skill: "gsd-plan-phase", key: "effort", from: ["max"], to: "xhigh" },
-  { id: "execute-phase-effort", skill: "gsd-execute-phase", key: "effort", from: ["max"], to: "xhigh" },
-  { id: "autonomous-effort", skill: "gsd-autonomous", key: "effort", from: ["max"], to: "xhigh" },
+  { id: "plan-phase-effort", skill: "gsd-plan-phase", key: "effort", from: ["max", "high"], to: "xhigh" },
+  { id: "execute-phase-effort", skill: "gsd-execute-phase", key: "effort", from: ["max"], to: "high" },
+  { id: "autonomous-effort", skill: "gsd-autonomous", key: "effort", from: ["max", "high"], to: "xhigh" },
 ];
 
 function skillFile(claudeDir, skill) { return join(claudeDir, "skills", skill, "SKILL.md"); }
