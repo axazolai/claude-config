@@ -33,8 +33,8 @@
  * writes `.new` or `.bak` side files anywhere under ~/.claude - a diff is either shown for you
  * to act on, or the change is applied directly with no backup.
  */
-import { readFileSync, writeFileSync, mkdirSync, existsSync, chmodSync, readdirSync, rmSync, realpathSync, copyFileSync } from "node:fs";
-import { homedir, platform } from "node:os";
+import { readFileSync, writeFileSync, mkdirSync, existsSync, chmodSync, readdirSync, rmSync, realpathSync, copyFileSync, mkdtempSync, renameSync } from "node:fs";
+import { homedir, platform, tmpdir } from "node:os";
 import { createHash } from "node:crypto";
 import { join, dirname } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -44,7 +44,7 @@ import { validateConfigDir } from "./payload/bin/lib/config-dir-validate.mjs";
 import { findGraphifyPython } from "./payload/bin/lib/graphify-python.mjs";
 import { assembleClaudeMd } from "./payload/bin/lib/assemble-claude-md.mjs";
 import { migrateSettingsModel } from "./payload/bin/lib/model-migration.mjs";
-import { gsdCorePresent, buildGsdInventory, filterGsdHooks, gsdCoreInstallPlan } from "./payload/bin/lib/gsd-core-detect.mjs";
+import { gsdCorePresent, buildGsdInventory, filterGsdHooks, gsdCoreInstallPlan, gsdCoreUpdatePlan, gsdLookingRels } from "./payload/bin/lib/gsd-core-detect.mjs";
 import { applyPlan, purgeRetention, trashRoot } from "./payload/bin/lib/claude-cleanup-lib.mjs";
 import { resolveVariant, filterPartialHooks, loadVariants, profilesOf, globToRe } from "./variants.mjs";
 import { buildPluginPlan, formatPlan, selectActions, describeAction } from "./plugin-reconcile.mjs";
@@ -93,6 +93,7 @@ const VARIANT_ARG = (() => {
 })();
 const ENABLE_UPDATE_CHECK_FLAG = argv.has("--enable-update-check");
 const ENABLE_POWERSHELL_TOOL_FLAG = argv.has("--enable-powershell-tool");
+const UPDATE_GSD_CORE_FLAG = argv.has("--update-gsd-core");
 const INTERACTIVE = !BULK && process.stdin.isTTY;
 const MD = argv.has("--md");
 const COLOR = !MD && !argv.has("--no-color") && !process.env.NO_COLOR && process.stdout.isTTY;
@@ -564,23 +565,125 @@ function warnStatuslineNamesMissingFile() {
  * enabledPlugins entry. Consent is explicit and per-run: the command is printed either way, and
  * only a TTY plus a "y" runs it. */
 async function offerGsdCoreInstall() {
-  const plan = gsdCoreInstallPlan({
-    variant: VARIANT, present: gsdCorePresent(CDIR), interactive: INTERACTIVE,
-    configDir: CDIR, defaultConfigDir: join(HOME, ".claude"),
-  });
-  if (plan.action === "none" || DRY) return;
-  log(`\ngsd-core is not installed, and the full profile ships its agents, hooks and rules:`);
-  log(`  ${plan.command}`);
-  if (plan.action === "print") { log("  Non-interactive run - nothing was installed. Run it yourself."); return; }
-  if ((await ask("  Install it now? (y/N) > "))[0] !== "y") { log("  Skipped."); return; }
-  const r = spawnSync(plan.command, { shell: true, stdio: "inherit" });
-  if (r.status === 0 && gsdCorePresent(CDIR)) {
-    const v = safe(() => readFileSync(join(CDIR, "gsd-core", "VERSION"), "utf8").trim()) || "unknown";
+  if (DRY) return;
+  const defaultConfigDir = join(HOME, ".claude");
+  const present = gsdCorePresent(CDIR);
+  let command = null;
+
+  if (!present) {
+    const plan = gsdCoreInstallPlan({
+      variant: VARIANT, present, interactive: INTERACTIVE,
+      configDir: CDIR, defaultConfigDir,
+    });
+    if (plan.action === "none") return;
+    log(`\ngsd-core is not installed, and the full profile ships its agents, hooks and rules:`);
+    log(`  ${plan.command}`);
+    if (plan.action === "print") { log("  Non-interactive run - nothing was installed. Run it yourself."); return; }
+    if ((await ask("  Install it now? (y/N) > "))[0] !== "y") { log("  Skipped."); return; }
+    command = plan.command;
+  } else {
+    if (VARIANT !== "full") return;
+    const plan = gsdCoreUpdatePlan({
+      variant: VARIANT, present, installedVersion: installedGsdCoreVersion(),
+      latestVersion: latestGsdCoreVersion(), interactive: INTERACTIVE,
+      flag: UPDATE_GSD_CORE_FLAG, configDir: CDIR, defaultConfigDir,
+    });
+    if (plan.action === "none") return;
+    log(`\ngsd-core ${plan.from} is installed here; ${plan.to} is published:`);
+    log(`  ${plan.command}`);
+    if (plan.action === "print") {
+      log("  Non-interactive run - nothing was updated. Run it yourself, or pass --update-gsd-core.");
+      return;
+    }
+    if (plan.action === "ask" && (await ask("  Update it now? (y/N) > "))[0] !== "y") { log("  Skipped."); return; }
+    command = plan.command;
+  }
+
+  const q = quarantineGsdLooking();
+  if (q.moved.length)
+    log(`  moved ${q.moved.length} of this bundle's own gsd-* file(s) aside for the run` +
+        ` - gsd-core's baseline scan blocks on them, and with no TTY that prompt has no answer.`);
+  let r = null;
+  try {
+    r = spawnSync(command, { shell: true, stdio: "inherit" });
+  } finally {
+    const back = restoreQuarantine(q);
+    if (q.moved.length) {
+      log(`  restored ${back}/${q.moved.length}.`);
+      if (back !== q.moved.length)
+        summary.push(`WARNING gsd-* quarantine restored ${back}/${q.moved.length} - check ${q.dir}`);
+    }
+  }
+  if (r && r.status === 0 && gsdCorePresent(CDIR)) {
+    const v = installedGsdCoreVersion() || "unknown";
     summary.push(`installed gsd-core ${v} (npx)`);
     log(`  gsd-core ${v} installed.`);
+    repatchAfterGsdCoreInstall();
   } else {
-    log(`  Install did not complete (exit ${r.status}). Nothing else changed.`);
+    log(`  Install did not complete (exit ${r ? r.status : "n/a"}). Nothing else changed.`);
   }
+}
+
+const installedGsdCoreVersion = () =>
+  safe(() => readFileSync(join(CDIR, "gsd-core", "VERSION"), "utf8").trim()) || null;
+
+// Best-effort: a registry that is slow, offline or rate-limiting must never fail an install run,
+// and gsdCoreUpdatePlan already treats an unreadable version as "do nothing".
+function latestGsdCoreVersion() {
+  const r = spawnSync("npm", ["view", "@opengsd/gsd-core", "version"],
+    { encoding: "utf8", shell: true, timeout: 20000 });
+  if (r.error || r.status !== 0) return null;
+  return (r.stdout || "").trim() || null;
+}
+
+// gsd-core's first-time-baseline-scan calls every gsd-* file under its config dir that it cannot
+// prove manifest-managed "stale-gsd-looking" and blocks on a keep/remove prompt; its own prune
+// then deletes every agents/gsd-* entry outright. Both hit files this bundle owns. Moving them
+// out of the tree for the duration of the npx run is the only lever available from this side -
+// gsd-core offers GSD_INSTALLER_MIGRATION_RESOLVE for the first problem but nothing for the
+// second. Restored in a finally, so a crashed installer does not take them with it.
+function quarantineGsdLooking() {
+  const dir = mkdtempSync(join(tmpdir(), "claude-config-gsd-"));
+  const moved = [];
+  for (const rel of gsdLookingRels((V && V.rels) || [])) {
+    const src = join(CDIR, rel);
+    if (!existsSync(src)) continue;
+    const dest = join(dir, rel.split("/").join("~"));
+    // A file we cannot move is left where it is: a blocked installer beats a lost file.
+    try { renameSync(src, dest); moved.push({ src, dest }); } catch { /* keep going */ }
+  }
+  return { dir, moved };
+}
+
+function restoreQuarantine(q) {
+  let restored = 0;
+  for (const { src, dest } of q.moved) {
+    try { mkdirSync(dirname(src), { recursive: true }); renameSync(dest, src); restored += 1; } catch { /* reported by caller */ }
+  }
+  if (restored === q.moved.length) { try { rmSync(q.dir, { recursive: true, force: true }); } catch { /* best-effort */ } }
+  return restored;
+}
+
+// apply-gsd-agent-patches.mjs is deliberately not part of setup.mjs's normal path - its patches
+// inject prose across 30+ files and want a human trigger. This call is the exception that proves
+// it: gsd-core's installer has just overwritten every agents/gsd-*.md with a fresh copy, so the
+// patches THIS run's consent put there are gone. Re-applying restores state this run disturbed
+// rather than making a new change, and it only ever runs on the path that just ran the installer.
+function repatchAfterGsdCoreInstall() {
+  const cli = join(CDIR, "apply-gsd-agent-patches.mjs");
+  if (!existsSync(cli)) {
+    log("  (the gsd-* patcher is not deployed here - run /init-session once to re-apply the patches)");
+    return;
+  }
+  const r = spawnSync(process.execPath, [cli, CDIR], { encoding: "utf8" });
+  if (r.error || r.status !== 0) {
+    log("  (re-applying the gsd-* patches failed - run /init-session)");
+    summary.push("WARNING gsd-* patches were NOT re-applied after the gsd-core install - run /init-session");
+    return;
+  }
+  const applied = /^Applied (\d+) patch/m.exec(r.stdout || "");
+  log(`  gsd-* patches re-applied${applied ? ` (${applied[1]})` : ""}.`);
+  summary.push(`re-applied gsd-* patches after the gsd-core install${applied ? ` (${applied[1]})` : ""}`);
 }
 
 async function detectForeignGsdCore(prunedRels = []) {
