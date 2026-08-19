@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { gsdCorePresent, buildGsdInventory, filterGsdHooks, gsdCoreInstallPlan } from "./gsd-core-detect.mjs";
+import { gsdCorePresent, buildGsdInventory, filterGsdHooks, gsdCoreInstallPlan, gsdLookingRels, gsdCoreUpdatePlan } from "./gsd-core-detect.mjs";
 
 function claudeDir(files = {}) {
   const dir = mkdtempSync(join(tmpdir(), "gsd-detect-"));
@@ -182,4 +182,85 @@ test("a non-default config dir is passed through, and omitted when default", () 
     configDir: "C:/Users/x/.claude", defaultConfigDir: "C:/Users/x/.claude",
   });
   assert.doesNotMatch(plain.command, /--config-dir/);
+});
+
+/* ---------- quarantine: which of our own files gsd-core's baseline scan trips over ---------- */
+
+test("gsdLookingRels picks the paths gsd-core's scanner calls GSD-looking", () => {
+  const rels = [
+    "hooks/lib/gsd-agent-patches.mjs", "hooks/lib/gsd-defaults-sync.mjs",
+    "hooks/lib/gsd-patch-frontmatter.mjs", "hooks/lib/gsd-skill-patches.mjs",
+    "hooks/lib/gsd-statusline-registration.mjs", "hooks/lib/gsd-workflow-patches.mjs",
+    "hooks/gsd-config-patch.mjs", "agents/gsd-executor-decomposing.md",
+    "agents/gsd-task-verifier.md", "bin/lib/gsd-core-detect.mjs", "gsd-defaults-sync.mjs",
+    "hooks/session-init.mjs", "rules-src/gsd.md", "apply-gsd-agent-patches.mjs",
+    "hooks/lib/context-mode-gsd-agents.mjs",
+  ];
+  assert.deepEqual(gsdLookingRels(rels), [
+    "agents/gsd-executor-decomposing.md", "agents/gsd-task-verifier.md",
+    "bin/lib/gsd-core-detect.mjs", "gsd-defaults-sync.mjs", "hooks/gsd-config-patch.mjs",
+    "hooks/lib/gsd-agent-patches.mjs", "hooks/lib/gsd-defaults-sync.mjs",
+    "hooks/lib/gsd-patch-frontmatter.mjs", "hooks/lib/gsd-skill-patches.mjs",
+    "hooks/lib/gsd-statusline-registration.mjs", "hooks/lib/gsd-workflow-patches.mjs",
+  ]);
+});
+
+test("gsdLookingRels covers every file the installer actually reported as blocked", () => {
+  const reported = [
+    "hooks/lib/gsd-agent-patches.mjs", "hooks/lib/gsd-defaults-sync.mjs",
+    "hooks/lib/gsd-patch-frontmatter.mjs", "hooks/lib/gsd-skill-patches.mjs",
+    "hooks/lib/gsd-statusline-registration.mjs", "hooks/lib/gsd-workflow-patches.mjs",
+  ];
+  assert.deepEqual(gsdLookingRels(reported).sort(), [...reported].sort());
+});
+
+test("gsdLookingRels matches on the basename only, and normalises separators", () => {
+  assert.deepEqual(gsdLookingRels(["hooks\\lib\\gsd-skill-patches.mjs"]), ["hooks/lib/gsd-skill-patches.mjs"]);
+  assert.deepEqual(gsdLookingRels(["gsd-core/VERSION"]), []);
+  assert.deepEqual(gsdLookingRels(["skills/gsd/SKILL.md", "notgsd-x.mjs", "hooks/gsdx.mjs"]), []);
+  assert.deepEqual(gsdLookingRels([]), []);
+});
+
+/* ---------- update: gsd-core is present but behind npm ---------- */
+
+test("the update plan only ever fires on full, with gsd-core present", () => {
+  const base = { installedVersion: "1.9.1", latestVersion: "1.10.0", interactive: true };
+  assert.equal(gsdCoreUpdatePlan({ ...base, variant: "base", present: true }).action, "none");
+  assert.equal(gsdCoreUpdatePlan({ ...base, variant: "lite", present: true }).action, "none");
+  assert.equal(gsdCoreUpdatePlan({ ...base, variant: "full", present: false }).action, "none");
+});
+
+test("an up-to-date or ahead install is left alone", () => {
+  const base = { variant: "full", present: true, interactive: true };
+  assert.equal(gsdCoreUpdatePlan({ ...base, installedVersion: "1.10.0", latestVersion: "1.10.0" }).action, "none");
+  assert.equal(gsdCoreUpdatePlan({ ...base, installedVersion: "1.11.0", latestVersion: "1.10.0" }).action, "none");
+});
+
+test("a version that cannot be read is never guessed at", () => {
+  const base = { variant: "full", present: true, interactive: true };
+  for (const [installed, latest] of [[null, "1.10.0"], ["1.9.1", null], ["unknown", "1.10.0"], ["1.9.1", ""]])
+    assert.deepEqual(gsdCoreUpdatePlan({ ...base, installedVersion: installed, latestVersion: latest }),
+      { action: "none", reason: "unknown-version" });
+});
+
+test("being behind asks in a TTY, prints without one, and obeys the flag", () => {
+  const base = { variant: "full", present: true, installedVersion: "1.9.1", latestVersion: "1.10.0" };
+  assert.equal(gsdCoreUpdatePlan({ ...base, interactive: true }).action, "ask");
+  assert.equal(gsdCoreUpdatePlan({ ...base, interactive: false }).action, "print");
+  assert.equal(gsdCoreUpdatePlan({ ...base, interactive: false, flag: true }).action, "update");
+  assert.match(gsdCoreUpdatePlan({ ...base, interactive: true }).command, /@opengsd\/gsd-core@latest/);
+});
+
+test("a prerelease is older than the release that shares its numbers", () => {
+  const base = { variant: "full", present: true, interactive: true };
+  assert.equal(gsdCoreUpdatePlan({ ...base, installedVersion: "1.10.0-rc.6", latestVersion: "1.10.0" }).action, "ask");
+  assert.equal(gsdCoreUpdatePlan({ ...base, installedVersion: "1.10.0", latestVersion: "1.10.0-rc.6" }).action, "none");
+});
+
+test("the update command carries a non-default config dir, like the install one", () => {
+  const plan = gsdCoreUpdatePlan({
+    variant: "full", present: true, installedVersion: "1.9.1", latestVersion: "1.10.0",
+    interactive: true, configDir: "D:/alt/.claude", defaultConfigDir: "C:/Users/x/.claude",
+  });
+  assert.match(plan.command, /--config-dir "D:\/alt\/\.claude"/);
 });

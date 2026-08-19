@@ -29,6 +29,45 @@ export function gsdCoreInstallPlan({
   return { action: interactive ? "ask" : "print", command };
 }
 
+// gsd-core's first-time baseline scan classifies any gsd-* file under its config dir that it
+// cannot prove manifest-managed as "stale-gsd-looking" and blocks on a keep/remove prompt. With no
+// TTY - which is how setup.mjs spawns it - that prompt has no answer and the install aborts. These
+// are OUR files, so they are moved aside for the duration of the npx run and put back after.
+// Matching is on the basename: that is the shape the scanner keys on, and it is the shape every
+// path it actually reported carries.
+export function gsdLookingRels(rels = []) {
+  const norm = (r) => String(r).split("\\").join("/");
+  return [...new Set(rels.map(norm).filter((r) => (r.split("/").pop() || "").startsWith("gsd-")))].sort();
+}
+
+const versionTriple = (v) => {
+  const m = /^(\d+)\.(\d+)\.(\d+)(-.+)?$/.exec(String(v ?? "").trim());
+  return m ? { nums: [Number(m[1]), Number(m[2]), Number(m[3])], pre: !!m[4] } : null;
+};
+
+// Negative when a is older than b. A prerelease sorts below the release sharing its numbers.
+function compareGsdVersions(a, b) {
+  for (let i = 0; i < 3; i++) if (a.nums[i] !== b.nums[i]) return a.nums[i] - b.nums[i];
+  return (a.pre ? 0 : 1) - (b.pre ? 0 : 1);
+}
+
+// gsdCoreInstallPlan covers absence. This covers the other half: present, but behind npm. Kept
+// separate so the install path's contract does not change.
+export function gsdCoreUpdatePlan({
+  variant, present, installedVersion, latestVersion, interactive, flag = false,
+  configDir, defaultConfigDir,
+} = {}) {
+  if (variant !== "full" || !present) return { action: "none" };
+  const have = versionTriple(installedVersion);
+  const want = versionTriple(latestVersion);
+  if (!have || !want) return { action: "none", reason: "unknown-version" };
+  if (compareGsdVersions(have, want) >= 0) return { action: "none", reason: "current" };
+  const command = configDir && defaultConfigDir && configDir !== defaultConfigDir
+    ? `${INSTALL_COMMAND} --config-dir "${configDir}"`
+    : INSTALL_COMMAND;
+  return { action: flag ? "update" : interactive ? "ask" : "print", command, from: installedVersion, to: latestVersion };
+}
+
 const safeReaddir = (p) => { try { return readdirSync(p); } catch { return []; } };
 const statOr = (p) => { try { return statSync(p); } catch { return null; } };
 
