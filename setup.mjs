@@ -48,6 +48,7 @@ import { gsdCorePresent, buildGsdInventory, filterGsdHooks, gsdCoreInstallPlan }
 import { applyPlan, purgeRetention, trashRoot } from "./payload/bin/lib/claude-cleanup-lib.mjs";
 import { resolveVariant, filterPartialHooks, loadVariants, profilesOf, globToRe } from "./variants.mjs";
 import { buildPluginPlan, formatPlan, selectActions, describeAction } from "./plugin-reconcile.mjs";
+import { parsePwshMajor, powerShellToolPlan, MIN_PWSH_MAJOR, ENV_KEY as PWSH_ENV_KEY } from "./powershell-tool.mjs";
 import { knownMarketplaces } from "./payload/bin/init-stack.mjs";
 import { reconcileBundleInstall } from "./payload/hooks/lib/config-update-check-run.mjs";
 
@@ -91,6 +92,7 @@ const VARIANT_ARG = (() => {
   return a ? a.slice("--variant=".length) : null;
 })();
 const ENABLE_UPDATE_CHECK_FLAG = argv.has("--enable-update-check");
+const ENABLE_POWERSHELL_TOOL_FLAG = argv.has("--enable-powershell-tool");
 const INTERACTIVE = !BULK && process.stdin.isTTY;
 const MD = argv.has("--md");
 const COLOR = !MD && !argv.has("--no-color") && !process.env.NO_COLOR && process.stdout.isTTY;
@@ -1111,7 +1113,7 @@ async function main() {
   /* ---------- opt-in: daily background check for new claude-config releases ---------- */
   // Deliberately NOT part of settings.partial.json's additive merge above (that would silently
   // flip a background network check on for everyone) - this is a one-time y/N decision, written
-  // straight into `env`, exactly like the manual PowerShell-tool opt-in documented in README.md.
+  // straight into `env`, exactly like the PowerShell-tool opt-in further down.
   // Once decided either way (yes -> "1", no -> "0") this never asks again on this machine, no
   // matter how many times setup.mjs re-runs - an explicit "no" is recorded, not re-nagged
   // (the same "decide once, don't re-ask" pattern used elsewhere for one-time opt-ins). This
@@ -1143,6 +1145,64 @@ async function main() {
         log("\n(update-check opt-in left undecided - non-interactive run. Enable explicitly with " +
           "'node setup.mjs --enable-update-check', or accept the offer next time /init-stack runs)");
       }
+    }
+  }
+
+  /* ---------- opt-in (Windows): the PowerShell tool ---------- */
+  // Recorded once and never re-decided, exactly like the update check above - see
+  // powershell-tool.mjs for why "0" has to be as final an answer as "1". PowerShell 7+ is a
+  // precondition rather than a consequence: writing the key on a machine without pwsh hands
+  // Claude Code a tool it cannot start.
+  if (!DRY) {
+    let psSettings = {};
+    try { psSettings = JSON.parse(readFileSync(SETTINGS, "utf8")); } catch { psSettings = {}; }
+    const detectPwsh = () => {
+      const r = spawnSync("pwsh", ["-NoProfile", "-NoLogo", "-Command", "$PSVersionTable.PSVersion.ToString()"], { encoding: "utf8" });
+      return r.error ? null : parsePwshMajor(r.stdout);
+    };
+    const planFor = (major, flag) => powerShellToolPlan({
+      os: platform(), env: psSettings.env || {}, flag, interactive: INTERACTIVE, pwshMajor: major,
+    });
+    let pwshMajor = platform() === "win32" ? detectPwsh() : null;
+    let plan = planFor(pwshMajor, ENABLE_POWERSHELL_TOOL_FLAG);
+
+    if (plan.action === "offer-install") {
+      log(`\nThe PowerShell tool needs PowerShell ${MIN_PWSH_MAJOR}+ (pwsh), which was not found here.`);
+      log(`  Windows PowerShell 5.1 (powershell.exe) is a different product and does not count.`);
+      const a = await ask("Install PowerShell 7+ now via winget? [y/N] > ");
+      if (a[0] === "y") {
+        const r = spawnSync("winget", ["install", "--id", "Microsoft.PowerShell", "--source", "winget",
+          "--accept-package-agreements", "--accept-source-agreements"], { stdio: "inherit" });
+        if (r.error) log("  winget is not available here - install by hand: https://aka.ms/powershell");
+        pwshMajor = detectPwsh();
+        if (pwshMajor === null)
+          log("  pwsh still not on PATH - a new terminal usually fixes that. Re-run setup.mjs afterwards.");
+      }
+      plan = planFor(pwshMajor, false);
+      if (plan.action === "offer-install") {
+        summary.push(`skipped  ${PWSH_ENV_KEY} (PowerShell ${MIN_PWSH_MAJOR}+ absent - nothing recorded, will offer again)`);
+        plan = { action: "skip", reason: "no-pwsh" };
+      }
+    }
+
+    if (plan.action === "offer-enable") {
+      const a = await ask(`\nEnable the PowerShell tool (pwsh ${pwshMajor}.x found)? It is a PREVIEW feature: ` +
+        "its commands are confirmed by hand even in an auto-approved session, $PROFILE is not loaded, " +
+        "there is no sandboxing, and the pipeline returns objects rather than text. This package's own " +
+        "hooks are unaffected - they are Node in exec form and need no shell. [y/N] > ");
+      plan = { action: "write", value: a[0] === "y" ? "1" : "0" };
+    }
+
+    if (plan.action === "write") {
+      psSettings.env = psSettings.env || {};
+      psSettings.env[PWSH_ENV_KEY] = plan.value;
+      if (write(SETTINGS, JSON.stringify(psSettings, null, 2) + "\n"))
+        summary.push(`updated  ${SETTINGS} (PowerShell tool: ${plan.value === "1" ? "enabled" : "declined - won't ask again here"})`);
+    } else if (plan.action === "blocked") {
+      log(`\n(--enable-powershell-tool ignored: PowerShell ${MIN_PWSH_MAJOR}+ (pwsh) not found. Install it, then re-run.)`);
+    } else if (plan.action === "skip" && plan.reason === "non-interactive") {
+      log("\n(PowerShell-tool opt-in left undecided - non-interactive run. Enable explicitly with " +
+        "'node setup.mjs --enable-powershell-tool')");
     }
   }
 

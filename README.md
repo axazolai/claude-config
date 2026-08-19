@@ -39,7 +39,7 @@ node setup.mjs
 - [Что делает каждый хук и почему](#что-делает-каждый-хук-и-почему)
 - [Кросс-инструментные патчи gsd-core (агенты, воркфлоу, tool-grant)](#кросс-инструментные-патчи-gsd-core-агенты-воркфлоу-tool-grant)
 - [Требуемые инструменты и fallback](#требуемые-инструменты-и-fallback)
-- [PowerShell tool на Windows (опционально, руками — не через setup.mjs)](#powershell-tool-на-windows-опционально-руками-не-через-setupmjs)
+- [PowerShell tool на Windows (опционально, одноразовый опт-ин в setup.mjs)](#powershell-tool-на-windows-опционально-одноразовый-опт-ин-в-setupmjs)
 - [Проверка после установки](#проверка-после-установки)
 - [Граф кодовой базы (graphify) + общий граф для всех проектов](#граф-кодовой-базы-graphify-общий-граф-для-всех-проектов)
   - [Установка / проверка (+ extra-компоненты, + автонастройка uv)](#установка-проверка-extra-компоненты-автонастройка-uv)
@@ -1106,7 +1106,7 @@ bump версии патча устаревший текст заменяетс�
 
 ---
 
-## PowerShell tool на Windows (опционально, руками — не через setup.mjs)
+## PowerShell tool на Windows (опционально, одноразовый опт-ин в setup.mjs)
 
 Claude Code умеет работать через PowerShell-тул вместо/наряду с Bash на Windows
 (`CLAUDE_CODE_USE_POWERSHELL_TOOL=1` в `env`, опционально `"defaultShell": "powershell"` —
@@ -1115,10 +1115,10 @@ docs.claude.com, но это **preview-фича, ещё «rolling out progressiv
 существенные ограничения:
 
 - **auto-mode не поддерживается** — каждая PowerShell-команда требует ручного подтверждения,
-  даже в auto-approve/bypass-permissions сессии. Это главная причина, почему ключ **не** зашит
-  в `setup.mjs`/`settings.partial.json`: будь он там, любая уже настроенная auto-approved
-  Windows-сессия молча начала бы спрашивать подтверждение на каждую команду после обычного
-  `node setup.mjs`.
+  даже в auto-approve/bypass-permissions сессии. Именно поэтому ключ **не** лежит в
+  `settings.partial.json`: оттуда он переписывался бы при каждом прогоне, и любая уже
+  настроенная auto-approved Windows-сессия молча начала бы спрашивать подтверждение на каждую
+  команду после обычного `node setup.mjs`.
 - `$PROFILE` (алиасы/функции) не подхватывается.
 - без песочницы (sandboxing), которая у Bash-тула доступна через WSL2.
 - execution policy может блокировать скрипты.
@@ -1127,15 +1127,34 @@ docs.claude.com, но это **preview-фича, ещё «rolling out progressiv
 Хуков пакета это не касается вообще — все они на Node в exec-форме (`command: "node"`), шелл им
 не нужен. Влияет только на команды, которые Claude сам гоняет в сессии (git, npm и т.п.).
 
-Если хочешь попробовать (сам, вручную, зная про auto-mode-ограничение) — добавь в свой
-`~/.claude/settings.json`:
+### Как это делает setup.mjs
+
+На Windows `setup.mjs` спрашивает про этот ключ **один раз** и запоминает ответ — тот же
+шаблон, что у `CLAUDE_CONFIG_UPDATE_CHECK`. Порядок:
+
+1. Ищет PowerShell 7+ (`pwsh`). Windows PowerShell 5.1 (`powershell.exe`) — другой продукт и
+   не засчитывается.
+2. Если не нашёл — предлагает поставить через
+   `winget install --id Microsoft.PowerShell`. Отказ ничего не записывает: предложение
+   повторится в следующий раз, а не превратится в зафиксированное «нет».
+3. Если PowerShell 7+ есть — спрашивает про сам тул и пишет в `~/.claude/settings.json`
+   `"1"` при согласии или `"0"` при отказе.
+
+Записанное решение окончательно в обе стороны: пока ключ есть в `env`, `setup.mjs` про него
+больше не спрашивает, сколько бы раз его ни запускали. Передумал — поправь или удали ключ в
+`~/.claude/settings.json` руками.
+
+Без TTY вопросов не будет: включить можно явно флагом
+`node setup.mjs --enable-powershell-tool` (он тоже требует установленного `pwsh` и сам ничего
+не ставит).
 
 ```json
 { "env": { "CLAUDE_CODE_USE_POWERSHELL_TOOL": "1" } }
 ```
 
 и, если нужно переключить также интерактивные `!`-команды: `"defaultShell": "powershell"` на
-верхнем уровне. Подробности: [PowerShell tool](https://code.claude.com/docs/en/tools-reference#powershell-tool).
+верхнем уровне — это `setup.mjs` не трогает. Подробности:
+[PowerShell tool](https://code.claude.com/docs/en/tools-reference#powershell-tool).
 
 ---
 

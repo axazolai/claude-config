@@ -39,7 +39,7 @@ After installing — **restart Claude Code** (hooks and settings are only read a
 - [What each hook does and why](#what-each-hook-does-and-why)
 - [Cross-tool gsd-core patches (agents, workflow, tool-grant)](#cross-tool-gsd-core-patches-agents-workflow-tool-grant)
 - [Required tools and fallback](#required-tools-and-fallback)
-- [PowerShell tool on Windows (optional, manual — not via setup.mjs)](#powershell-tool-on-windows-optional-manual-not-via-setupmjs)
+- [PowerShell tool on Windows (optional, one-time opt-in in setup.mjs)](#powershell-tool-on-windows-optional-one-time-opt-in-in-setupmjs)
 - [Post-install check](#post-install-check)
 - [Codebase knowledge graph (graphify) + a shared graph across all projects](#codebase-knowledge-graph-graphify-a-shared-graph-across-all-projects)
   - [Install / check (+ extra components, + uv auto-setup)](#install-check-extra-components-uv-auto-setup)
@@ -1111,7 +1111,7 @@ The installer checks and suggests the install command for your OS:
 
 ---
 
-## PowerShell tool on Windows (optional, manual — not via setup.mjs)
+## PowerShell tool on Windows (optional, one-time opt-in in setup.mjs)
 
 Claude Code can work through a PowerShell tool instead of/alongside Bash on Windows
 (`CLAUDE_CODE_USE_POWERSHELL_TOOL=1` in `env`, optionally `"defaultShell": "powershell"` — also
@@ -1119,10 +1119,10 @@ switches interactive `!` commands). Officially documented on docs.claude.com, bu
 **preview feature, still "rolling out progressively"**, and it has significant limitations:
 
 - **auto-mode isn't supported** — every PowerShell command requires manual confirmation, even
-  in an auto-approve/bypass-permissions session. This is the main reason the key is **not**
-  baked into `setup.mjs`/`settings.partial.json`: if it were, any already-configured
-  auto-approved Windows session would silently start asking for confirmation on every command
-  after a plain `node setup.mjs`.
+  in an auto-approve/bypass-permissions session. That is why the key is **not** in
+  `settings.partial.json`: from there it would be re-asserted on every run, and any
+  already-configured auto-approved Windows session would silently start asking for
+  confirmation on every command after a plain `node setup.mjs`.
 - `$PROFILE` (aliases/functions) isn't picked up.
 - no sandboxing, which the Bash tool has access to via WSL2.
 - execution policy can block scripts.
@@ -1132,15 +1132,34 @@ This doesn't affect the package's hooks at all — they're all Node in exec form
 (`command: "node"`), they need no shell. It only affects commands Claude itself runs in a
 session (git, npm, etc.).
 
-If you want to try it (yourself, manually, aware of the auto-mode limitation) — add to your
-`~/.claude/settings.json`:
+### What setup.mjs does
+
+On Windows, `setup.mjs` asks about this key **once** and remembers the answer — the same
+pattern as `CLAUDE_CONFIG_UPDATE_CHECK`. In order:
+
+1. It looks for PowerShell 7+ (`pwsh`). Windows PowerShell 5.1 (`powershell.exe`) is a
+   different product and does not count.
+2. If it isn't there, it offers to install it with
+   `winget install --id Microsoft.PowerShell`. Declining the install records nothing: the offer
+   comes back next run rather than hardening into a recorded "no".
+3. With PowerShell 7+ present it asks about the tool itself and writes `"1"` on yes or `"0"`
+   on no into `~/.claude/settings.json`.
+
+A recorded decision is final in both directions: while the key is in `env`, `setup.mjs` never
+asks again, however many times it runs. Changed your mind — edit or delete the key in
+`~/.claude/settings.json` by hand.
+
+A run without a TTY asks nothing: enable it explicitly with
+`node setup.mjs --enable-powershell-tool` (which also requires `pwsh` to be installed already
+and never installs anything itself).
 
 ```json
 { "env": { "CLAUDE_CODE_USE_POWERSHELL_TOOL": "1" } }
 ```
 
 and, if you also want to switch interactive `!` commands: `"defaultShell": "powershell"` at
-the top level. Details: [PowerShell tool](https://code.claude.com/docs/en/tools-reference#powershell-tool).
+the top level — `setup.mjs` does not touch that. Details:
+[PowerShell tool](https://code.claude.com/docs/en/tools-reference#powershell-tool).
 
 ---
 
