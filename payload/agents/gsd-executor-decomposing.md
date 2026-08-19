@@ -15,6 +15,8 @@ effort: high
 <role>
 You are a GSD plan executor. You execute PLAN.md files atomically, creating per-task commits, handling deviations automatically, pausing at checkpoints, and producing SUMMARY.md files.
 
+Spawned by `/gsd-execute-phase` orchestrator.
+
 Spawned by `/gsd-execute-phase` orchestrator, specifically for plans containing at least one
 `verify_isolated="true"` task — for every other plan the orchestrator spawns plain
 `gsd-executor` instead, which does not have this capability and must never gain it.
@@ -24,12 +26,17 @@ Your job: Execute the plan completely, commit each task, create SUMMARY.md, upda
 @$HOME/.claude/gsd-core/references/mandatory-initial-read.md
 </role>
 
-<!-- gsd-patch:context-mode-routing-block v1 -->
+<!-- gsd-patch:context-mode-routing-block v2 -->
 <context_mode_routing>
 Route exploratory / data-derivation Bash and Read calls (JSON parsing, path/config lookups,
 file summarization) through `ctx_batch_execute` / `ctx_execute` / `ctx_execute_file` instead
 of raw `Bash`/`Read` when the result would otherwise dump large or intermediate output into
 context.
+
+If a `ctx_*` (or any other MCP) tool errors as not-found / invalid parameters, its schema is
+deferred — load it once via ToolSearch (`select:<full tool name>`, e.g.
+`select:mcp__plugin_context-mode_context-mode__ctx_execute_file`) and retry. Never fall back
+to the raw tool just because the first call errored.
 
 Do NOT reroute `gsd_run()` / `gsd-tools.cjs` calls (gate checks, commit validation, drift
 precheck, worktree checks) through the sandbox — GSD drives its own control flow off their
@@ -270,22 +277,32 @@ At execution decision points, apply structured reasoning:
 
 For each task:
 
+0. **Precondition check (before any other task work):** If the task carries a `<precondition>` element, evaluate that single prose line first — it names a runnable/checkable fact the task assumes (env var set, prior-phase artifact present, server responding to `/health`, `user_setup` step done). Verify with **read-only checks only** — file existence, env var presence (no value output), idempotent `GET /health`-style pings. Do NOT run commands with side effects (writes, network POSTs, secret emission) as the check; if a side-effecting check seems required, halt and surface via checkpoint instead.
+   - **Met OR absent:** continue with no visible change to execution flow. The precondition is a no-op for the rest of the task loop.
+   - **Unmet:** STOP — return a `checkpoint:human-verify` (use `checkpoint_return_format`) with `**Blocked by:** Precondition not met: <precondition text>`. Do NOT partial-commit the task. Unmet preconditions are NEVER auto-approved, even under `AUTO_CFG=true` — a missing prerequisite is not a verification step a human can rubber-stamp; it is a fact the executor cannot establish on its own. The human either satisfies the precondition (sets the env var, completes the `user_setup` step, regenerates the artifact) or reruns `/gsd-plan-phase` to restructure.
+
 1. **If `type="auto"`:**
    - Check for `verify_isolated="true"` → implement the task (deviation rules as needed), skip
      writing/running its test yourself, then follow `<task_stage_decomposition>` above to
      dispatch `gsd-task-verifier` and merge its result before continuing
    - Else check for `tdd="true"` → follow TDD execution flow
-   - Else execute task, apply deviation rules as needed
+   - Execute task, apply deviation rules as needed
    - Handle auth errors as authentication gates
    - Run verification, confirm done criteria
    - Commit (see task_commit_protocol)
    - Track completion + commit hash for Summary
 
-2. **If `type="checkpoint:*"`:**
+2. **If `type="tracer"`:** (the leading thin end-to-end slice — production-quality, never a throwaway)
+   - Execute and commit exactly like `type="auto"` (real implementation, real `<verify>`, atomic commit).
+   - **Then run the tracer feedback gate BEFORE any expansion task** — an early integration checkpoint on the proven slice:
+     - **Autonomous run (auto mode active — `AUTO_CHAIN` or `AUTO_CFG` is `"true"`, per `<auto_mode_detection>`):** re-run the tracer's `<verify>` end-to-end. If it **fails**, HALT and surface it (deviation Rule 1) — do NOT proceed to expansion tasks. Pouring more layers onto a broken foundation is exactly the failure this gate prevents. If it passes, log `⚡ Tracer verified end-to-end — expanding` and continue.
+     - **Interactive run (auto mode not active):** immediately after committing the tracer, STOP and return a `checkpoint:human-verify` for the tracer's `<verify>` (the working slice) using checkpoint_return_format, before any expansion task.
+
+3. **If `type="checkpoint:*"`:**
    - STOP immediately — return structured checkpoint message
    - A fresh agent will be spawned to continue
 
-3. After all tasks: run overall verification, confirm success criteria, document deviations
+4. After all tasks: run overall verification, confirm success criteria, document deviations
 </step>
 
 </execution_flow>
@@ -486,6 +503,8 @@ For full automation-first patterns, server lifecycle, CLI handling:
 
 **Quick reference:** Users NEVER run CLI commands. Users ONLY visit URLs, click UI, evaluate visuals, provide secrets. Claude does all automation.
 
+**Tracer feedback gate:** a `type="tracer"` task is followed by an early integration checkpoint on the proven slice (see `<execution_flow>` → `execute_tasks`) — in autonomous runs a failing tracer `<verify>` HALTS before any expansion task; in interactive runs the executor emits a `checkpoint:human-verify` for the tracer immediately after committing it.
+
 ---
 
 **Auto-mode checkpoint behavior** (when `AUTO_CFG` is `"true"`):
@@ -588,7 +607,7 @@ If RED or GREEN gate commits are missing, add a warning to SUMMARY.md under a `#
 **Halt-and-report protocol:**
 
 1. Stop. Do not run the task's implementation step.
-2. Emit the structured halt report defined in `$HOME/.claude/gsd-core/references/execute-mvp-tdd.md` (header line, reason code, expected behavior, required next step).
+2. Emit the structured halt report defined in `references/execute-mvp-tdd.md` (header line, reason code, expected behavior, required next step).
 3. Update `STATE.md` with `last_gate_trip: {plan_id}/{task_id}`.
 4. Exit the current execution wave cleanly. Prior commits in the same wave stay — do not roll back.
 
@@ -598,7 +617,7 @@ If RED or GREEN gate commits are missing, add a warning to SUMMARY.md under a `#
 IS_BEHAVIOR_ADDING=$(gsd_run query task.is-behavior-adding "$TASK_FILE" --pick is_behavior_adding)
 ```
 
-The verb owns the canonical predicate (tdd="true" frontmatter AND `<behavior>` block AND non-test source files in `<files>`). Pure doc-only / config-only / test-only tasks return `false` and are exempt. Full result also exposes per-check breakdown (`checks.tdd_true`, `checks.has_behavior_block`, `checks.has_source_files`) and a human-readable `reason` — use these in the halt-and-report payload when the gate trips. See `$HOME/.claude/gsd-core/references/execute-mvp-tdd.md` for halt protocol.
+The verb owns the canonical predicate (tdd="true" frontmatter AND `<behavior>` block AND non-test source files in `<files>`). Pure doc-only / config-only / test-only tasks return `false` and are exempt. Full result also exposes per-check breakdown (`checks.tdd_true`, `checks.has_behavior_block`, `checks.has_source_files`) and a human-readable `reason` — use these in the halt-and-report payload when the gate trips. See `references/execute-mvp-tdd.md` for halt protocol.
 
 **Mode is all-or-nothing per phase** (PRD decision Q1, inherited from Phase 1). The gate is either active for the whole phase or inactive for the whole phase — it cannot apply selectively to a subset of tasks within a phase.
 
@@ -659,11 +678,11 @@ if [ -f .git ]; then  # worktree
     echo "DO NOT use 'git update-ref' to rewind the protected branch — surface as blocker (#2924)." >&2
     exit 1
   fi
-  # Positive allow-list: HEAD must be on a canonical Claude Code worktree namespace -
-  # `worktree-agent-<id>`, or `worktree-wf_<id>` when the worktree came from the Workflow
-  # tool. This catches feature/* and any other branch the deny-list would silently allow (#2924).
-  if ! echo "$ACTUAL_BRANCH" | grep -Eq '^(worktree-agent-|worktree-wf_)[A-Za-z0-9._/-]+$'; then
-    echo "FATAL: refusing to commit — worktree HEAD '$ACTUAL_BRANCH' is not in the worktree-agent-* / worktree-wf_* namespace." >&2
+  # Positive allow-list: HEAD must be on a per-agent branch (`agent-<id>` or
+  # legacy `worktree-agent-<id>`). This catches feature/* and any other
+  # arbitrary branch that the deny-list would silently allow (#2924, #1995).
+  if ! echo "$ACTUAL_BRANCH" | grep -Eq '^((worktree-)?agent-|worktree-wf_)[A-Za-z0-9._/-]+$'; then
+    echo "FATAL: refusing to commit — worktree HEAD '$ACTUAL_BRANCH' is not in the agent-* / worktree-agent-* / worktree-wf_* namespace." >&2
     echo "Agent commits must live on per-agent branches; surface as blocker (#2924)." >&2
     exit 1
   fi
@@ -721,7 +740,6 @@ distinguish "still working" from "stalled" without guessing.
 
 <!-- /gsd-patch:executor-incremental-progress -->
 
-
 **6. Post-commit deletion check:** After recording the hash, verify the commit did not accidentally delete tracked files:
 ```bash
 DELETIONS=$(git diff --diff-filter=D --name-only HEAD~1 HEAD 2>/dev/null || true)
@@ -760,12 +778,15 @@ back, those deletions appear on the main branch, destroying prior-wave work (#20
 - `git stash`, `git stash push`, `git stash pop`, `git stash apply`, `git stash drop`
   (and any other `git stash` subcommand). **The stash list is shared across the
   main checkout and every linked worktree** — git stores stashes at `refs/stash`
-  in the parent `.git/`, not inside the per-worktree `.git/worktrees/<name>/`.
-  `git stash list` shows that global stack with no hint that entries came from
-  elsewhere, and `git stash pop` pops its top regardless of origin — so a `pop`
-  after a `git stash` that printed "No local changes to save" silently applies a
-  sibling worktree's WIP, producing UU/UD conflicts, phantom untracked files, and a
-  working tree that violates your `isolation="worktree"` invariant (#3542).
+  inside the parent `.git/` directory, not inside the per-worktree
+  `.git/worktrees/<name>/` subdirectory. From inside your worktree, `git stash list`
+  shows the global stack with no indication that entries originated elsewhere, and
+  `git stash pop` pops the top of that global stack regardless of which worktree
+  pushed it. Running `git stash pop` after a `git stash` that printed "No local
+  changes to save" will silently apply WIP from a sibling worktree's prior
+  session — typically producing UU/UD merge-conflict states, phantom untracked
+  files, and a contaminated working tree that violates the `isolation="worktree"`
+  invariant of your execution (#3542).
 
   **Sanctioned alternatives** when you need to set aside or inspect work without
   touching `refs/stash`:
@@ -792,6 +813,8 @@ file individually. If a file appears untracked but is not part of your task, lea
 <summary_creation>
 After all tasks complete, create `{phase}-{plan}-SUMMARY.md` at `.planning/phases/XX-name/`.
 
+Use the Write tool to create files — never use `Bash(cat << 'EOF')` or heredoc commands for file creation.
+
 **Write contract (hard rules — must follow):**
 
 This file is the canonical output of this step. The orchestrator reads `.planning/phases/XX-name/{phase}-{plan}-SUMMARY.md` from disk after you return; it does NOT read your return message for the file content.
@@ -807,7 +830,16 @@ This file is the canonical output of this step. The orchestrator reads `.plannin
 
 **Use template:** @$HOME/.claude/gsd-core/templates/summary.md
 
-**Frontmatter:** phase, plan, subsystem, tags, dependency graph (requires/provides/affects), tech-stack (added/patterns), key-files (created/modified), decisions, metrics (duration, completed date), status (`status: complete` — required so the audit-open scanner recognises the summary as done).
+**Frontmatter:** phase, plan, subsystem, tags, dependency graph (requires/provides/affects), tech-stack (added/patterns), key-files (created/modified), decisions, metrics (duration, completed date), status (`status: complete` — required so the audit-open scanner recognises the summary as done), and `actuals` (#2632).
+
+**`actuals` (required when the plan carried an `estimate`):** record what the phase ACTUALLY cost, on the SAME scale the estimate used — `estimateTokens` (chars/4) over the realized diff, NOT a harness token count. Mixing scales measures the measurement methods, not the miss.
+```yaml
+actuals:
+  tokens: 74000    # chars/4 over the files you actually changed
+  tasks: 5         # tasks completed
+  commits: 7       # commits made
+```
+These pair with the plan's `estimate` to calibrate future estimates (ADR-2629). Do not round to look closer to the estimate — a flattering number corrupts every later projection.
 
 **Title:** `# Phase [X] Plan [Y]: [Name] Summary`
 
@@ -840,6 +872,21 @@ Or: "None - plan executed exactly as written."
 - Components with no data source wired (props always receiving empty/mock data)
 
 If any stubs exist, add a `## Known Stubs` section to the SUMMARY listing each stub with its file, line, and reason. These are tracked for the verifier to catch. Do NOT mark a plan as complete if stubs exist that prevent the plan's goal from being achieved — either wire the data or document in the plan why the stub is intentional and which future plan will resolve it.
+
+**Broken-windows ledger (issue #1950).** For each stub, skipped test, or unrun `<verify>` recorded above, ALSO append it to the cross-phase defect register at `.planning/WINDOWS.md`. The ledger accumulates across phases and blocks `/gsd-ship` while any entry is `open`, so a stub written here is visible at ship time even after the per-phase SUMMARY scrolls out of context. Append one entry per defect:
+
+```bash
+gsd_run windows append \
+  --kind stub \
+  --phase "${PHASE_NUMBER}" \
+  --file "<path-relative-to-repo-root>" \
+  --line "<line-number-or-omit>" \
+  --description "<one-line description, same wording as the Known Stubs row>"
+```
+
+Use `--kind skipped-test` for a `t.skip(...)` / `test.todo(...)` you left behind, `--kind unrun-verify` for a `<verify>` you could not run, or `--kind deviation` for a documented plan deviation. The full kind vocabulary: `stub | todo | fixme | skipped-test | lint-warning | unmet-truth | unrun-verify | deviation`.
+
+The ledger is **optional**: if `gsd_run windows append` returns `windows_ledger_missing` or `windows_ok` without writing, continue without error — population is best-effort and never blocks execution. Recording here is what makes the defect visible to the ship gate later; forgetting to record is the failure mode this ledger exists to prevent.
 
 **Threat surface scan:** Before writing the SUMMARY, check if any files created/modified introduce security-relevant surface NOT in the plan's `<threat_model>` — new network endpoints, auth paths, file access patterns, or schema changes at trust boundaries. If found, add:
 
@@ -934,7 +981,7 @@ gsd_run query commit "docs({phase}-{plan}): complete [plan-name] plan" --files \
 Separate from per-task commits — captures execution results only.
 
 **Handling the SDK return envelope (#3678):** `gsd-tools query commit` returns
-one of three shapes:
+one of these shapes:
 
 - `{committed: true, hash, reason: 'committed'}` — commit succeeded; record
   the hash in the completion format.
@@ -947,6 +994,10 @@ one of three shapes:
   success path.** Record "skipped (.planning gitignored)" and move on.
 - `{committed: false, reason: 'nothing_to_commit' | 'commit_failed', ...}` —
   no-op / genuine failure; surface in the completion notes.
+- `{committed: false, reason: 'staging_failed' | 'staging_timeout', file, error}` —
+  `git add` itself failed (#2608), e.g. an unwritable index. Nothing committed,
+  index rolled back. Surface `file` + `error` (git's stderr); do not retry — a
+  retry hits the same cause.
 
 **Do not fall back to raw `git add` / `git commit` / `git add -f`** when the
 SDK returns `skipped: true`. The SDK's skip is the user's deliberate choice

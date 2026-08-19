@@ -276,6 +276,32 @@
   prose-based) depth-3 cap — see `rules-src/gsd.md`'s "The one sanctioned depth-3 exception"
   section for why the alternative (a prose-conditional single file) was rejected.
 
+- **Resync 2026-08-19 (gsd-core 1.10.0):** the residual predicted above had already happened. The
+  fork was 297 lines behind and missing whole 1.9-1.10 mechanisms — the task `<precondition>`
+  check, `type="tracer"` and its feedback gate, the MVP+TDD runtime gate, and four
+  `references/*.md` includes. It also carried `context-mode-routing-block` at v1 while the
+  registry had moved to v2. Regenerated from 1.10.0's `gsd-executor.md` rather than hand-merged,
+  and the residual diff against upstream is now exactly the fork's own deltas and nothing else.
+- **The "two deltas" in the 2026-07-17 spec undercounts.** Six classes of deviation had to be
+  re-applied, and a future resync that honours only the documented two silently loses four:
+  1. frontmatter: `name`, `description`, `tools:` (+`Agent`, +context-mode), `effort: high`;
+  2. `<no_recursive_agent_spawn>` replaced by `<task_stage_decomposition>`, plus the
+     `verify_isolated="true"` branch ahead of the `tdd="true"` one in `execute_tasks`;
+  3. all `~/.claude/gsd-core/` rewritten to `$HOME/.claude/gsd-core/` — `~` does not expand in an
+     `@`-include on Windows (9 sites in 1.10.0);
+  4. a `<role>` paragraph saying when the orchestrator spawns this fork instead of plain
+     `gsd-executor`;
+  5. the four `/gsd:<command>` references rewritten to `/gsd-<command>`: GSD is installed by npx
+     here, so its surface is skill names, not plugin-namespaced commands;
+  6. gsd-core 1.10.0 ships three U+FFFD replacement characters where an arrow belongs
+     (`RED doesn't fail ??? investigate`, `agents/gsd-executor.md`). The fork repairs it rather
+     than importing the corruption. Worth reporting upstream.
+- **Recipe that produced this, in order:** take upstream `gsd-executor.md`; apply deviations 3, 5
+  and 6 as whole-file rewrites; run `applyGsdAgentPatches` against it under the name
+  `gsd-executor.md` so the nine executor patches land at the registry's own anchors; then apply
+  deviations 1, 2 and 4. Deviation 2 is what removes the `executor-no-recursive-agent-spawn` span
+  the patch pass just inserted, so it must run after it, not before.
+
 ### RISK-GSDSURFACE-001 — Two independent layers set the GSD profile, and the overlay wins
 
 - **Status:** Active
