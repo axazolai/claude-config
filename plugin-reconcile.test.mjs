@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { buildPluginPlan } from "./plugin-reconcile.mjs";
+import { buildPluginPlan, describeAction } from "./plugin-reconcile.mjs";
 
 const MANAGED = { superpowers: "superpowers@m", gsd: "gsd@m", "context-mode": "cm@m", context7: "c7@m" };
 const LITE = ["superpowers", "context-mode", "context7"];
@@ -195,4 +195,63 @@ test("an install from an already-registered marketplace is unaffected", () => {
 test("refusing an uninstall still allows the disable", () => {
   const { selected } = selectActions(PLAN, (a) => a.type !== "uninstall");
   assert.ok(selected.some((a) => a.type === "disable"));
+});
+
+/* ---------- forbidden plugins: never installed, removed on sight ---------- */
+
+const FORBIDDEN = ["context7"];
+const plan = (over = {}) => buildPluginPlan({
+  required: [], managed: MANAGED, enabledPlugins: {}, installedIds: [],
+  forbidden: FORBIDDEN, ...over,
+});
+const typesFor = (actions, id) => actions.filter((a) => a.id === id).map((a) => a.type).sort();
+
+test("a forbidden plugin found on disk is uninstalled, not merely disabled", () => {
+  const { actions } = plan({ installedIds: ["c7@m"], enabledPlugins: { "c7@m": true } });
+  assert.deepEqual(typesFor(actions, "c7@m"), ["disable", "uninstall"]);
+  assert.ok(actions.filter((a) => a.id === "c7@m").every((a) => a.forbidden === true));
+});
+
+test("a forbidden plugin that is nowhere produces no action at all", () => {
+  const { actions } = plan();
+  assert.deepEqual(actions.filter((a) => a.id === "c7@m"), []);
+});
+
+test("a forbidden plugin is never installed or enabled, even when a profile asks for it", () => {
+  const { actions, notes } = plan({ required: ["context7", "context-mode"] });
+  assert.deepEqual(typesFor(actions, "c7@m"), []);
+  assert.ok(notes.some((n) => n.includes("context7") && /forbidden/i.test(n)),
+    `expected a note explaining the refusal, got: ${JSON.stringify(notes)}`);
+  // the rest of the profile is unaffected
+  assert.ok(actions.some((a) => a.id === "cm@m" && a.type === "enable"));
+});
+
+test("a forbidden plugin asked for AND present is still removed, not installed", () => {
+  const { actions } = plan({ required: ["context7"], installedIds: ["c7@m"], enabledPlugins: { "c7@m": true } });
+  assert.deepEqual(typesFor(actions, "c7@m"), ["disable", "uninstall"]);
+});
+
+test("forbidden outranks keepInstalled", () => {
+  const { actions } = plan({ keepInstalled: ["context7"], installedIds: ["c7@m"] });
+  assert.deepEqual(typesFor(actions, "c7@m"), ["uninstall"]);
+});
+
+test("without the CLI a forbidden plugin still gets a manual uninstall instruction", () => {
+  const { actions, notes } = plan({ installedIds: null, enabledPlugins: { "c7@m": true } });
+  assert.deepEqual(typesFor(actions, "c7@m"), ["disable"]);
+  assert.ok(notes.some((n) => n.includes("claude plugin uninstall c7@m")));
+});
+
+test("a merely-unrequired managed plugin is untouched by the forbidden path", () => {
+  const { actions } = plan({ installedIds: ["gsd@m"], enabledPlugins: { "gsd@m": true } });
+  const gsd = actions.filter((a) => a.id === "gsd@m");
+  assert.deepEqual(gsd.map((a) => a.type).sort(), ["disable", "uninstall"]);
+  assert.ok(gsd.every((a) => a.forbidden !== true));
+});
+
+test("describeAction says why a forbidden plugin is being removed", () => {
+  const { actions } = plan({ installedIds: ["c7@m"] });
+  const uninstall = actions.find((a) => a.id === "c7@m" && a.type === "uninstall");
+  assert.match(describeAction(uninstall), /forbidden/i);
+  assert.match(describeAction(uninstall), /removes files/);
 });

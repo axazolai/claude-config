@@ -1145,6 +1145,7 @@ async function main() {
     const curSettings = safe(() => JSON.parse(readFileSync(SETTINGS, "utf8"))) || {};
     const { actions, notes } = buildPluginPlan({
       required: V.plugins, managed, enabledPlugins: curSettings.enabledPlugins, installedIds, keepInstalled,
+      forbidden: variantsFile.forbiddenPlugins || [],
       marketplaces: variantsFile.marketplaces,
       knownMarketplaces: safe(() => [...knownMarketplaces(CDIR)]) });
     if (actions.length || notes.length) {

@@ -319,3 +319,29 @@ test("keepInstalled only names plugins that are still managed", () => {
     assert.ok(v.managedPlugins[name], `${name} is kept installed but no longer managed - it could never be disabled`);
   }
 });
+
+test("no profile may require a forbidden plugin", () => {
+  const v = JSON.parse(readFileSync(join(ROOT, 'variants.json'), 'utf8'));
+  const banned = new Set(v.forbiddenPlugins || []);
+  for (const [name, profile] of Object.entries(profilesOf(v)))
+    for (const p of profile.plugins || [])
+      assert.ok(!banned.has(p), `profile "${name}" lists "${p}", which is forbidden - it would be installed and then removed on every run`);
+});
+
+test("every forbidden plugin is still managed, so it can be found and removed", () => {
+  const v = JSON.parse(readFileSync(join(ROOT, 'variants.json'), 'utf8'));
+  for (const name of v.forbiddenPlugins || [])
+    assert.ok(v.managedPlugins[name], `${name} is forbidden but not managed - nothing would ever look for it`);
+});
+
+test("a forbidden plugin is never also kept installed", () => {
+  const v = JSON.parse(readFileSync(join(ROOT, 'variants.json'), 'utf8'));
+  const kept = new Set(v.keepInstalled || []);
+  for (const name of v.forbiddenPlugins || [])
+    assert.ok(!kept.has(name), `${name} is both forbidden and keepInstalled - those cannot both hold`);
+});
+
+test("context7 is forbidden, because it is reached through its MCP server", () => {
+  const v = JSON.parse(readFileSync(join(ROOT, 'variants.json'), 'utf8'));
+  assert.ok((v.forbiddenPlugins || []).includes("context7"));
+});
