@@ -55,6 +55,13 @@
   "plan_review": { "source_grounding": true },
   "intel": { "enabled": true },
   "features": { "global_learnings": true },
+  "_comment": "gsd-core 1.11.0 resolves effort at install time (install-effort-resolver.cjs) instead of shipping effort: in artifact frontmatter. Precedence: effort.agent_overrides[agent] > effort.routing_tier_defaults[tier] > effort.default. Both light-tier agents below would otherwise run at 'low'; they are pinned to 'medium' because both are pinned to a stronger model than their tier implies, and low effort wastes that. Skills have NO equivalent key on purpose - #3151 removed effort: from skill frontmatter because a static value changes output_config.effort on invocation and invalidates the caller's prompt cache.",
+  "effort": {
+    "agent_overrides": {
+      "gsd-plan-checker": "medium",
+      "gsd-codebase-mapper": "medium"
+    }
+  },
   "graphify": { "enabled": true, "auto_update": true },
   "git": { "create_tag": true, "branching_strategy": "phase", "quick_branch_template": null },
   "hooks": { "context_warnings": true }

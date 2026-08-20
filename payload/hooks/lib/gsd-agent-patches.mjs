@@ -534,28 +534,6 @@ export const PATCHES = [
     insertAnchor: "Exceptions where `tdd=\"true\"` is not needed: `type=\"checkpoint:*\"` tasks, configuration-only files, documentation, migration scripts, glue code wiring existing tested components, styling-only changes.",
     insertMode: "after",
   },
-  {
-    // §6.1 Opus 5 effort re-tune. NOT a marker-wrapped block — a frontmatter scalar mutation
-    // (`effort: low` -> `medium`) applied via setFrontmatterField (kind: "frontmatter").
-    // gsd-plan-checker is a judgment role that shipped at `low` while pinned to opus — the
-    // least-capable effort on the most expensive tier. `from` is a list so a future re-tune can
-    // add the prior target and still catch a machine still sitting on the original `low`.
-    // gsd-core 1.9.1 ships no `effort:` on any agent, so rewrite-only went silent: nothing to
-    // rewrite, nothing reported. insertIfMissing writes the line instead, which is what the
-    // re-tune meant all along - the agent must not run at the default effort for its tier.
-    id: "plan-checker-effort",
-    kind: "frontmatter",
-    appliesTo: (name) => name === "gsd-plan-checker.md",
-    key: "effort", from: ["low"], to: "medium", insertIfMissing: true,
-  },
-  {
-    // §6.1: gsd-codebase-mapper also ran `low` while pinned to opus; bump to `medium`.
-    // Same 1.9.1 situation as above.
-    id: "codebase-mapper-effort",
-    kind: "frontmatter",
-    appliesTo: (name) => name === "gsd-codebase-mapper.md",
-    key: "effort", from: ["low"], to: "medium", insertIfMissing: true,
-  },
 ];
 
 /* ---------- retired patches: best-effort cleanup of content a NOW-REMOVED entry above once

@@ -126,68 +126,14 @@ test("patch is scoped to debug-session-manager only", () => {
   assert.equal(patch.appliesTo("gsd-executor.md"), false);
 });
 
-// ---- §6.1 effort re-tune: frontmatter patches (kind: "frontmatter") ----
+// The §6.1 frontmatter effort patches were retired: gsd-core resolves effort at install time
+// from `effort.agent_overrides` / `effort.routing_tier_defaults`, so the bundle asserts it in
+// gsd-defaults.partial.json instead of rewriting agent frontmatter. PATCHES now carries block
+// patches only, which is what the registry assertion below pins.
 
-const FM_AGENT = "gsd-plan-checker.md";
-const FM_ID = "plan-checker-effort";
-const fmFixture = (effort) =>
-  `---\nname: gsd-plan-checker\neffort: ${effort}\ntools: Read, Bash\n---\n\n<role>\nChecks plans.\n</role>\n`;
-
-test("two frontmatter effort patches are registered (low -> medium)", () => {
-  const pc = PATCHES.find((p) => p.id === FM_ID);
-  const cm = PATCHES.find((p) => p.id === "codebase-mapper-effort");
-  for (const [patch, agent] of [[pc, "gsd-plan-checker.md"], [cm, "gsd-codebase-mapper.md"]]) {
-    assert.ok(patch, "patch must be registered");
-    assert.equal(patch.kind, "frontmatter");
-    assert.equal(patch.key, "effort");
-    assert.equal(patch.to, "medium");
-    assert.ok(patch.from.includes("low"));
-    assert.ok(patch.appliesTo(agent), `must apply to ${agent}`);
-  }
-  // Scoped: each does not apply to the other's file.
-  assert.equal(pc.appliesTo("gsd-codebase-mapper.md"), false);
-  assert.equal(cm.appliesTo("gsd-plan-checker.md"), false);
-});
-
-test("fresh apply rewrites agent effort low -> medium", () => {
-  const dir = makeClaudeDir({ [FM_AGENT]: fmFixture("low") });
-  try {
-    assert.ok(checkGsdAgentPatches({ claudeDir: dir })[FM_AGENT].includes(FM_ID), "pending before apply");
-    const res = applyGsdAgentPatches({ claudeDir: dir });
-    assert.ok(res.applied.includes(`${FM_AGENT}:${FM_ID}`), "reports as applied");
-    const out = readFileSync(join(dir, "agents", FM_AGENT), "utf8");
-    assert.match(out, /^effort: medium$/m);
-    const after = checkGsdAgentPatches({ claudeDir: dir })[FM_AGENT] || [];
-    assert.ok(!after.includes(FM_ID), "not pending after apply");
-  } finally {
-    rmSync(dir, { recursive: true, force: true });
-  }
-});
-
-test("a user-chosen foreign effort value is left untouched", () => {
-  const dir = makeClaudeDir({ [FM_AGENT]: fmFixture("high") });
-  try {
-    const res = applyGsdAgentPatches({ claudeDir: dir });
-    assert.ok(!res.applied.includes(`${FM_AGENT}:${FM_ID}`), "must not apply over a foreign value");
-    assert.ok(res.skippedForeign.includes(`${FM_AGENT}:${FM_ID}`), "reports skippedForeign");
-    const out = readFileSync(join(dir, "agents", FM_AGENT), "utf8");
-    assert.match(out, /^effort: high$/m);
-    const after = checkGsdAgentPatches({ claudeDir: dir })[FM_AGENT] || [];
-    assert.ok(!after.includes(FM_ID), "foreign value is not treated as pending");
-  } finally {
-    rmSync(dir, { recursive: true, force: true });
-  }
-});
-
-test("frontmatter effort re-apply is idempotent", () => {
-  const dir = makeClaudeDir({ [FM_AGENT]: fmFixture("low") });
-  try {
-    applyGsdAgentPatches({ claudeDir: dir });
-    const second = applyGsdAgentPatches({ claudeDir: dir });
-    assert.ok(!second.applied.includes(`${FM_AGENT}:${FM_ID}`), "second run must not re-apply");
-  } finally {
-    rmSync(dir, { recursive: true, force: true });
-  }
+test("the registry carries no frontmatter patches — effort lives in config now", () => {
+  assert.deepEqual(PATCHES.filter((p) => p.kind === "frontmatter"), []);
+  assert.ok(PATCHES.every((p) => typeof p.block === "string" && p.block.length > 0));
 });
 
 // The close marker gone AND the block hand-edited, so neither findMarkedSpan nor the legacy

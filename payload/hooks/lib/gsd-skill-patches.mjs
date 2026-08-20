@@ -20,15 +20,16 @@ const safe = (fn) => { try { return fn(); } catch { return undefined; } };
 const MARKER_RE = /^<!--\s*CURATED:NOEDIT\s*-->$/;
 const isCurated = (content) => content.split(/\r?\n/).some((l) => MARKER_RE.test(l.trim()));
 
-// Opus 5 migration §6.1: these three skills ran at `max`, which overthinks on Opus 5. gsd-core
-// 1.10.0 moved all three to `high` itself, so `from` carries both values and a machine on either
-// one lands on the same target. gsd-execute-phase keeps upstream's `high`; the two orchestrators
-// that plan rather than execute go to `xhigh`, the recommended start for agentic work.
-export const SKILL_PATCHES = [
-  { id: "plan-phase-effort", skill: "gsd-plan-phase", key: "effort", from: ["max", "high"], to: "xhigh" },
-  { id: "execute-phase-effort", skill: "gsd-execute-phase", key: "effort", from: ["max"], to: "high" },
-  { id: "autonomous-effort", skill: "gsd-autonomous", key: "effort", from: ["max", "high"], to: "xhigh" },
-];
+// EMPTY, and that is the correct state. These three skills carried an effort re-tune until
+// gsd-core 1.11.0, which removed `effort:` from skill frontmatter outright (#3151): a static
+// effort value changes `output_config.effort` on invocation and invalidates the CALLER's prompt
+// cache. Re-inserting the key would not just be superseded, it would reintroduce that cost — so
+// there is deliberately no per-skill effort lever any more, here or upstream. A skill inherits
+// the session's effort; per-AGENT effort moved to `effort.agent_overrides` in
+// gsd-defaults.partial.json, which gsd-core's own install-time resolver reads.
+// The machinery below stays: it is generic over the registry, and a future skill-side
+// frontmatter re-tune (a different key, not effort) would need no change here.
+export const SKILL_PATCHES = [];
 
 function skillFile(claudeDir, skill) { return join(claudeDir, "skills", skill, "SKILL.md"); }
 const label = (patch) => `${patch.skill}/SKILL.md`;

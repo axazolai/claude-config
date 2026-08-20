@@ -13,7 +13,6 @@ import {
 const skillFixture = (effort) =>
   `---\nname: gsd-plan-phase\ndescription: Plan a phase.\neffort: ${effort}\n---\n\nBody of the skill.\n`;
 
-// Write a skills/<name>/SKILL.md tree, return the claudeDir root.
 function makeClaudeDir(skills) {
   const dir = mkdtempSync(join(tmpdir(), "gsd-skill-patches-"));
   for (const [name, content] of Object.entries(skills)) {
@@ -22,98 +21,46 @@ function makeClaudeDir(skills) {
   }
   return dir;
 }
-const bySkill = () => Object.fromEntries(SKILL_PATCHES.map((p) => [p.skill, p]));
-const effortOf = (dir, skill) =>
-  readFileSync(join(dir, "skills", skill, "SKILL.md"), "utf8").match(/^effort: (\S+)$/m)[1];
 
-test("the three effort patches are registered, each with its own target", () => {
-  const patches = bySkill();
-  assert.deepEqual(Object.keys(patches).sort(), ["gsd-autonomous", "gsd-execute-phase", "gsd-plan-phase"]);
+// gsd-core #3151 removed `effort:` from skill frontmatter because a static value changes
+// output_config.effort on invocation and invalidates the CALLER's prompt cache. Re-inserting it
+// would reintroduce that cost, so the registry is empty on purpose and there is no per-skill
+// effort lever left — per-agent effort moved to `effort.agent_overrides` in the defaults partial.
+test("the registry is empty, and that is the intended state", () => {
+  assert.deepEqual(SKILL_PATCHES, []);
+});
+
+test("an empty registry touches nothing and reports nothing pending", () => {
+  const dir = makeClaudeDir({ "gsd-plan-phase": skillFixture("high") });
+  const before = readFileSync(join(dir, "skills", "gsd-plan-phase", "SKILL.md"), "utf8");
+
+  const res = applyGsdSkillPatches({ claudeDir: dir });
+  assert.deepEqual(res.applied, []);
+  assert.deepEqual(res.skippedForeign, []);
+  assert.deepEqual(res.skippedCurated, []);
+  assert.deepEqual(res.skippedNoKey, []);
+  assert.deepEqual(checkGsdSkillPatches({ claudeDir: dir }), {});
+
+  const after = readFileSync(join(dir, "skills", "gsd-plan-phase", "SKILL.md"), "utf8");
+  assert.equal(after, before, "an empty registry must not rewrite a skill file");
+});
+
+test("a skill tree that is not there at all is still a silent no-op", () => {
+  const dir = makeClaudeDir({});
+  assert.deepEqual(applyGsdSkillPatches({ claudeDir: dir }).applied, []);
+  assert.deepEqual(checkGsdSkillPatches({ claudeDir: dir }), {});
+});
+
+// The machinery is kept because it is generic over the registry: a future skill-side frontmatter
+// re-tune (some other key — not effort) needs an entry, not a rewrite. This pins the shape an
+// entry must have, so a malformed one fails here rather than silently doing nothing in the field.
+test("every registry entry, if any is ever added, carries the fields the applier reads", () => {
   for (const p of SKILL_PATCHES) {
-    assert.equal(p.key, "effort");
-    assert.ok(p.from.includes("max"));
+    assert.equal(typeof p.id, "string");
+    assert.equal(typeof p.skill, "string");
+    assert.equal(typeof p.key, "string");
+    assert.ok(Array.isArray(p.from), `${p.id}: 'from' must be a list`);
+    assert.equal(typeof p.to, "string");
+    assert.ok(!p.key.includes("effort"), `${p.id}: effort is resolved by gsd-core at install time, not patched in`);
   }
-  assert.equal(patches["gsd-plan-phase"].to, "xhigh");
-  assert.equal(patches["gsd-autonomous"].to, "xhigh");
-  assert.equal(patches["gsd-execute-phase"].to, "high");
-});
-
-test("gsd-core 1.10.0 ships `high`, and the two xhigh targets still re-tune it", () => {
-  const patches = bySkill();
-  assert.ok(patches["gsd-plan-phase"].from.includes("high"));
-  assert.ok(patches["gsd-autonomous"].from.includes("high"));
-
-  const dir = makeClaudeDir({
-    "gsd-plan-phase": skillFixture("high"),
-    "gsd-autonomous": skillFixture("high"),
-  });
-  const res = applyGsdSkillPatches({ claudeDir: dir });
-  assert.equal(res.applied.length, 2);
-  assert.deepEqual(res.skippedForeign, []);
-  assert.equal(effortOf(dir, "gsd-plan-phase"), "xhigh");
-  assert.equal(effortOf(dir, "gsd-autonomous"), "xhigh");
-  assert.deepEqual(checkGsdSkillPatches({ claudeDir: dir }), {});
-});
-
-test("gsd-execute-phase on gsd-core 1.10.0's `high` is already current — no write", () => {
-  const dir = makeClaudeDir({ "gsd-execute-phase": skillFixture("high") });
-  const res = applyGsdSkillPatches({ claudeDir: dir });
-  assert.deepEqual(res.applied, []);
-  assert.deepEqual(res.skippedForeign, []);
-  assert.equal(effortOf(dir, "gsd-execute-phase"), "high");
-  assert.deepEqual(checkGsdSkillPatches({ claudeDir: dir }), {});
-});
-
-test("gsd-execute-phase still on the pre-1.10.0 `max` is pulled down to high", () => {
-  const dir = makeClaudeDir({ "gsd-execute-phase": skillFixture("max") });
-  assert.ok(checkGsdSkillPatches({ claudeDir: dir })["gsd-execute-phase/SKILL.md"]);
-  const res = applyGsdSkillPatches({ claudeDir: dir });
-  assert.ok(res.applied.some((e) => e.startsWith("gsd-execute-phase/SKILL.md")));
-  assert.equal(effortOf(dir, "gsd-execute-phase"), "high");
-  assert.deepEqual(checkGsdSkillPatches({ claudeDir: dir }), {});
-});
-
-test("fresh apply rewrites effort max -> xhigh and clears pending", () => {
-  const dir = makeClaudeDir({ "gsd-plan-phase": skillFixture("max") });
-  // RED precondition: pending before apply.
-  assert.ok(checkGsdSkillPatches({ claudeDir: dir })["gsd-plan-phase/SKILL.md"]);
-
-  const res = applyGsdSkillPatches({ claudeDir: dir });
-  assert.ok(res.applied.some((e) => e.startsWith("gsd-plan-phase/SKILL.md")));
-
-  assert.equal(effortOf(dir, "gsd-plan-phase"), "xhigh");
-  // Nothing pending after apply.
-  assert.deepEqual(checkGsdSkillPatches({ claudeDir: dir }), {});
-});
-
-test("re-apply is idempotent (no second write)", () => {
-  const dir = makeClaudeDir({ "gsd-plan-phase": skillFixture("max") });
-  applyGsdSkillPatches({ claudeDir: dir });
-  const res2 = applyGsdSkillPatches({ claudeDir: dir });
-  assert.deepEqual(res2.applied, []);
-});
-
-test("a user-chosen foreign value is left untouched", () => {
-  const dir = makeClaudeDir({ "gsd-plan-phase": skillFixture("medium") });
-  const res = applyGsdSkillPatches({ claudeDir: dir });
-  assert.equal(res.applied.length, 0);
-  assert.ok(res.skippedForeign.some((e) => e.startsWith("gsd-plan-phase/SKILL.md")));
-  assert.equal(effortOf(dir, "gsd-plan-phase"), "medium");
-  assert.deepEqual(checkGsdSkillPatches({ claudeDir: dir }), {});
-});
-
-test("a curated skill file is skipped, not rewritten", () => {
-  const curated = "<!-- CURATED:NOEDIT -->\n" + skillFixture("max");
-  const dir = makeClaudeDir({ "gsd-plan-phase": curated });
-  const res = applyGsdSkillPatches({ claudeDir: dir });
-  assert.equal(res.applied.length, 0);
-  assert.ok(res.skippedCurated.includes("gsd-plan-phase/SKILL.md"));
-  assert.equal(effortOf(dir, "gsd-plan-phase"), "max");
-});
-
-test("an absent skill directory is a silent no-op", () => {
-  const dir = makeClaudeDir({}); // no skills at all
-  const res = applyGsdSkillPatches({ claudeDir: dir });
-  assert.deepEqual(res.applied, []);
-  assert.deepEqual(checkGsdSkillPatches({ claudeDir: dir }), {});
 });
