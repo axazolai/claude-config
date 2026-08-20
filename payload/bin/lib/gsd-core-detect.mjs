@@ -12,23 +12,6 @@ const CATEGORIES = [
 
 export const gsdCorePresent = (dir) => existsSync(join(dir, "gsd-core", "VERSION"));
 
-// gsd-core is an npx tool, not a marketplace plugin, so "is it installed" is a question about the
-// filesystem and nothing else. `--global` puts it in the config directory, which is where
-// gsdCorePresent looks; `--local` would land it in the current project and read as absent.
-const INSTALL_COMMAND = "npx -y @opengsd/gsd-core@latest --global --claude";
-
-export function gsdCoreInstallPlan({
-  variant, present, interactive, configDir, defaultConfigDir,
-} = {}) {
-  // base and lite exclude the GSD machinery outright, and detectForeignGsdCore offers to REMOVE
-  // the tool there. Offering to install it in the same run would be the bundle arguing with itself.
-  if (variant !== "full" || present) return { action: "none", command: null };
-  const command = configDir && defaultConfigDir && configDir !== defaultConfigDir
-    ? `${INSTALL_COMMAND} --config-dir "${configDir}"`
-    : INSTALL_COMMAND;
-  return { action: interactive ? "ask" : "print", command };
-}
-
 // gsd-core's first-time baseline scan classifies any gsd-* file under its config dir that it
 // cannot prove manifest-managed as "stale-gsd-looking" and blocks on a keep/remove prompt. With no
 // TTY - which is how setup.mjs spawns it - that prompt has no answer and the install aborts. These
@@ -51,21 +34,55 @@ function compareGsdVersions(a, b) {
   return (a.pre ? 0 : 1) - (b.pre ? 0 : 1);
 }
 
-// gsdCoreInstallPlan covers absence. This covers the other half: present, but behind npm. Kept
-// separate so the install path's contract does not change.
+// The bundle pins the gsd-core it was validated against rather than floating to @latest: the
+// executor fork is regenerated from one exact release, the twelve agent patches are verified
+// against it, and a hook patch anchors a line in it. `@latest` would hand two machines set up on
+// different days a different gsd-core, and silently invalidate all of that on one of them.
+// Bumping the pin in variants.json is the moment to re-verify the fork and the patches.
+const installCommand = (version, configDir, defaultConfigDir) => {
+  const base = `npx -y @opengsd/gsd-core@${version} --global --claude`;
+  return configDir && defaultConfigDir && configDir !== defaultConfigDir
+    ? `${base} --config-dir "${configDir}"`
+    : base;
+};
+
+export function gsdCoreInstallPlan({
+  variant, present, interactive, configDir, defaultConfigDir, pinnedVersion,
+} = {}) {
+  // base and lite exclude the GSD machinery outright, and detectForeignGsdCore offers to REMOVE
+  // the tool there. Offering to install it in the same run would be the bundle arguing with itself.
+  if (variant !== "full" || present) return { action: "none", command: null };
+  if (!versionTriple(pinnedVersion)) return { action: "none", command: null, reason: "unknown-version" };
+  // Installed without a TTY on purpose: on `full` this is a bundle dependency, not a third-party
+  // plugin - half the profile's files are inert without it. Plugin install/uninstall stays
+  // print-only under BULK because those are somebody else's software; this is ours to require.
+  return {
+    action: interactive ? "ask" : "install",
+    command: installCommand(pinnedVersion, configDir, defaultConfigDir),
+    to: pinnedVersion,
+  };
+}
+
+// The other half: present, but not at the pin. Never downgrades - an install ahead of the pin is
+// reported so the human can decide, because the fork and the patches were verified against the
+// pin and may already be stale against whatever is actually installed.
 export function gsdCoreUpdatePlan({
-  variant, present, installedVersion, latestVersion, interactive, flag = false,
+  variant, present, installedVersion, pinnedVersion, interactive, flag = false,
   configDir, defaultConfigDir,
 } = {}) {
   if (variant !== "full" || !present) return { action: "none" };
   const have = versionTriple(installedVersion);
-  const want = versionTriple(latestVersion);
+  const want = versionTriple(pinnedVersion);
   if (!have || !want) return { action: "none", reason: "unknown-version" };
-  if (compareGsdVersions(have, want) >= 0) return { action: "none", reason: "current" };
-  const command = configDir && defaultConfigDir && configDir !== defaultConfigDir
-    ? `${INSTALL_COMMAND} --config-dir "${configDir}"`
-    : INSTALL_COMMAND;
-  return { action: flag ? "update" : interactive ? "ask" : "print", command, from: installedVersion, to: latestVersion };
+  const delta = compareGsdVersions(have, want);
+  if (delta === 0) return { action: "none", reason: "at-pin" };
+  if (delta > 0) return { action: "ahead", from: installedVersion, to: pinnedVersion };
+  return {
+    action: flag || !interactive ? "update" : "ask",
+    command: installCommand(pinnedVersion, configDir, defaultConfigDir),
+    from: installedVersion,
+    to: pinnedVersion,
+  };
 }
 
 const safeReaddir = (p) => { try { return readdirSync(p); } catch { return []; } };

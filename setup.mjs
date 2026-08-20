@@ -567,34 +567,37 @@ function warnStatuslineNamesMissingFile() {
 async function offerGsdCoreInstall() {
   if (DRY) return;
   const defaultConfigDir = join(HOME, ".claude");
+  const pinnedVersion = safe(() => (loadVariants(REPO_ROOT).gsdCore || {}).version) || null;
   const present = gsdCorePresent(CDIR);
+  const shared = { variant: VARIANT, present, interactive: INTERACTIVE, pinnedVersion, configDir: CDIR, defaultConfigDir };
   let command = null;
 
   if (!present) {
-    const plan = gsdCoreInstallPlan({
-      variant: VARIANT, present, interactive: INTERACTIVE,
-      configDir: CDIR, defaultConfigDir,
-    });
-    if (plan.action === "none") return;
+    const plan = gsdCoreInstallPlan(shared);
+    if (plan.action === "none") {
+      if (plan.reason === "unknown-version" && VARIANT === "full")
+        log(`\ngsd-core is not installed and variants.json carries no gsdCore.version pin - nothing to install against.`);
+      return;
+    }
     log(`\ngsd-core is not installed, and the full profile ships its agents, hooks and rules:`);
     log(`  ${plan.command}`);
-    if (plan.action === "print") { log("  Non-interactive run - nothing was installed. Run it yourself."); return; }
-    if ((await ask("  Install it now? (y/N) > "))[0] !== "y") { log("  Skipped."); return; }
+    if (plan.action === "ask" && (await ask("  Install it now? (y/N) > "))[0] !== "y") { log("  Skipped."); return; }
     command = plan.command;
   } else {
     if (VARIANT !== "full") return;
-    const plan = gsdCoreUpdatePlan({
-      variant: VARIANT, present, installedVersion: installedGsdCoreVersion(),
-      latestVersion: latestGsdCoreVersion(), interactive: INTERACTIVE,
-      flag: UPDATE_GSD_CORE_FLAG, configDir: CDIR, defaultConfigDir,
-    });
-    if (plan.action === "none") return;
-    log(`\ngsd-core ${plan.from} is installed here; ${plan.to} is published:`);
-    log(`  ${plan.command}`);
-    if (plan.action === "print") {
-      log("  Non-interactive run - nothing was updated. Run it yourself, or pass --update-gsd-core.");
+    const plan = gsdCoreUpdatePlan({ ...shared, installedVersion: installedGsdCoreVersion(), flag: UPDATE_GSD_CORE_FLAG });
+    if (plan.action === "ahead") {
+      // Never downgrade. The fork and the twelve patches were verified against the pin, so a newer
+      // gsd-core is the case where they may already be stale - say so rather than act.
+      log(`\ngsd-core ${plan.from} is installed; this bundle is pinned to ${plan.to}.`);
+      log(`  Left alone - nothing here downgrades it. The executor fork and the gsd-* patches were`);
+      log(`  verified against ${plan.to}, so re-check them before relying on them at ${plan.from}.`);
+      summary.push(`gsd-core ${plan.from} is ahead of the pin ${plan.to} - fork/patches unverified there`);
       return;
     }
+    if (plan.action === "none") return;
+    log(`\ngsd-core ${plan.from} is installed; this bundle is pinned to ${plan.to}:`);
+    log(`  ${plan.command}`);
     if (plan.action === "ask" && (await ask("  Update it now? (y/N) > "))[0] !== "y") { log("  Skipped."); return; }
     command = plan.command;
   }
@@ -626,15 +629,6 @@ async function offerGsdCoreInstall() {
 
 const installedGsdCoreVersion = () =>
   safe(() => readFileSync(join(CDIR, "gsd-core", "VERSION"), "utf8").trim()) || null;
-
-// Best-effort: a registry that is slow, offline or rate-limiting must never fail an install run,
-// and gsdCoreUpdatePlan already treats an unreadable version as "do nothing".
-function latestGsdCoreVersion() {
-  const r = spawnSync("npm", ["view", "@opengsd/gsd-core", "version"],
-    { encoding: "utf8", shell: true, timeout: 20000 });
-  if (r.error || r.status !== 0) return null;
-  return (r.stdout || "").trim() || null;
-}
 
 // gsd-core's first-time-baseline-scan calls every gsd-* file under its config dir that it cannot
 // prove manifest-managed "stale-gsd-looking" and blocks on a keep/remove prompt; its own prune

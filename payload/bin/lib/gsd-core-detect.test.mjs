@@ -146,16 +146,16 @@ test("a hooks-less settings object survives untouched", () => {
 // npx, never a marketplace. Detecting it by VERSION on disk is the only honest check: an enabled
 // plugin entry proved nothing, and that was the old mistake.
 test("full without gsd-core installed asks, and the command installs globally for Claude", () => {
-  const plan = gsdCoreInstallPlan({ variant: "full", present: false, interactive: true });
+  const plan = gsdCoreInstallPlan({ variant: "full", present: false, interactive: true, pinnedVersion: "1.11.0", pinnedVersion: "1.11.0" });
   assert.equal(plan.action, "ask");
-  assert.match(plan.command, /^npx -y @opengsd\/gsd-core@latest /);
+  assert.match(plan.command, /^npx -y @opengsd\/gsd-core@1\.11\.0 /);
   assert.match(plan.command, /--global/);
   assert.match(plan.command, /--claude/);
 });
 
-test("without a TTY the same situation only prints the command", () => {
-  const plan = gsdCoreInstallPlan({ variant: "full", present: false, interactive: false });
-  assert.equal(plan.action, "print");
+test("without a TTY it installs rather than printing - on full this is a bundle dependency", () => {
+  const plan = gsdCoreInstallPlan({ variant: "full", present: false, interactive: false, pinnedVersion: "1.11.0" });
+  assert.equal(plan.action, "install");
   assert.match(plan.command, /@opengsd\/gsd-core/);
 });
 
@@ -173,12 +173,12 @@ test("base and lite never offer to install it", () => {
 
 test("a non-default config dir is passed through, and omitted when default", () => {
   const custom = gsdCoreInstallPlan({
-    variant: "full", present: false, interactive: true,
+    variant: "full", present: false, interactive: true, pinnedVersion: "1.11.0",
     configDir: "D:/alt/.claude", defaultConfigDir: "C:/Users/x/.claude",
   });
   assert.match(custom.command, /--config-dir "D:\/alt\/\.claude"/);
   const plain = gsdCoreInstallPlan({
-    variant: "full", present: false, interactive: true,
+    variant: "full", present: false, interactive: true, pinnedVersion: "1.11.0",
     configDir: "C:/Users/x/.claude", defaultConfigDir: "C:/Users/x/.claude",
   });
   assert.doesNotMatch(plain.command, /--config-dir/);
@@ -224,43 +224,94 @@ test("gsdLookingRels matches on the basename only, and normalises separators", (
 /* ---------- update: gsd-core is present but behind npm ---------- */
 
 test("the update plan only ever fires on full, with gsd-core present", () => {
-  const base = { installedVersion: "1.9.1", latestVersion: "1.10.0", interactive: true };
+  const base = { installedVersion: "1.9.1", pinnedVersion: "1.10.0", interactive: true };
   assert.equal(gsdCoreUpdatePlan({ ...base, variant: "base", present: true }).action, "none");
   assert.equal(gsdCoreUpdatePlan({ ...base, variant: "lite", present: true }).action, "none");
   assert.equal(gsdCoreUpdatePlan({ ...base, variant: "full", present: false }).action, "none");
 });
 
-test("an up-to-date or ahead install is left alone", () => {
+test("an install at the pin is left alone; one ahead of it is reported", () => {
   const base = { variant: "full", present: true, interactive: true };
-  assert.equal(gsdCoreUpdatePlan({ ...base, installedVersion: "1.10.0", latestVersion: "1.10.0" }).action, "none");
-  assert.equal(gsdCoreUpdatePlan({ ...base, installedVersion: "1.11.0", latestVersion: "1.10.0" }).action, "none");
+  assert.equal(gsdCoreUpdatePlan({ ...base, installedVersion: "1.10.0", pinnedVersion: "1.10.0" }).action, "none");
+  // Ahead is reported, never silently accepted: the fork and the patches were verified against
+  // the pin, so a newer gsd-core is exactly the case a human should look at.
+  assert.equal(gsdCoreUpdatePlan({ ...base, installedVersion: "1.11.0", pinnedVersion: "1.10.0" }).action, "ahead");
 });
 
 test("a version that cannot be read is never guessed at", () => {
   const base = { variant: "full", present: true, interactive: true };
   for (const [installed, latest] of [[null, "1.10.0"], ["1.9.1", null], ["unknown", "1.10.0"], ["1.9.1", ""]])
-    assert.deepEqual(gsdCoreUpdatePlan({ ...base, installedVersion: installed, latestVersion: latest }),
+    assert.deepEqual(gsdCoreUpdatePlan({ ...base, installedVersion: installed, pinnedVersion: latest }),
       { action: "none", reason: "unknown-version" });
 });
 
-test("being behind asks in a TTY, prints without one, and obeys the flag", () => {
-  const base = { variant: "full", present: true, installedVersion: "1.9.1", latestVersion: "1.10.0" };
+test("being behind asks in a TTY, updates without one, and obeys the flag", () => {
+  const base = { variant: "full", present: true, installedVersion: "1.9.1", pinnedVersion: "1.10.0" };
   assert.equal(gsdCoreUpdatePlan({ ...base, interactive: true }).action, "ask");
-  assert.equal(gsdCoreUpdatePlan({ ...base, interactive: false }).action, "print");
+  assert.equal(gsdCoreUpdatePlan({ ...base, interactive: false }).action, "update");
   assert.equal(gsdCoreUpdatePlan({ ...base, interactive: false, flag: true }).action, "update");
-  assert.match(gsdCoreUpdatePlan({ ...base, interactive: true }).command, /@opengsd\/gsd-core@latest/);
+  assert.match(gsdCoreUpdatePlan({ ...base, interactive: true }).command, /@opengsd\/gsd-core@1\.10\.0/);
 });
 
 test("a prerelease is older than the release that shares its numbers", () => {
   const base = { variant: "full", present: true, interactive: true };
-  assert.equal(gsdCoreUpdatePlan({ ...base, installedVersion: "1.10.0-rc.6", latestVersion: "1.10.0" }).action, "ask");
-  assert.equal(gsdCoreUpdatePlan({ ...base, installedVersion: "1.10.0", latestVersion: "1.10.0-rc.6" }).action, "none");
+  assert.equal(gsdCoreUpdatePlan({ ...base, installedVersion: "1.10.0-rc.6", pinnedVersion: "1.10.0" }).action, "ask");
+  assert.equal(gsdCoreUpdatePlan({ ...base, installedVersion: "1.10.0", pinnedVersion: "1.10.0-rc.6" }).action, "ahead");
 });
 
 test("the update command carries a non-default config dir, like the install one", () => {
   const plan = gsdCoreUpdatePlan({
-    variant: "full", present: true, installedVersion: "1.9.1", latestVersion: "1.10.0",
+    variant: "full", present: true, installedVersion: "1.9.1", pinnedVersion: "1.10.0",
     interactive: true, configDir: "D:/alt/.claude", defaultConfigDir: "C:/Users/x/.claude",
   });
   assert.match(plan.command, /--config-dir "D:\/alt\/\.claude"/);
+});
+
+/* ---------- pinned version: the bundle declares which gsd-core it was validated against ---------- */
+
+const PIN = { variant: "full", pinnedVersion: "1.11.0" };
+
+test("the install command carries the pinned version, never @latest", () => {
+  const plan = gsdCoreInstallPlan({ ...PIN, present: false, interactive: true });
+  assert.match(plan.command, /@opengsd\/gsd-core@1\.11\.0/);
+  assert.ok(!/@latest/.test(plan.command), `must not float to latest: ${plan.command}`);
+});
+
+test("an absent gsd-core installs without a TTY - it is a bundle dependency, not a plugin", () => {
+  assert.equal(gsdCoreInstallPlan({ ...PIN, present: false, interactive: false }).action, "install");
+  assert.equal(gsdCoreInstallPlan({ ...PIN, present: false, interactive: true }).action, "ask");
+});
+
+test("a behind install is brought up to the pin, with or without a TTY", () => {
+  const behind = { ...PIN, present: true, installedVersion: "1.10.0" };
+  assert.equal(gsdCoreUpdatePlan({ ...behind, interactive: false }).action, "update");
+  assert.equal(gsdCoreUpdatePlan({ ...behind, interactive: true }).action, "ask");
+  assert.match(gsdCoreUpdatePlan({ ...behind, interactive: false }).command, /gsd-core@1\.11\.0/);
+});
+
+test("an install AHEAD of the pin is never downgraded - it is reported instead", () => {
+  const ahead = gsdCoreUpdatePlan({ ...PIN, present: true, installedVersion: "1.12.0", interactive: false });
+  assert.equal(ahead.action, "ahead");
+  assert.equal(ahead.from, "1.12.0");
+  assert.equal(ahead.to, "1.11.0");
+  assert.ok(!ahead.command, "an ahead report must not carry a command that would downgrade");
+});
+
+test("an install exactly at the pin is left alone", () => {
+  assert.equal(gsdCoreUpdatePlan({ ...PIN, present: true, installedVersion: "1.11.0", interactive: true }).action, "none");
+});
+
+test("a prerelease of the pinned version still counts as behind it", () => {
+  assert.equal(gsdCoreUpdatePlan({ ...PIN, present: true, installedVersion: "1.11.0-rc.1", interactive: false }).action, "update");
+});
+
+test("an unreadable installed version is never guessed at", () => {
+  for (const v of [null, "", "unknown"])
+    assert.deepEqual(gsdCoreUpdatePlan({ ...PIN, present: true, installedVersion: v, interactive: false }),
+      { action: "none", reason: "unknown-version" });
+});
+
+test("a missing pin disables the whole mechanism rather than floating to latest", () => {
+  assert.deepEqual(gsdCoreUpdatePlan({ variant: "full", present: true, installedVersion: "1.10.0", interactive: false }),
+    { action: "none", reason: "unknown-version" });
 });

@@ -345,3 +345,11 @@ test("context7 is forbidden, because it is reached through its MCP server", () =
   const v = JSON.parse(readFileSync(join(ROOT, 'variants.json'), 'utf8'));
   assert.ok((v.forbiddenPlugins || []).includes("context7"));
 });
+
+test("the gsd-core pin is present and is an exact version, never a range or a tag", () => {
+  const v = JSON.parse(readFileSync(join(ROOT, "variants.json"), "utf8"));
+  const pin = (v.gsdCore || {}).version;
+  assert.ok(pin, "variants.json must pin gsdCore.version - without it setup.mjs installs nothing");
+  assert.match(pin, /^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$/,
+    `the pin must be an exact version so every machine gets the release the fork and patches were verified against, got: ${pin}`);
+});
