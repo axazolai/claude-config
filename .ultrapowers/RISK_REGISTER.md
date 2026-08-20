@@ -282,6 +282,14 @@
   `references/*.md` includes. It also carried `context-mode-routing-block` at v1 while the
   registry had moved to v2. Regenerated from 1.10.0's `gsd-executor.md` rather than hand-merged,
   and the residual diff against upstream is now exactly the fork's own deltas and nothing else.
+- **Resync 2026-08-20 (gsd-core 1.11.0):** regenerated again by the recipe below, which held
+  without change — all six deviation classes still apply to 1.11.0 verbatim, including the three
+  U+FFFD characters upstream still ships in place of an arrow. What the fork gained is the
+  `gate="blocking-human"` contract (#3210): a checkpoint carrying that gate is never
+  auto-approved, in any mode. Until this resync the fork lacked it, so a `verify_isolated` plan
+  running under the fork in auto-mode would have auto-approved the package-legitimacy checkpoint
+  that plain `gsd-executor` refuses — a hole in the chain that stops an unattended run installing
+  a package no human vetted, not a cosmetic ten-line lag.
 - **The "two deltas" in the 2026-07-17 spec undercounts.** Six classes of deviation had to be
   re-applied, and a future resync that honours only the documented two silently loses four:
   1. frontmatter: `name`, `description`, `tools:` (+`Agent`, +context-mode), `effort: high`;
