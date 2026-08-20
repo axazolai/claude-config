@@ -27,7 +27,7 @@
 import { homedir, platform } from "node:os";
 import { join } from "node:path";
 import { existsSync, mkdirSync } from "node:fs";
-import { spawnSync } from "node:child_process";
+import { spawnSync } from "../hooks/lib/spawn-hidden.mjs";
 import { createInterface } from "node:readline";
 
 const argv = process.argv.slice(2);

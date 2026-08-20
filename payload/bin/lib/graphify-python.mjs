@@ -1,7 +1,7 @@
 // Locate the interpreter that has graphify. GRAPHIFY_PYTHON wins, then a uv/pipx tool venv,
 // then a PATH python that can `import graphify`. null = none found. Never throws; `run`/`env`
 // are injectable for tests.
-import { spawnSync } from "node:child_process";
+import { spawnSync } from "../../hooks/lib/spawn-hidden.mjs";
 import { existsSync } from "node:fs";
 import { platform } from "node:os";
 import { join } from "node:path";

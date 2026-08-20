@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Best-effort: nudge if the installed graphify lags PyPI. Fail-soft: no network / not
 // installed / parse error => exit 0 silently. Never blocks setup or init-stack.
-import { spawnSync } from "node:child_process";
+import { spawnSync } from "../hooks/lib/spawn-hidden.mjs";
 import { realpathSync } from "node:fs";
 import { get } from "node:https";
 import { pathToFileURL } from "node:url";

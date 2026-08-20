@@ -38,7 +38,7 @@ import { homedir, platform, tmpdir } from "node:os";
 import { createHash } from "node:crypto";
 import { join, dirname } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { spawnSync } from "node:child_process";
+import { spawnSync } from "./payload/hooks/lib/spawn-hidden.mjs";
 import { createInterface } from "node:readline";
 import { validateConfigDir } from "./payload/bin/lib/config-dir-validate.mjs";
 import { findGraphifyPython } from "./payload/bin/lib/graphify-python.mjs";

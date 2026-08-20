@@ -48,7 +48,7 @@ import { readFileSync, existsSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { spawn } from "node:child_process";
+import { spawn } from "./lib/spawn-hidden.mjs";
 import {
   safe, writeFile, readJSON, findRoot, projectNameOf, normalizeModel,
   appendJSONL, readNewJSONLEntries, ensureGitignored,

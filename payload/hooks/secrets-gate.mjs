@@ -5,7 +5,7 @@
 // Obvious placeholders (your_token, <password>, ghp_xxxx..., YOUR_API_KEY) are allowlisted.
 // Fires only on commits made through Claude's Bash tool, not your manual terminal commits.
 import { readFileSync } from "node:fs";
-import { spawnSync } from "node:child_process";
+import { spawnSync } from "./lib/spawn-hidden.mjs";
 
 function stdin() { try { return readFileSync(0, "utf8"); } catch { return ""; } }
 

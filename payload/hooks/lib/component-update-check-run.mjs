@@ -8,7 +8,7 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, dirname } from "node:path";
-import { spawn, spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "./spawn-hidden.mjs";
 import { fileURLToPath } from "node:url";
 import { COMPONENTS, autoUpdateEnabled, decide } from "./component-registry.mjs";
 import { checkBundleUpdate } from "./config-update-check-run.mjs";

@@ -6,7 +6,7 @@
 // Uses ASCII record/unit separators (0x1e / 0x1f) so multi-line commit bodies can't
 // collide with the parsing delimiters.
 
-import { execFileSync } from 'node:child_process'
+import { execFileSync } from "../../../hooks/lib/spawn-hidden.mjs";
 
 const args = process.argv.slice(2)
 

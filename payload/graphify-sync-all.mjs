@@ -26,7 +26,7 @@
 import { readdirSync, existsSync, appendFileSync, mkdirSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, basename, dirname } from "node:path";
-import { spawnSync } from "node:child_process";
+import { spawnSync } from "./hooks/lib/spawn-hidden.mjs";
 import { fileURLToPath } from "node:url";
 import { DEFAULT_EXCLUDE, isProjectRoot, dropNestedArchives } from "./bin/lib/project-scan.mjs";
 

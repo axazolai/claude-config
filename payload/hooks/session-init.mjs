@@ -42,7 +42,7 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, chmodS
 import { homedir } from "node:os";
 import { join, resolve, dirname, relative } from "node:path";
 import { fileURLToPath } from "node:url";
-import { spawnSync, spawn } from "node:child_process";
+import { spawnSync, spawn } from "./lib/spawn-hidden.mjs";
 import { resolveDial } from "./lib/leanmode-rules.mjs";
 import { pruneGlobalLogIfDue } from "./lib/token-usage-prune.mjs";
 import { updateJsonFile } from "./lib/atomic-json.mjs";

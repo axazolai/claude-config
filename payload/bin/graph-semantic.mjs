@@ -7,7 +7,7 @@ import { existsSync, mkdirSync } from "node:fs";
 import { homedir, platform } from "node:os";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { spawnSync } from "node:child_process";
+import { spawnSync } from "../hooks/lib/spawn-hidden.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const VENV = join(homedir(), ".graphify", "embed-venv");

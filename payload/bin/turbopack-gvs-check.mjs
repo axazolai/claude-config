@@ -10,7 +10,7 @@
 import { readFileSync, existsSync, lstatSync, readlinkSync, realpathSync } from "node:fs";
 import { join, dirname, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
-import { spawnSync } from "node:child_process";
+import { spawnSync } from "../hooks/lib/spawn-hidden.mjs";
 import { usesTurbopack, parseGvsFlag, parseVirtualStoreDir, configTargetForPnpm, parseWidenedRoot, isPathUnder, detectConfigFormat, buildRecipe } from "./lib/turbopack-gvs-lib.mjs";
 
 function readIf(p) { try { return existsSync(p) ? readFileSync(p, "utf8") : ""; } catch { return ""; } }

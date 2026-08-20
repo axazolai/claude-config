@@ -10,7 +10,7 @@
 //   e.g.  node supervise-bg.mjs --stale 300 -- 'pnpm build'  — so quotes/metacharacters in the
 //   command are interpreted by the child's shell, not mangled. Launch via the Bash tool with
 //   run_in_background: true.
-import { spawn, spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "../hooks/lib/spawn-hidden.mjs";
 import { realpathSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 import { parseSuperviseArgs, hangCheck, formatHang, formatExit } from "./lib/supervise-lib.mjs";

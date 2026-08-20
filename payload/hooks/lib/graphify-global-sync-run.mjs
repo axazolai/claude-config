@@ -30,7 +30,7 @@
 // commits yet, or `graphify` isn't installed - this must never surface as an error
 // to whichever caller ran it (a Claude Code hook or git itself).
 import { existsSync } from "node:fs";
-import { spawn, spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "./spawn-hidden.mjs";
 import { homedir, platform } from "node:os";
 import { join } from "node:path";
 import { buildSyncCommand } from "./graphify-sync-command.mjs";

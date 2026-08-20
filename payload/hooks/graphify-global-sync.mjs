@@ -7,7 +7,7 @@
 // No-op (exit 0, never blocks) if disabled or the command isn't a matching git operation.
 // Toggle: CLAUDE_GRAPHIFY_AUTOSYNC=0.
 import { readFileSync } from "node:fs";
-import { spawnSync } from "node:child_process";
+import { spawnSync } from "./lib/spawn-hidden.mjs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 

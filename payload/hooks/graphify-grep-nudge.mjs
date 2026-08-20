@@ -9,7 +9,7 @@
 // time. Fail-soft — any git error (not a repo, no HEAD, git missing) is treated as "unknown",
 // never reported as stale.
 import { readFileSync, existsSync, statSync } from "node:fs";
-import { spawnSync } from "node:child_process";
+import { spawnSync } from "./lib/spawn-hidden.mjs";
 import { join } from "node:path";
 
 const safe = (fn) => { try { return fn(); } catch { return undefined; } };

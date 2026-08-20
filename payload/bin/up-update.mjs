@@ -8,7 +8,7 @@
 //
 // `check` is read-only and cheap: `git ls-remote` for the tags, plus three HTTPS reads. It never
 // clones. The rebuilding half (Task 9) is what takes a scratch clone in a temp directory.
-import { spawnSync } from "node:child_process";
+import { spawnSync } from "../hooks/lib/spawn-hidden.mjs";
 import { mkdtempSync, readFileSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";

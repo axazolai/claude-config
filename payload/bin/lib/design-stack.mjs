@@ -1,7 +1,7 @@
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, readdirSync, rmSync } from "node:fs";
 import { tmpdir, homedir } from "node:os";
 import { join, dirname } from "node:path";
-import { spawnSync } from "node:child_process";
+import { spawnSync } from "../../hooks/lib/spawn-hidden.mjs";
 
 const skipInstall = (skip) => skip || process.env.CLAUDE_DESIGN_STACK_SKIP_INSTALL === "1";
 

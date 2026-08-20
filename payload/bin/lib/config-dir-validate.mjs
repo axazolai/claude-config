@@ -6,7 +6,7 @@
 import { existsSync, statSync, realpathSync } from "node:fs";
 import { platform } from "node:os";
 import { resolve, isAbsolute, dirname } from "node:path";
-import { spawnSync } from "node:child_process";
+import { spawnSync } from "../../hooks/lib/spawn-hidden.mjs";
 
 // Windows drive-type via .NET DriveInfo: Fixed | Network | Removable | CDRom | Ram |
 // NoRootDirectory | Unknown. Best-effort ("" when it can't be determined).

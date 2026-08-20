@@ -4,7 +4,7 @@
 // pnpm-phantom-scan.mjs and surface its report as additionalContext. Fail-open: any error =>
 // exit 0, no output, never blocks the tool.
 import { readFileSync, existsSync, realpathSync } from "node:fs";
-import { spawnSync } from "node:child_process";
+import { spawnSync } from "./lib/spawn-hidden.mjs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 

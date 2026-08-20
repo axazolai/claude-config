@@ -2,7 +2,7 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync, chmodSync } from 'node:fs';
 import { resolve } from "node:path";
 import { realpathSync } from "node:fs";
-import { execFileSync } from 'node:child_process';
+import { execFileSync } from "../../../hooks/lib/spawn-hidden.mjs";
 import { join, basename, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 

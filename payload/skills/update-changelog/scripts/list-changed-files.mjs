@@ -12,7 +12,7 @@
 // meaningful for an object, so callers should already have the commit order from
 // list-commits.mjs and just look hashes up here.
 
-import { execFileSync } from 'node:child_process'
+import { execFileSync } from "../../../hooks/lib/spawn-hidden.mjs";
 
 const args = process.argv.slice(2)
 

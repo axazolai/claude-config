@@ -7,7 +7,7 @@
 // It inspects the STAGED INDEX and never the commit message. db-live-access-gate already
 // false-positives on SQL keywords inside messages; a second hook making that mistake would make
 // `git commit -F` the only usable form.
-import { execFileSync } from "node:child_process";
+import { execFileSync } from "./lib/spawn-hidden.mjs";
 import { readFileSync, existsSync, readdirSync, realpathSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";

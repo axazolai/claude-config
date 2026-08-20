@@ -17,7 +17,7 @@
 import { readFileSync, existsSync, readdirSync, writeFileSync, mkdirSync } from "node:fs";
 import { join, dirname, relative } from "node:path";
 import { homedir } from "node:os";
-import { spawnSync } from "node:child_process";
+import { spawnSync } from "../hooks/lib/spawn-hidden.mjs";
 import { createInterface } from "node:readline";
 import { pathToFileURL } from "node:url";
 import { STACK_PATHS, detect } from "./lib/stack-markers.mjs";
