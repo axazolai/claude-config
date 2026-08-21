@@ -149,28 +149,25 @@ literal exit codes/stdout, and the sandbox would strip that signal.
 </context_mode_routing>`;
 
 const FILESYSTEM_SEARCH_DISCIPLINE_BLOCK = `<filesystem_search_discipline>
-**Never run \`find /\`, \`find ~\`, \`find $HOME\`, or any \`find\` with no starting path (defaults
-to cwd but chained into a broad tree) or a drive/root path.** These sweep the entire
-filesystem, run for tens of minutes, and get auto-backgrounded by the Bash tool — see
-\`<background_task_hygiene>\` for why an abandoned one is worse than the wasted time.
+**Never run \`find /\`, \`find ~\`, \`find $HOME\`, a drive/root path, or \`find\` with no starting
+path.** Those sweep the whole filesystem, run for tens of minutes, and get auto-backgrounded — see
+\`<background_task_hygiene>\` for why an abandoned one costs more than the time it wastes.
 
-For file search, use the \`Glob\` tool (safely scoped, fast) or \`grep -r <pattern>
-<known-dir>\` against a specific directory you already have reason to believe holds the
-answer. If you don't know where something lives, check the table below before searching
-blindly — most gsd-core paths are one of these:
+Search with \`Glob\`, or \`grep -r <pattern> <known-dir>\` against a directory you already have reason
+to suspect. Most gsd-core paths are in this table:
 
 | What | Path |
 |---|---|
-| CLI / tools shim | \`$GSD_HOME/gsd-core/bin/\` (resolved by \`load_project_state\`'s \`GSD_TOOLS\` discovery) |
+| CLI / tools shim | \`$GSD_HOME/gsd-core/bin/\` (via \`load_project_state\`'s \`GSD_TOOLS\` discovery) |
 | Workflow docs | \`$GSD_HOME/gsd-core/workflows/\` |
-| Reference docs (this file's \`@\`-includes) | \`$GSD_HOME/gsd-core/references/\` |
+| Reference docs (\`@\`-includes) | \`$GSD_HOME/gsd-core/references/\` |
 | Templates | \`$GSD_HOME/gsd-core/templates/\` |
 
-If a doc pointer elsewhere in this file (or in \`gsd-tools\` output) names a path outside
-this table — e.g. anything under \`sdk/src/...\` — treat it as upstream-source-only. That
-tree ships in the \`open-gsd/gsd-core\` git repo, not in your local install; don't search
-the local filesystem for it, and don't assume its absence means something is broken.
-</filesystem_search_discipline>`;
+A path named outside that table — \`sdk/src/...\`, say — is upstream-source-only: it ships in the
+\`open-gsd/gsd-core\` repo, not your install. Don't search for it, and don't read its absence as
+breakage.
+</filesystem_search_discipline>
+`;
 
 const BACKGROUND_TASK_HYGIENE_BLOCK = `<background_task_hygiene>
 The Bash tool auto-backgrounds a call that runs long (e.g. an unrooted \`find\`, a hanging
@@ -245,23 +242,24 @@ worktrees resolve the same package against the shared pnpm store concurrently.
 </dependency_provisioning_order>`;
 
 const EXECUTOR_DEPENDENCY_PROVISIONING_BLOCK = `<dependency_provisioning_order>
-If running inside a worktree (\`.git\` is a file — see \`<worktree_metadata_capture>\`), do NOT
-treat \`node_modules\` as pre-provisioned/read-only by default anymore — that was the old
-junction-based setup. In a pnpm monorepo with \`enableGlobalVirtualStore: true\` set (see
-\`rules-src/gsd.md\` "Parallel worktree waves" for why), your worktree owns a real, independent
-\`node_modules\`; a plain \`pnpm install\` here is expected and fast (seconds, not minutes) once
-the orchestrator has resolved dependencies on the base branch before dispatch — run it like
-any single checkout. Skip it only when \`node_modules\` is already present and neither
-\`package.json\` nor the lockfile changed for this task. If two worktrees install against the
-shared store at the same moment you may see \`EPERM ... rename ..._tmp_N\` or a slow, serialized
-install on Windows — that's contention with another worktree's install, not a real failure;
-retry rather than debugging it as one. Never remove or force-clear \`node_modules\` with
-\`Remove-Item -Recurse -Force\`/\`rm -rf\` on Windows — pnpm links packages via reparse points
-internally, and both commands can follow one into a real target outside your worktree; this
-has caused real data loss (see \`rules-src/gsd.md\`). If a plan instead hands you a pre-linked
-JUNCTION or a real orchestrator-provisioned copy (older/non-pnpm setup), follow whatever the
-dispatch instructions say for it — junction stays read-only, a flagged real copy is yours.
-</dependency_provisioning_order>`;
+Inside a worktree (\`.git\` is a file — see \`<worktree_metadata_capture>\`) \`node_modules\` is yours,
+not a pre-provisioned read-only tree. In a pnpm monorepo with \`enableGlobalVirtualStore: true\`
+(see \`rules-src/gsd.md\` "Parallel worktree waves") a plain \`pnpm install\` here is expected and
+takes seconds, once the orchestrator has resolved dependencies on the base branch. Skip it only
+when \`node_modules\` is already there and neither \`package.json\` nor the lockfile changed for this
+task.
+
+\`EPERM ... rename ..._tmp_N\`, or a slow serialized install on Windows, is contention with another
+worktree installing against the shared store. Retry; do not debug it as a failure.
+
+**Never clear \`node_modules\` with \`Remove-Item -Recurse -Force\` or \`rm -rf\` on Windows.** pnpm
+links packages through reparse points, and both commands can follow one into a real target outside
+your worktree. This has caused real data loss (see \`rules-src/gsd.md\`).
+
+If a plan instead hands you a pre-linked junction or an orchestrator-provisioned copy, follow its
+dispatch instructions: a junction stays read-only, a flagged real copy is yours.
+</dependency_provisioning_order>
+`;
 
 const EXECUTOR_TEST_EXECUTION_DISCIPLINE_BLOCK = `<test_execution_discipline>
 Scope every test invocation to this plan's own \`files_modified\` — the test runner's own
@@ -438,7 +436,7 @@ export const PATCHES = [
   },
   {
     id: "executor-filesystem-search-discipline",
-    version: 1,
+    version: 2,
     // Legacy migration matches the full block body literally (see "version markers" above for
     // why) - a bare `<filesystem_search_discipline>` tag substring would false-positive on this
     // same file's OWN forward-reference to the tag name inside `<background_task_hygiene>`'s
@@ -478,7 +476,7 @@ export const PATCHES = [
   },
   {
     id: "executor-dependency-provisioning-order",
-    version: 3,
+    version: 4,
     // v3 (2026-07-21): drop the hand-rolled junction entirely in favor of pnpm's own
     // `enableGlobalVirtualStore` (see rules-src/gsd.md "Parallel worktree waves") - a single
     // whole-tree junction shared `node_modules` mutably across every worktree in the wave,
