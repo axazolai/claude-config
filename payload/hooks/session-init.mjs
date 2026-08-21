@@ -430,6 +430,7 @@ if (FULL) {
       await import("./lib/gsd-agent-patches.mjs");
     const { checkGsdWorkflowPatches } = await import("./lib/gsd-workflow-patches.mjs");
     const { checkGsdSkillPatches } = await import("./lib/gsd-skill-patches.mjs");
+    const { checkGsdHookPatches, HOOK_PATCHES } = await import("./lib/gsd-hook-patches.mjs");
 
     // ---- gsd-* agents: add the context-mode MCP tool, only if that plugin is active ----
     // Machine-wide, not project-scoped (gsd-* agents live in ~/.claude/agents/, owned by the
@@ -496,6 +497,23 @@ if (FULL) {
         notes.push(`gsd-* skill effort patch pending for ${skFiles.length} skill(s) ` +
           `(${skFiles.slice(0, 5).join(", ")}${skFiles.length > 5 ? ", ..." : ""}) - ` +
           `run /init-session to apply.`);
+
+      // gsd-core's own hook files (hooks/gsd-*.js). Same check-only split, but the states differ:
+      // these are anchored line rewrites, so "diverged" means upstream rewrote the line the patch
+      // reasons about and the patch must be re-thought, not re-applied. The statusline carries the
+      // same two states as a persistent signal; this is where the detail lives.
+      const hookStatus = safe(() => checkGsdHookPatches({ claudeDir })) || {};
+      const whyOf = (id) => (HOOK_PATCHES.find((h) => h.id === id) || {}).why || "";
+      for (const [id, state] of Object.entries(hookStatus)) {
+        if (state === "pending")
+          notes.push(`gsd-core hook patch pending: ${id} - ${whyOf(id)} - run /init-session to apply.`);
+        if (state === "diverged")
+          notes.push(`gsd-core hook patch DIVERGED: ${id} - upstream rewrote the line it anchors on. ` +
+            `Do NOT re-apply blindly; re-read the hook and re-author the patch (${whyOf(id)}).`);
+        if (state === "inert")
+          notes.push(`gsd-core hook patch inert: ${id} - the file it patches is not installed, ` +
+            `so the protection it adds is absent (${whyOf(id)}).`);
+      }
 
       // Standing invariant, not a pending patch: an agent granting `Agent` with no anti-recursion
       // guardrail caused refusals/silent stuck states in the 2026-07 recursive-delegation test

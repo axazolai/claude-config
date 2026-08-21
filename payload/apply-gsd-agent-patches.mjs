@@ -13,12 +13,14 @@ import { join } from "node:path";
 import { applyGsdAgentPatches, checkRecursiveAgentSpawnGuardrail } from "./hooks/lib/gsd-agent-patches.mjs";
 import { applyGsdWorkflowPatches } from "./hooks/lib/gsd-workflow-patches.mjs";
 import { applyGsdSkillPatches } from "./hooks/lib/gsd-skill-patches.mjs";
+import { applyGsdHookPatches } from "./hooks/lib/gsd-hook-patches.mjs";
 const CLAUDE_DIR = process.env.CLAUDE_CONFIG_DIR || join(homedir(), ".claude");
 
 const claudeDir = process.argv[2] || join(CLAUDE_DIR);
 const result = applyGsdAgentPatches({ claudeDir });
 const wfResult = applyGsdWorkflowPatches({ claudeDir });
 const skResult = applyGsdSkillPatches({ claudeDir });
+const hkResult = applyGsdHookPatches({ claudeDir });
 
 if (result.applied.length) {
   console.log(`Applied ${result.applied.length} patch(es):`);
@@ -67,6 +69,18 @@ if (skResult.skippedCurated.length)
   console.log(`Skipped skill (curated): ${skResult.skippedCurated.join(", ")}`);
 if (skResult.skippedNoKey.length)
   console.log(`Skipped skill (no effort key - may have changed upstream): ${skResult.skippedNoKey.join(", ")}`);
+
+if (hkResult.applied.length) {
+  console.log(`Applied ${hkResult.applied.length} gsd-core hook patch(es):`);
+  for (const id of hkResult.applied) console.log(`  - ${id}`);
+}
+if (hkResult.diverged.length) {
+  console.log(`
+DIVERGED - upstream rewrote the anchored line, patch NOT applied: ${hkResult.diverged.join(", ")}`);
+  console.log(`  Re-read the hook and re-author the patch; do not force it.`);
+}
+if (hkResult.inert.length)
+  console.log(`Inert (file not installed, so its protection is absent): ${hkResult.inert.join(", ")}`);
 
 const unguarded = checkRecursiveAgentSpawnGuardrail({ claudeDir });
 if (unguarded.length) {

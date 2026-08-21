@@ -6,7 +6,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, utimesSync
 import { tmpdir } from "node:os";
 import { join, dirname, basename } from "node:path";
 import { fileURLToPath } from "node:url";
-import { renderUpdates, renderGsd, render, installedProfile, paintContext } from "./statusline.mjs";
+import { renderUpdates, renderGsd, render, installedProfile, paintContext, renderHookPatches } from "./statusline.mjs";
 
 const strip = (s) => s.replace(/\x1b\[[0-9;]*m/g, "");
 
@@ -98,7 +98,12 @@ const dir = (...parts) => { const p = join(TMP, ...parts); mkdirSync(p, { recurs
 const EMPTY_CLAUDE_DIR = dir("claude-empty");
 // The gsd segment requires gsd-core installed, so every gsd assertion needs a claudeDir that has it.
 const GSD_CLAUDE_DIR = dir("claude-gsd-core");
+// A fixture that carries gsd-core must also carry its isolation guard, or the hook-patch alarm
+// correctly reports "inert" and shows up in the rendered line. Already-patched = silent.
+const PATCHED_GUARD = "// gsd-hook-version: 1.11.0\n" +
+  "const EXECUTOR_SUBAGENT_TYPES = new Set(['gsd-executor', 'gsd-executor-decomposing']);\n";
 write(join(GSD_CLAUDE_DIR, "gsd-core", "VERSION"), "1.8.0\n");
+write(join(GSD_CLAUDE_DIR, "hooks", "gsd-agent-isolation-guard.js"), PATCHED_GUARD);
 
 function runEntry(input, { claudeDir = EMPTY_CLAUDE_DIR, env: extraEnv = {} } = {}) {
   const env = { ...process.env, CLAUDE_CONFIG_DIR: claudeDir };
@@ -483,6 +488,7 @@ test("entry point: the gsd segment needs gsd-core installed, not just .planning"
 
   const withCore = dir("cd-gsd");
   write(join(withCore, "gsd-core", "VERSION"), "1.8.0\n");
+  write(join(withCore, "hooks", "gsd-agent-isolation-guard.js"), PATCHED_GUARD);
   assert.match(strip(runEntry(payload(root), { claudeDir: withCore }).stdout), /v1\.0/);
 });
 
@@ -647,4 +653,39 @@ test("entry point: a pending observation from another model does not get claimed
   assert.deepEqual(after.pending, { tokens: 180000, model: "claude-sonnet-5", at: "2026-07-30T18:00:00Z" });
   assert.equal(after.models, undefined);
   assert.equal(out.stdout.includes("💀"), false, `unexpected skull: ${JSON.stringify(out.stdout)}`);
+});
+
+/* ---------- gsd hook-patch alarm: only the states that need a human ---------- */
+
+test("a healthy hook patch renders nothing — no 'all quiet' segment", () => {
+  assert.equal(renderHookPatches({}), "");
+  assert.equal(renderHookPatches({ "isolation-guard-decomposing-executor": "current" }), "");
+  assert.equal(renderHookPatches({ a: "current", b: "current" }), "");
+  assert.equal(renderHookPatches(null), "");
+  assert.equal(renderHookPatches(undefined), "");
+});
+
+test("diverged is surfaced — upstream rewrote the line the patch reasons about", () => {
+  const out = renderHookPatches({ "isolation-guard-decomposing-executor": "diverged" });
+  assert.match(out, /gsd-patch/);
+  assert.match(out, /diverged/);
+});
+
+test("inert is surfaced — the patch cannot apply, so the guard it fixes is not there", () => {
+  const out = renderHookPatches({ "isolation-guard-decomposing-executor": "inert" });
+  assert.match(out, /inert/);
+});
+
+test("pending is surfaced too — it is a patch that should be applied and is not", () => {
+  assert.match(renderHookPatches({ x: "pending" }), /pending/);
+});
+
+test("several bad states collapse into one segment with a count", () => {
+  const out = renderHookPatches({ a: "diverged", b: "inert", c: "current" });
+  assert.match(out, /2/, `expected a count of the two bad states, got: ${JSON.stringify(out)}`);
+});
+
+test("the alarm segment reaches the rendered line", () => {
+  const line = render({ model: "Opus", hookPatches: { x: "diverged" } });
+  assert.match(line, /diverged/);
 });

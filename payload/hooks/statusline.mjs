@@ -24,6 +24,18 @@ export function renderUpdates(names) {
   return YELLOW(`⬆ ${shown.join(" ")}${rest > 0 ? ` +${rest}` : ""}`);
 }
 
+// Only the states that need a human. A patch that is applied and healthy renders nothing on
+// purpose: a permanent "all clear" is noise that trains the eye to skip the segment, and this
+// segment only earns its place by being rare.
+export function renderHookPatches(statuses) {
+  if (!statuses || typeof statuses !== "object") return "";
+  const bad = Object.entries(statuses).filter(([, v]) => v !== "current");
+  if (!bad.length) return "";
+  const kinds = [...new Set(bad.map(([, v]) => v))].sort();
+  const count = bad.length > 1 ? `${bad.length} ` : "";
+  return YELLOW(`⚠ gsd-patch: ${count}${kinds.join(", ")}`);
+}
+
 export function renderGsd({ milestone, phase, status, percent } = {}) {
   if (!milestone) return "";
   const n = Number(percent);
@@ -49,8 +61,8 @@ export function installedProfile(claudeDir) {
   return (m && (m.profile || m.variant)) || null;
 }
 
-export function render({ updates, model, context, project, gsd, up } = {}) {
-  return [renderUpdates(updates), model, context, project, gsd, up]
+export function render({ updates, hookPatches, model, context, project, gsd, up } = {}) {
+  return [renderUpdates(updates), renderHookPatches(hookPatches), model, context, project, gsd, up]
     .filter(Boolean)
     .join(DIM(" │ "));
 }
@@ -123,13 +135,26 @@ function contextSegment(data) {
   return safe(() => paintContext(text, severityOf({ windowPct, acProgress })), text) || text;
 }
 
-function main(raw) {
+// Loaded dynamically, and only where it can mean anything: hooks/lib/gsd-* is excluded from base
+// and lite, which also do not ship the executor fork this patch protects — there the alarm has no
+// subject, so an absent module is the correct answer rather than a missing dependency. The
+// gsd-core probe keeps a non-GSD machine from paying for the import at all.
+async function hookPatchStatuses() {
+  if (!existsSync(join(CLAUDE_DIR, "gsd-core", "VERSION"))) return {};
+  try {
+    const m = await import("./lib/gsd-hook-patches.mjs");
+    return m.checkGsdHookPatches({ claudeDir: CLAUDE_DIR }) || {};
+  } catch { return {}; }
+}
+
+async function main(raw) {
   const data = safe(() => JSON.parse(raw || "{}"), {}) || {};
   const ws = data.workspace || {};
   const root = resolve(ws.current_dir || ws.project_dir || process.cwd());
   const state = safe(() => JSON.parse(readFileSync(join(CLAUDE_DIR, "state", "component-updates.json"), "utf8")), null);
   process.stdout.write(render({
     updates: pendingNames(state),
+    hookPatches: await hookPatchStatuses(),
     model: (data.model && data.model.display_name) || "",
     context: safe(() => contextSegment(data), "") || "",
     project: basename(root),
@@ -156,12 +181,17 @@ if (isMainModule()) {
     if (done) return;
     done = true;
     clearTimeout(guard);
-    try { main(input); } catch { /* never break the prompt */ }
-    process.exitCode = 0;
-    // Rendering alone does not end the process: the `data` listener below keeps the readable
-    // flowing, so stdin that never closes would hold the event loop open forever after the line
-    // was already printed. Releasing the handle is what lets the loop drain.
-    try { process.stdin.pause(); process.stdin.destroy(); } catch { /* already gone */ }
+    // main is async (it may dynamically load the gsd hook-patch check), so the release below
+    // has to wait for it rather than run alongside: the documented order is write the line, THEN
+    // let go of stdin. A rejection cannot escape either - both settle paths release.
+    const release = () => {
+      process.exitCode = 0;
+      // Rendering alone does not end the process: the `data` listener below keeps the readable
+      // flowing, so stdin that never closes would hold the event loop open forever after the line
+      // was already printed. Releasing the handle is what lets the loop drain.
+      try { process.stdin.pause(); process.stdin.destroy(); } catch { /* already gone */ }
+    };
+    main(input).then(release, release);
   };
   // A statusLine command whose stdin never closes would otherwise hang forever and leave the
   // prompt with no line at all; rendering what arrived beats rendering nothing.
