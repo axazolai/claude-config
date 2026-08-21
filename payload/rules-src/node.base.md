@@ -10,7 +10,9 @@ paths:
   Package manager: pnpm (not npm/yarn unless the repo says so).
 - TypeScript strict mode on. No `any` in public signatures; prefer `unknown` + narrowing.
 - ESM only (`"type": "module"`). Use `import`, not `require`.
-- Lint/format: ESLint + Prettier. Run `pnpm lint && pnpm test` before commit.
+- Lint/format: ESLint + Prettier. Before commit: `pnpm lint` plus the tests covering the change
+  (`vitest related <files>` / `jest --findRelatedTests <files>`); the full `pnpm test` at review
+  and immediately before `git push`.
 - Errors: throw `Error` subclasses, never strings. No silent catches.
 - Async: `async/await`, not raw `.then` chains. Always handle rejections.
 - Validate at boundaries (zod or equivalent) — never trust external input.

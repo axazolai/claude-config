@@ -8,7 +8,8 @@ paths:
 # Python (base)
 - Target 3.14. Type hints on all public functions; check with mypy/pyright.
 - Tooling: uv for envs/deps (not bare pip). Lint+format with ruff
-  (`ruff check` + `ruff format`). Run `uv run pytest` before commit.
+  (`ruff check` + `ruff format`). Before commit: ruff plus `uv run pytest <changed paths>` /
+  `-k <expr>`; the full `uv run pytest` at review and immediately before `git push`.
 - Explicit over implicit: no bare `except:`; catch specific exceptions; no mutable defaults.
 - I/O at the edges; keep core logic pure and testable. No sync blocking calls in async paths.
 - Logging via `logging`, not `print`, in anything non-trivial.

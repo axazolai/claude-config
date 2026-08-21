@@ -11,9 +11,24 @@ paths:
 
 # Testing (cross-cutting)
 
+## Running tests — cadence and scope
+- Never run tests per edit. Run at a completion boundary (the change stands as a working whole)
+  or on a direct ask to commit, push, test, or review. While debugging a known failure, re-run
+  that one test freely.
+- Before commit: the linter over touched files + only the tests covering the change. Select with
+  the runner's own filter — `vitest related <files>`, `jest --findRelatedTests <files>`,
+  `pytest <file>::<test>` or `-k <expr>`, `dotnet test --filter`, `go test ./<pkg>`,
+  `gradle test --tests <pattern>`.
+- Full suite: at review, immediately before `git push`, or on explicit request. No git in the
+  project: at review or on request only.
+- A failing targeted run blocks the commit. Fix the cause; never widen the run to dilute it.
+- Report the scope with the result. "Tests pass" is reserved for a green full suite.
+
 ## Test-first vs test-after
 - TDD is the default for code with real behavior: services, guards/pipes, business logic,
-  API contracts. Write the test, watch it fail (RED), then write the code.
+  API contracts. Write the test first, then the code.
+- RED confirmation batches with the boundary run: a test never observed failing is checked
+  against the pre-change code before the work is called done.
 - Exceptions (covered by the e2e/integration test of the behavior they enable, not a
   dedicated unit test on themselves): pure wiring/config (DI providers/module registration,
   Dockerfile, docker-compose.yml), trivial DTO mappers, pure getters/passthroughs with no
