@@ -774,7 +774,8 @@ CLAUDE_TOKEN_USAGE_PRUNE=0       # не чистить глобальный ло
   - **Swift** — `swift.base` + `ios`
   - **Dart** — `dart.base` + `flutter`
 - **Сквозные (cross-cutting, подмешиваются по признакам проекта):** `testing`, `security`,
-  `api-contracts`, `ci`, `docker`, `sql`, `shell`, `mobile`, `monorepo`, `context7` (когда
+  `api-contracts`, `ci`, `docker`, `sql`, `shell`, `mobile`, `monorepo`, `design-fidelity`
+  (для UI-стеков — реализация 1:1 по выданному макету/референсу), `context7` (когда
   подключён одноимённый MCP-сервер), а для GSD-проектов (`.planning/`) — ещё `gsd` (роутинг
   методологии + правила карантина `CLAUDE.md`).
 - **Блок «Detected commands»** в конце снапшота — команды теста и сборки, выведенные из тех же

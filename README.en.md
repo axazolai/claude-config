@@ -783,7 +783,8 @@ the layers resolve are in `rules-src/README.md`):
   - **Swift** — `swift.base` + `ios`
   - **Dart** — `dart.base` + `flutter`
 - **Cross-cutting (mixed in per project signals):** `testing`, `security`, `api-contracts`,
-  `ci`, `docker`, `sql`, `shell`, `mobile`, `monorepo`, `context7` (when the MCP server of that
+  `ci`, `docker`, `sql`, `shell`, `mobile`, `monorepo`, `design-fidelity` (UI stacks — 1:1
+  implementation of a supplied mockup/reference), `context7` (when the MCP server of that
   name is wired up), and for GSD projects (`.planning/`) — `gsd` (methodology routing +
   `CLAUDE.md` quarantine rules).
 - **The "Detected commands" block** at the end of the snapshot — the test and build commands

@@ -24,8 +24,9 @@ no off switch. Delivery works by compilation instead:
 - A **direction** (framework) rule applies when its framework is detected; layers on the base.
 - A **cross-cutting** rule (no language prefix) applies by concern, on top of language
   rules: `testing.md` and `security.md` always; `docker.md` / `ci.md` / `monorepo.md` /
-  `api-contracts.md` / `mobile.md` when their signature files exist; `gsd.md` when
-  `.planning/` exists.
+  `api-contracts.md` / `mobile.md` when their signature files exist; `design-fidelity.md`
+  when any UI stack is detected (react/next/react-native/flutter/wpf/ios/android);
+  `gsd.md` when `.planning/` exists.
 - `paths:` frontmatter in each rule is selection METADATA (which files the rule targets),
   kept for the compiler and for readers — Claude Code does not read it here.
 - Rules are context, not enforcement. For hard gates (block an action every time) use a
@@ -70,6 +71,7 @@ no off switch. Delivery works by compilation instead:
 | `shell.md` | `*.sh`, `*.ps1` |
 | `testing.md` | cross-cutting: always included |
 | `security.md` | cross-cutting: always included |
+| `design-fidelity.md` | cross-cutting: any UI stack — binds only when a design/mockup/reference is supplied |
 | `docker.md` | cross-cutting: `Dockerfile*`, `docker-compose*.yml`, `.dockerignore` |
 | `ci.md` | cross-cutting: `.github/workflows/*.yml` |
 | `api-contracts.md` | cross-cutting: `openapi.*`, `*.dto.ts`, `schemas.py`, `serializers.py` |

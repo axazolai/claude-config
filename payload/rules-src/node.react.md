@@ -13,7 +13,8 @@ paths:
   has a correct dependency array and cleanup.
 - Keep components presentational; push data fetching to hooks/loaders.
 - Styling: follow the repo (MUI is the house default — use its components/theme tokens,
-  not ad-hoc inline styles).
+  not ad-hoc inline styles). A supplied design outranks the house default: override the
+  theme to match it, never restyle the design to fit MUI (see `design-fidelity.md`).
 - Accessibility: semantic elements, labelled controls, keyboard paths.
 - Avoid: prop drilling >2 levels (context/composition), index as key in dynamic lists,
   business logic inside JSX.
