@@ -41,6 +41,33 @@ export function pythonAvailable() {
 }
 
 const MATCHER = "Edit|Write|MultiEdit";
+// Recognise the hook by the tail of its path, never by the whole command string: the same
+// registration is spelled `node .claude/skills/...` by us and
+// `node "$CLAUDE_PROJECT_DIR/.claude/skills/..."` by Impeccable's own installer. Equality on the
+// full string called the second one absent and appended a duplicate, so the hook fired twice per
+// Edit/Write and twice per Stop.
+const IMPECCABLE_HOOK = /impeccable[\\/]scripts[\\/]hook\.mjs/;
+const isImpeccable = (h) => IMPECCABLE_HOOK.test((h && h.command) || "");
+
+// Keep the first impeccable hook among `entries`, drop every later one. Filtering at the HOOK
+// level, not the entry level, so an entry that also carries unrelated commands keeps them; an
+// entry left with no hooks disappears.
+function collapseImpeccable(entries, matches) {
+  let seen = false, removed = 0;
+  const kept = [];
+  for (const e of entries) {
+    if (!matches(e)) { kept.push(e); continue; }
+    const hooks = [];
+    for (const h of (e.hooks || [])) {
+      if (!isImpeccable(h)) { hooks.push(h); continue; }
+      if (seen) { removed++; continue; }
+      seen = true; hooks.push(h);
+    }
+    if (hooks.length) kept.push({ ...e, hooks });
+  }
+  return { kept, removed, present: seen };
+}
+
 export function registerDesignHook(settingsFile, { scriptPath }) {
   const cmd = `node ${scriptPath}`;
   let s = {};
@@ -48,14 +75,18 @@ export function registerDesignHook(settingsFile, { scriptPath }) {
   s.hooks = s.hooks || {};
   s.hooks.PostToolUse = s.hooks.PostToolUse || [];
   s.hooks.Stop = s.hooks.Stop || [];
-  const hasPost = s.hooks.PostToolUse.some((e) => e.matcher === MATCHER && (e.hooks || []).some((h) => h.command === cmd));
-  const hasStop = s.hooks.Stop.some((e) => (e.hooks || []).some((h) => h.command === cmd));
-  if (hasPost && hasStop) return { added: false };
-  if (!hasPost) s.hooks.PostToolUse.push({ matcher: MATCHER, hooks: [{ type: "command", command: cmd }] });
-  if (!hasStop) s.hooks.Stop.push({ hooks: [{ type: "command", command: cmd }] });
+  const post = collapseImpeccable(s.hooks.PostToolUse, (e) => e.matcher === MATCHER);
+  const stop = collapseImpeccable(s.hooks.Stop, () => true);
+  s.hooks.PostToolUse = post.kept;
+  s.hooks.Stop = stop.kept;
+  if (!post.present) s.hooks.PostToolUse.push({ matcher: MATCHER, hooks: [{ type: "command", command: cmd }] });
+  if (!stop.present) s.hooks.Stop.push({ hooks: [{ type: "command", command: cmd }] });
+  const added = !post.present || !stop.present;
+  const removed = post.removed + stop.removed;
+  if (!added && !removed) return { added: false, removed: 0 };
   mkdirSync(dirname(settingsFile), { recursive: true });
   writeFileSync(settingsFile, JSON.stringify(s, null, 2) + "\n", "utf8");
-  return { added: true };
+  return { added, removed };
 }
 
 export function readDesignStackConfig({ templatesDir } = {}) {

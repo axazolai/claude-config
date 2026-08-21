@@ -346,7 +346,11 @@ tests `*.test.mjs`, run via `node --test`):
   What gets installed is declared by the `designStack` block in
   `setting-templates/frontend/_base.json` — not plugin machinery, and never merged into
   `settings.json`. Idempotent and fail-soft: a re-run installs only what is missing and
-  re-verifies the hook and the graft. Both halves are in the component registry, so they update
+  re-verifies the hook and the graft. The hook is recognised by the tail of its path, not by the
+  whole command string: Impeccable's own
+  `node "$CLAUDE_PROJECT_DIR/.claude/skills/impeccable/scripts/hook.mjs"` is the same hook as our
+  relative spelling, so no second copy is appended, and duplicates an earlier run left collapse to
+  one entry per event (unrelated hooks in the same entry survive). Both halves are in the component registry, so they update
   themselves (see "Auto-updating components" below).
 - **Cleaning up `~/.claude`** — the `/claude-cleanup` command + `bin/claude-cleanup.mjs`. The
   engine is allowlist-based: it only ever proposes paths under enumerated category roots

@@ -63,7 +63,7 @@ function main() {
     const root = ri >= 0 ? argv[ri + 1] : process.cwd();
     const config = readDesignStackConfig() || DEFAULT;
     const r = runDesignStack({ root, config });
-    console.log(`design-stack: pruned=${r.pruned.length} hook=${r.hook.added ? "added" : "present"} graft=${r.graft.applied.length}`);
+    console.log(`design-stack: pruned=${r.pruned.length} hook=${r.hook.added ? "added" : "present"}${r.hook.removed ? `+deduped(${r.hook.removed})` : ""} graft=${r.graft.applied.length}`);
   } catch (e) {
     console.error(`  ! design-stack: ${e.message}`);
   }

@@ -53,3 +53,46 @@ test("runInstaller isolates HOME/USERPROFILE from the real home", () => {
   assert.notEqual(childHome, homedir(), "child must NOT see the real home dir");
   rmSync(root, { recursive: true, force: true });
 });
+
+test("registerDesignHook recognises Impeccable's own $CLAUDE_PROJECT_DIR spelling and adds nothing", () => {
+  const dir = mkdtempSync(join(tmpdir(), "hook-alt-"));
+  const settingsFile = join(dir, "settings.json");
+  const theirs = 'node "$CLAUDE_PROJECT_DIR/.claude/skills/impeccable/scripts/hook.mjs"';
+  writeFileSync(settingsFile, JSON.stringify({ hooks: {
+    PostToolUse: [{ matcher: "Edit|Write|MultiEdit", hooks: [{ type: "command", command: theirs }] }],
+    Stop: [{ hooks: [{ type: "command", command: theirs }] }],
+  } }, null, 2));
+  const r = registerDesignHook(settingsFile, { scriptPath: ".claude/skills/impeccable/scripts/hook.mjs" });
+  assert.equal(r.added, false, "equality on the whole command called this absent and appended a duplicate");
+  const s = JSON.parse(readFileSync(settingsFile, "utf8"));
+  assert.equal(s.hooks.PostToolUse[0].hooks.length, 1);
+  assert.equal(s.hooks.Stop[0].hooks.length, 1);
+  assert.equal(s.hooks.PostToolUse[0].hooks[0].command, theirs, "the existing spelling stays untouched");
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test("registerDesignHook collapses duplicates an earlier run left, keeping unrelated hooks", () => {
+  const dir = mkdtempSync(join(tmpdir(), "hook-dup-"));
+  const settingsFile = join(dir, "settings.json");
+  const rel = "node .claude/skills/impeccable/scripts/hook.mjs";
+  const abs = 'node "$CLAUDE_PROJECT_DIR/.claude/skills/impeccable/scripts/hook.mjs"';
+  const win = "node C:\\p\\.claude\\skills\\impeccable\\scripts\\hook.mjs";
+  const other = "node .claude/hooks/graphify-sync.mjs";
+  writeFileSync(settingsFile, JSON.stringify({ hooks: {
+    PostToolUse: [
+      { matcher: "Edit|Write|MultiEdit", hooks: [{ type: "command", command: abs }, { type: "command", command: other }] },
+      { matcher: "Edit|Write|MultiEdit", hooks: [{ type: "command", command: rel }] },
+      { matcher: "Edit|Write|MultiEdit", hooks: [{ type: "command", command: win }] },
+    ],
+    Stop: [{ hooks: [{ type: "command", command: rel }] }, { hooks: [{ type: "command", command: abs }] }],
+  } }, null, 2));
+  const r = registerDesignHook(settingsFile, { scriptPath: ".claude/skills/impeccable/scripts/hook.mjs" });
+  assert.equal(r.added, false);
+  assert.equal(r.removed, 3);
+  const s = JSON.parse(readFileSync(settingsFile, "utf8"));
+  const impeccable = (arr) => arr.flatMap((e) => e.hooks || []).filter((h) => /impeccable/.test(h.command));
+  assert.equal(impeccable(s.hooks.PostToolUse).length, 1, "PostToolUse must fire the design hook once");
+  assert.equal(impeccable(s.hooks.Stop).length, 1, "Stop must fire the design hook once");
+  assert.ok(s.hooks.PostToolUse.flatMap((e) => e.hooks).some((h) => h.command === other), "an unrelated hook must survive");
+  rmSync(dir, { recursive: true, force: true });
+});
