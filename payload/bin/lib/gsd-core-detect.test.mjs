@@ -191,6 +191,7 @@ test("gsdLookingRels picks the paths gsd-core's scanner calls GSD-looking", () =
     "hooks/lib/gsd-agent-patches.mjs", "hooks/lib/gsd-defaults-sync.mjs",
     "hooks/lib/gsd-patch-frontmatter.mjs", "hooks/lib/gsd-skill-patches.mjs",
     "hooks/lib/gsd-statusline-registration.mjs", "hooks/lib/gsd-workflow-patches.mjs",
+    "hooks/lib/gsd-hook-patches.mjs",
     "hooks/gsd-config-patch.mjs", "agents/gsd-executor-decomposing.md",
     "agents/gsd-task-verifier.md", "bin/lib/gsd-core-detect.mjs", "gsd-defaults-sync.mjs",
     "hooks/session-init.mjs", "rules-src/gsd.md", "apply-gsd-agent-patches.mjs",
@@ -200,6 +201,7 @@ test("gsdLookingRels picks the paths gsd-core's scanner calls GSD-looking", () =
     "agents/gsd-executor-decomposing.md", "agents/gsd-task-verifier.md",
     "bin/lib/gsd-core-detect.mjs", "gsd-defaults-sync.mjs", "hooks/gsd-config-patch.mjs",
     "hooks/lib/gsd-agent-patches.mjs", "hooks/lib/gsd-defaults-sync.mjs",
+    "hooks/lib/gsd-hook-patches.mjs",
     "hooks/lib/gsd-patch-frontmatter.mjs", "hooks/lib/gsd-skill-patches.mjs",
     "hooks/lib/gsd-statusline-registration.mjs", "hooks/lib/gsd-workflow-patches.mjs",
   ]);

@@ -428,7 +428,6 @@ if (FULL) {
     const { syncGsdAgentsContextMode } = await import("./lib/context-mode-gsd-agents.mjs");
     const { checkGsdAgentPatches, checkCuratedGsdAgentPatches, checkRetiredGsdAgentPatches, checkRecursiveAgentSpawnGuardrail } =
       await import("./lib/gsd-agent-patches.mjs");
-    const { checkGsdWorkflowPatches } = await import("./lib/gsd-workflow-patches.mjs");
     const { checkGsdSkillPatches } = await import("./lib/gsd-skill-patches.mjs");
     const { checkGsdHookPatches, HOOK_PATCHES } = await import("./lib/gsd-hook-patches.mjs");
 
@@ -479,15 +478,6 @@ if (FULL) {
         notes.push(`gsd-* agent file(s) still carry text from ${retiredFiles.length} retired patch ` +
           `target(s) (${retiredFiles.slice(0, 5).join(", ")}${retiredFiles.length > 5 ? ", ..." : ""}) ` +
           `- run /init-session to clean up.`);
-
-      // Same check-only/apply-gated split, for gsd-core's own execute-phase.md dispatch template
-      // (not an agents/*.md file, so tracked separately - see gsd-workflow-patches.mjs).
-      const wfPending = safe(() => checkGsdWorkflowPatches({ claudeDir })) || {};
-      const wfFiles = Object.keys(wfPending);
-      if (wfFiles.length)
-        notes.push(`gsd-core workflow patch pending for ${wfFiles.join(", ")} ` +
-          `(routes verify_isolated="true" plans to gsd-executor-decomposing) - ` +
-          `run /init-session to apply.`);
 
       // Same check-only/apply-gated split for the §6.1 effort re-tune of gsd-* skills
       // (skills/gsd-*/SKILL.md — frontmatter scalar patches, see gsd-skill-patches.mjs).

@@ -429,7 +429,7 @@ installed.
       graphify-global-sync-run.mjs       # shared worker (called by the hook above and the native post-commit)
       context-mode-gsd-agents.mjs        # silent per-session tool-grant sync into gsd-*.md
       gsd-agent-patches.mjs              # review-gated content patches to 30+ gsd-*.md (check/apply)
-      gsd-workflow-patches.mjs           # review-gated content patch to execute-phase.md
+      gsd-hook-patches.mjs               # review-gated line patch to hooks/gsd-*.js + its alarm
       gsd-statusline-registration.mjs    # safe guard around the statusLine registration
       component-registry.mjs             # registry of updatable components + the decision rules
       component-update-check-run.mjs     # detached worker: component update checks
@@ -1071,8 +1071,10 @@ different write policies, deliberately:
   context-mode tools, hardening `gsd-executor.md`/`gsd-debugger.md`, a guardrail against recursive
   spawning — including a bounded-Agent guardrail for `gsd-debug-session-manager.md`, the one agent
   that keeps `Agent` (to spawn `gsd-debugger`), where instead of a ban it truthfully documents the
-  depth-2 cap) and `hooks/lib/gsd-workflow-patches.mjs` (the dispatch template in `execute-phase.md` —
-  decompose-aware choice of `gsd-executor` vs `gsd-executor-decomposing`). Unlike tool-grant this
+  depth-2 cap) and `hooks/lib/gsd-hook-patches.mjs` (one line in
+  `hooks/gsd-agent-isolation-guard.js`: gsd-core's guard knows only its own executor, and this
+  bundle ships a second one). Choosing `gsd-executor` vs `gsd-executor-decomposing` is no longer a
+  patch of ours — it is gsd-core's own per-plan `agent_hint`. Unlike tool-grant this
   is **not written silently**: the patches inject prose across dozens of files, so a human first
   reviews what's about to land. `session-init.mjs` checks them **read-only** every session
   (`checkGsd…Patches`) and prints a hint if something is pending. It's applied only by an explicit

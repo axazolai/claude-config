@@ -106,10 +106,10 @@ now actively harmful — the correction runs the opposite direction.
 - **What it is:** a fork of `gsd-executor` (`payload/agents/gsd-executor-decomposing.md`) that
   grants `Agent` for exactly one documented use - dispatching `gsd-task-verifier`
   (`payload/agents/gsd-task-verifier.md`) to verify a single task's behavior in its own clean
-  context instead of writing/running the test inline. `execute-phase.md` (patched via
-  `gsd-workflow-patches.mjs`) dispatches this variant instead of plain `gsd-executor` only for a
-  plan containing at least one task with `verify_isolated="true"` in its `<task>` attributes;
-  every other plan still gets plain `gsd-executor`, unchanged.
+  context instead of writing/running the test inline. Routing is gsd-core's own per-plan
+  `agent_hint` (#1689): `gsd-planner` sets `agent_hint: gsd-executor-decomposing` on a plan that
+  has at least one task with `verify_isolated="true"`, and execute-phase dispatches that name.
+  Every other plan still gets plain `gsd-executor`, unchanged.
 - **Why this doesn't repeat the depth-boundary failure above:** the depth cap here is structural,
   not textual. `gsd-task-verifier` has no `Agent` in its `tools:` frontmatter — it cannot recurse
   whatever its prompt says — and `checkRecursiveAgentSpawnGuardrail` (in `gsd-agent-patches.mjs`)

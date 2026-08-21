@@ -418,7 +418,7 @@ Claude Code. Живёт в [`axazolai/ultrapowers`](https://github.com/axazolai/
       graphify-global-sync-run.mjs       # общий воркер (зовут и хук выше, и нативный post-commit)
       context-mode-gsd-agents.mjs        # тихий посессионный tool-grant синк в gsd-*.md
       gsd-agent-patches.mjs              # review-gated контент-патчи в 30+ gsd-*.md (check/apply)
-      gsd-workflow-patches.mjs           # review-gated контент-патч в execute-phase.md
+      gsd-hook-patches.mjs               # review-gated патч строки в hooks/gsd-*.js + его тревога
       gsd-statusline-registration.mjs    # safe-гард регистрации statusLine
       component-registry.mjs             # реестр обновляемых компонентов + правила решения
       component-update-check-run.mjs     # detached-воркер проверки обновлений компонентов
@@ -1068,8 +1068,10 @@ bump версии патча устаревший текст заменяетс�
   context-mode-тулы, хардненинг `gsd-executor.md`/`gsd-debugger.md`, guardrail против рекурсивного
   спавна — включая bounded-Agent guardrail для `gsd-debug-session-manager.md`, единственного
   агента, которому `Agent` оставлен (для спавна `gsd-debugger`), поэтому вместо запрета там
-  правдиво описан depth-2 предел) и `hooks/lib/gsd-workflow-patches.mjs` (шаблон диспетчеризации в `execute-phase.md` —
-  decompose-aware выбор `gsd-executor` vs `gsd-executor-decomposing`). В отличие от tool-grant это
+  правдиво описан depth-2 предел) и `hooks/lib/gsd-hook-patches.mjs` (одна строка в
+  `hooks/gsd-agent-isolation-guard.js`: гард gsd-core знает только своего исполнителя, а бандл везёт
+  второго). Выбор `gsd-executor` vs `gsd-executor-decomposing` — больше не наш патч: это штатный
+  per-plan `agent_hint` самого gsd-core. В отличие от tool-grant это
   **НЕ пишется молча**: патчи инжектят прозу через десятки файлов, поэтому человек сначала смотрит,
   что применится. `session-init.mjs` каждую сессию проверяет их **read-only** (`checkGsd…Patches`) и,
   если что-то ждёт, печатает подсказку. Применяет — только явный вызов человека: команда

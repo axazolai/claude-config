@@ -59,7 +59,9 @@
   "effort": {
     "agent_overrides": {
       "gsd-plan-checker": "medium",
-      "gsd-codebase-mapper": "medium"
+      "gsd-codebase-mapper": "medium",
+      "gsd-executor-decomposing": "high",
+      "gsd-task-verifier": "low"
     }
   },
   "graphify": { "enabled": true, "auto_update": true },

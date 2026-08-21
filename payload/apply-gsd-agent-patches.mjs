@@ -11,14 +11,12 @@
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { applyGsdAgentPatches, checkRecursiveAgentSpawnGuardrail } from "./hooks/lib/gsd-agent-patches.mjs";
-import { applyGsdWorkflowPatches } from "./hooks/lib/gsd-workflow-patches.mjs";
 import { applyGsdSkillPatches } from "./hooks/lib/gsd-skill-patches.mjs";
 import { applyGsdHookPatches } from "./hooks/lib/gsd-hook-patches.mjs";
 const CLAUDE_DIR = process.env.CLAUDE_CONFIG_DIR || join(homedir(), ".claude");
 
 const claudeDir = process.argv[2] || join(CLAUDE_DIR);
 const result = applyGsdAgentPatches({ claudeDir });
-const wfResult = applyGsdWorkflowPatches({ claudeDir });
 const skResult = applyGsdSkillPatches({ claudeDir });
 const hkResult = applyGsdHookPatches({ claudeDir });
 
@@ -45,19 +43,6 @@ if (result.removedRetired.length) {
   console.log(`Cleaned up ${result.removedRetired.length} retired-patch leftover(s):`);
   for (const entry of result.removedRetired) console.log(`  - ${entry}`);
 }
-
-if (wfResult.applied.length) {
-  console.log(`Applied ${wfResult.applied.length} workflow patch(es):`);
-  for (const entry of wfResult.applied) console.log(`  - ${entry}`);
-}
-if (wfResult.upgraded.length) {
-  console.log(`Upgraded ${wfResult.upgraded.length} stale workflow patch(es):`);
-  for (const entry of wfResult.upgraded) console.log(`  - ${entry}`);
-}
-if (wfResult.skippedCurated.length)
-  console.log(`Skipped (curated): ${wfResult.skippedCurated.join(", ")}`);
-if (wfResult.skippedNoAnchor.length)
-  console.log(`Skipped (anchor not found - gsd-core execute-phase.md may have changed upstream): ${wfResult.skippedNoAnchor.join(", ")}`);
 
 if (skResult.applied.length) {
   console.log(`Applied ${skResult.applied.length} skill effort patch(es):`);

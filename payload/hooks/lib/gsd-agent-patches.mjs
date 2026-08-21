@@ -327,33 +327,22 @@ because you're about to \`Edit\` it, or whether you're reading it purely to unde
 it. For the latter, use \`ctx_execute_file\` instead — every time, not just when reminded.
 </context_mode_read_discipline>`;
 
-const PLANNER_VERIFY_ISOLATED_BLOCK = `**Task-level isolated verification** (alternative to \`tdd="true"\`, never combined with it on
-the same task): a behavior-adding task that would otherwise get \`tdd="true"\` instead gets
-\`verify_isolated="true"\` when EITHER applies:
-- The plan's \`<threat_model>\` STRIDE register assigns \`critical\` or \`high\` severity with a
-  \`mitigate\` disposition to a component this task's \`<files>\` touches.
-- CONTEXT.md explicitly requests isolated verification for this task or its area (a
-  \`/gsd-discuss-phase\` decision). This is ADDITIVE to the threat-model criterion above, never a
-  replacement for it — CONTEXT.md can only ADD tasks to \`verify_isolated="true"\`, never remove
-  ones the threat-model criterion already selected.
+const PLANNER_VERIFY_ISOLATED_BLOCK = `**Task-level isolated verification** (alternative to \`tdd="true"\`, never both on one task): a
+behavior-adding task that would otherwise get \`tdd="true"\` gets \`verify_isolated="true"\` when
+EITHER applies:
+- the plan's \`<threat_model>\` STRIDE register assigns \`critical\`/\`high\` with a \`mitigate\`
+  disposition to a component this task's \`<files>\` touches;
+- CONTEXT.md asks for isolated verification for this task or its area. Additive only: it can ADD
+  tasks, never remove ones the threat-model criterion already selected.
 
-\`verify_isolated="true"\` tasks are executed by \`gsd-executor-decomposing\` instead of plain
-\`gsd-executor\` (dispatched automatically per-plan by execute-phase.md) — see \`rules-src/gsd.md\`'s
-"The one sanctioned depth-3 exception" section for why this exists and how it's bounded. Same
-\`<behavior>\`/\`<verification>\` shape as a \`tdd="true"\` task:
+Attribute placement matches \`tdd="true"\` — \`<task type="auto" verify_isolated="true">\` — with the
+same \`<behavior>\`/\`<verification>\`/\`<done>\` shape.
 
-\`\`\`xml
-<task type="auto" verify_isolated="true">
-  <name>Task: [name]</name>
-  <files>src/feature.ts, src/feature.test.ts</files>
-  <behavior>
-    - Test 1: [expected behavior]
-  </behavior>
-  <action>[Specific implementation]</action>
-  <verification>[Command or check]</verification>
-  <done>[Acceptance criteria]</done>
-</task>
-\`\`\``;
+**When ANY task in a plan carries it, also set \`agent_hint: gsd-executor-decomposing\` in that
+PLAN.md's frontmatter.** The two do different jobs and both are required: the hint routes the whole
+plan to the fork, the attribute marks which tasks inside it get isolated verification. A plan with
+the attribute and no hint runs on plain \`gsd-executor\`, which ignores the attribute entirely. See
+\`rules-src/gsd.md\`'s "The one sanctioned depth-3 exception" for why this is bounded.`;
 
 /* ---------- patch registry ----------
  * appliesTo(name, claudeDir): whether this patch targets a given agent filename.
@@ -523,7 +512,7 @@ export const PATCHES = [
   },
   {
     id: "planner-verify-isolated-detection",
-    version: 1,
+    version: 2,
     // Companion to gsd-executor-decomposing.md's <task_stage_decomposition>: without this,
     // verify_isolated="true" could only ever be set by a human hand-editing PLAN.md after
     // generation - the mechanism had a consumer (execute-phase.md's dispatch check,

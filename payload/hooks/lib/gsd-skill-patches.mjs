@@ -3,8 +3,7 @@
 // agent effort patches. Same review-gated model: applied only by an explicit /init-session (via
 // apply-gsd-agent-patches.mjs, which also calls this), surfaced read-only every session by
 // session-init.mjs. gsd-agent-patches.mjs only scans agents/gsd-*.md; skills live under a
-// different directory, hence this separate small module (mirrors gsd-workflow-patches.mjs's
-// reasoning for splitting out the workflow target).
+// different directory, hence this separate small module.
 //
 // Unlike the agent/workflow modules these are NOT marker-wrapped prose blocks but frontmatter
 // scalar re-tunes (Phase 5 §6.1, retargeted for gsd-core 1.10.0), so idempotency and
