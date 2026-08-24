@@ -69,7 +69,7 @@ where it gets fixed — it is not a reason to leave a stale `current` in place.
 | 13 graphify-neo4j-autosync | complete | merged at `50e26e4`, deployed |
 | 13 graphify-neo4j-autosync | running | specified, on `feat/graphify-neo4j-autosync` |
 | 14 gsd-surface-dial | planned | `phases/14-gsd-surface-dial/14-PLAN.md`, no branch |
-| 15 claude-code-changelog-tracking | running | `feature/claude-code-changelog-tracking`, task 1/5 done |
+| 15 claude-code-changelog-tracking | running | `feature/claude-code-changelog-tracking`, 5/5 tasks done, final review fixes in progress |
 
 Phase 03's row is the reason `status` and `integration` are separate fields: its probe
 commits and its rollback are both in `master`, and the phase still did not ship. It reads
