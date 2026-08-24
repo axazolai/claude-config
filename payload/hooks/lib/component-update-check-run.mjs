@@ -14,6 +14,7 @@ import { COMPONENTS, autoUpdateEnabled, decide } from "./component-registry.mjs"
 import { checkBundleUpdate } from "./config-update-check-run.mjs";
 import { applyPromaxGraft } from "./impeccable-promax-graft.mjs";
 import { runInstaller } from "../../bin/lib/design-stack.mjs";
+import { parseVer, compareVer } from "../../bin/lib/claude-code-changelog-lib.mjs";
 
 const CLAUDE_DIR = process.env.CLAUDE_CONFIG_DIR || join(homedir(), ".claude");
 const STATE = join(CLAUDE_DIR, "state", "component-updates.json");
@@ -66,7 +67,10 @@ export function checkClaudeCodeUpdate(claudeDir, priorEntry) {
   if (!data || data.outcome !== "success" || !data.version_to) return null;
   const installed = priorEntry?.latest ?? data.version_from ?? data.version_to;
   const latest = data.version_to;
-  return { installed, latest, updateAvailable: latest !== installed };
+  const vInstalled = parseVer(installed);
+  const vLatest = parseVer(latest);
+  const updateAvailable = vInstalled && vLatest ? compareVer(vLatest, vInstalled) > 0 : latest !== installed;
+  return { installed, latest, updateAvailable };
 }
 
 // Runs the component's self-update, THEN re-applies the Pro Max graft when the component declares it.

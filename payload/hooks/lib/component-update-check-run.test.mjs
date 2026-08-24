@@ -98,6 +98,20 @@ test("checkClaudeCodeUpdate: repeat run with no new version is NOT re-announced"
   rmSync(dir, { recursive: true, force: true });
 });
 
+test("checkClaudeCodeUpdate: stale prior.latest ahead of the file's version_to is NOT announced (backwards case)", async () => {
+  const { mkdtempSync, writeFileSync, rmSync } = await import("node:fs");
+  const { tmpdir } = await import("node:os");
+  const { join } = await import("node:path");
+  const { checkClaudeCodeUpdate } = await import("./component-update-check-run.mjs");
+  const dir = mkdtempSync(join(tmpdir(), "cc-stale-"));
+  writeFileSync(join(dir, ".last-update-result.json"),
+    JSON.stringify({ outcome: "success", version_from: "2.1.240", version_to: "2.1.241" }));
+  const prior = { installed: "2.1.239", latest: "2.1.242", updateAvailable: true };
+  assert.deepEqual(checkClaudeCodeUpdate(dir, prior),
+    { installed: "2.1.242", latest: "2.1.241", updateAvailable: false });
+  rmSync(dir, { recursive: true, force: true });
+});
+
 test("checkClaudeCodeUpdate: a further update since the prior check IS announced", async () => {
   const { mkdtempSync, writeFileSync, rmSync } = await import("node:fs");
   const { tmpdir } = await import("node:os");
