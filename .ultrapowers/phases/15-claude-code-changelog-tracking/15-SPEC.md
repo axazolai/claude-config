@@ -35,8 +35,9 @@ judgment needs the current project's context and isn't something a background ho
   ```js
   { name: "claude-code-cli", scope: "global", kind: "version", updateClass: "notify-restart", legacyEnv: null }
   ```
-- New branch in `formatUpdateNotes()` for `updateClass === "notify-restart"`:
-  `"${name}: обновился ${installed}→${latest} — перезапусти сессию, затем /claude-code-changelog, чтобы узнать что нового."`
+- New branch in `formatUpdateNotes()` for `updateClass === "notify-restart"`, matching the
+  English phrasing of every existing branch in that function:
+  `"${name}: updated ${installed}→${latest} — restart to activate, then run /claude-code-changelog to see what's new."`
   `decide()` needs no change — it only special-cases `"safe"`, so `"notify-restart"` already falls
   through to `"notify"`.
 
@@ -89,8 +90,8 @@ judgment needs the current project's context and isn't something a background ho
 2. On the next `SessionStart` (throttled 24h like every other component), the background worker
    notices `version_to` differs from the last-recorded `latest`, updates
    `component-updates.json`, and `formatUpdateNotes()` adds one line to the session banner.
-3. The user sees `claude-code-cli: обновился X→Y — ... /claude-code-changelog ...` instead of the
-   bare native banner.
+3. The user sees `claude-code-cli: updated X→Y — restart to activate, then run
+   /claude-code-changelog ...` instead of the bare native banner.
 4. Running `/claude-code-changelog` re-reads the same state file for the version range, fetches
    the changelog slice, and the live session reasons about relevance in place.
 
