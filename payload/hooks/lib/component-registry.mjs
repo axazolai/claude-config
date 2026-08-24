@@ -13,6 +13,7 @@ export const COMPONENTS = [
   { name: "claude-config", scope: "global",  kind: "version",      updateClass: "reinit", legacyEnv: null },
   { name: "impeccable",    scope: "project", kind: "version",      updateClass: "safe",   legacyEnv: null, afterUpdate: "promax-graft" },
   { name: "ui-ux-pro-max", scope: "project", kind: "version",      updateClass: "safe",   legacyEnv: null },
+  { name: "claude-code-cli", scope: "global", kind: "version", updateClass: "notify-restart", legacyEnv: null },
 ];
 
 const envKey = (name) => name.toUpperCase().replace(/-/g, "_");
@@ -55,7 +56,9 @@ export function formatUpdateNotes(state) {
   for (const [name, e] of Object.entries(state)) {
     if (!e || e.updateAvailable !== true) continue;
     const ver = e.latest ? ` ${e.latest}` : "";
-    if (e.class === "safe" && e.autoUpdated) {
+    if (e.class === "notify-restart") {
+      out.push(`${name}: updated ${e.installed}→${e.latest} — restart to activate, then run /claude-code-changelog to see what's new.`);
+    } else if (e.class === "safe" && e.autoUpdated) {
       out.push(`${name}: updated ${e.installed}→${e.latest} (active next session — restart to apply now).`);
     } else if (e.class === "safe") {
       out.push(`${name}:${ver} available (auto-update off — update it manually or re-enable).`);
