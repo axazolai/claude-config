@@ -1,8 +1,8 @@
 ---
 phase: "15"
 status: running
-action: continue SDD task loop — Task 4 next
-tasks_done: 3
+action: continue SDD task loop — Task 5 next
+tasks_done: 4
 tasks_total: 5
 branch: feature/claude-code-changelog-tracking
 delivery: branch
@@ -38,6 +38,16 @@ heading format was resolved by the controller (already hand-verified against the
 plan-writing). Two Minor findings deferred: an untested (but trace-correct) zero-headings case,
 and two small inaccuracies in the implementer's own report text (not code defects).
 
-Remaining: Task 4 (CLI entry), Task 5 (command definition), then final whole-branch review.
+**Task 4 (claude-code-changelog.mjs CLI)** — complete, 1 fix round. Commit range
+`47e67ac..eba39b1`. Consumes Task 3's lib cleanly. Review traced all five state branches as
+mutually exclusive by guard-clause construction, but found one gap the brief itself carried: an
+unguarded `JSON.parse` on `component-updates.json` that would reject instead of degrading on a
+corrupt file — labeled plan-mandated, escalated to the human, who ruled to fix it. Fix round 1
+wrapped the parse in try/catch (degrades to the same "no state" message/exit code) with a covering
+test; scoped re-review confirmed ADDRESSED, no new breakage. One Minor deferred:
+`realFetchChangelogText` is imported but not re-exported, contrary to the brief's Interfaces
+wording — no functional impact, no test needs it.
+
+Remaining: Task 5 (command definition), then final whole-branch review.
 
 SDD workspace/ledger: `.ultrapowers/sdd/phases-15-claude-code-changelog-tracking/progress.md`.
