@@ -1,8 +1,8 @@
 ---
 phase: "15"
 status: running
-action: continue SDD task loop — Task 3 next
-tasks_done: 2
+action: continue SDD task loop — Task 4 next
+tasks_done: 3
 tasks_total: 5
 branch: feature/claude-code-changelog-tracking
 delivery: branch
@@ -31,7 +31,13 @@ a first-ever-run-with-no-`version_from` edge case silently doesn't announce (def
 best-effort default, untested). A ⚠️ cross-task item (does Task 1's `COMPONENTS` entry actually
 match what this probe expects?) was resolved by the controller — confirmed yes, no gap.
 
-Remaining: Task 3 (changelog-lib), Task 4 (CLI entry), Task 5 (command definition), then final
-whole-branch review.
+**Task 3 (claude-code-changelog-lib.mjs)** — complete, review clean. Commit range
+`19d23b4..028a2bb`. Standalone new pair of files, no dependency on Tasks 1-2. Boundary semantics
+`(fromVersion, toVersion]` verified correct by trace at both edges; a ⚠️ item on real changelog
+heading format was resolved by the controller (already hand-verified against the live file during
+plan-writing). Two Minor findings deferred: an untested (but trace-correct) zero-headings case,
+and two small inaccuracies in the implementer's own report text (not code defects).
+
+Remaining: Task 4 (CLI entry), Task 5 (command definition), then final whole-branch review.
 
 SDD workspace/ledger: `.ultrapowers/sdd/phases-15-claude-code-changelog-tracking/progress.md`.
