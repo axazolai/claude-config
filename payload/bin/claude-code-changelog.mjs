@@ -1,9 +1,9 @@
 #!/usr/bin/env node
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, realpathSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
-import { fetchChangelogSlice, formatChangelogSlice, realFetchChangelogText } from "./lib/claude-code-changelog-lib.mjs";
+import { fetchChangelogSlice, formatChangelogSlice, parseVer, realFetchChangelogText } from "./lib/claude-code-changelog-lib.mjs";
 
 export function defaultClaudeDir() {
   return process.env.CLAUDE_CONFIG_DIR || join(homedir(), ".claude");
@@ -31,6 +31,10 @@ export async function main(claudeDir = defaultClaudeDir(), fetchText = realFetch
     console.log(`Claude Code is already on the latest known version (${entry.latest}). Nothing new to show.`);
     return 0;
   }
+  if (!parseVer(entry.installed) || !parseVer(entry.latest)) {
+    console.log(`Recorded versions are not plain X.Y.Z (${entry.installed} → ${entry.latest}); cannot slice the changelog.`);
+    return 0;
+  }
   try {
     const entries = await fetchChangelogSlice(entry.installed, entry.latest, fetchText);
     if (!entries.length) {
@@ -45,6 +49,13 @@ export async function main(claudeDir = defaultClaudeDir(), fetchText = realFetch
   }
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+function isMainModule() {
+  const a = process.argv[1];
+  if (!a) return false;
+  if (import.meta.url === pathToFileURL(a).href) return true;
+  try { return import.meta.url === pathToFileURL(realpathSync(a)).href; } catch { return false; }
+}
+
+if (isMainModule()) {
   main().then((code) => { process.exitCode = code; });
 }

@@ -80,6 +80,19 @@ test("main: fetch failure -> clear error, exit 1", async () => {
   rmSync(dir, { recursive: true, force: true });
 });
 
+test("main: non-semver installed/latest -> refuses to slice, exit 0, fetcher never called", async () => {
+  const dir = tmpClaudeDir({ installed: "nightly", latest: "canary", updateAvailable: true });
+  const cap = captureLogs();
+  const neverFetch = async () => { throw new Error("fetcher must not be called"); };
+  const code = await main(dir, neverFetch);
+  cap.restore();
+  assert.equal(code, 0);
+  assert.match(cap.lines.join("\n"), /not plain X\.Y\.Z/);
+  assert.match(cap.lines.join("\n"), /nightly/);
+  assert.match(cap.lines.join("\n"), /canary/);
+  rmSync(dir, { recursive: true, force: true });
+});
+
 test("main: malformed JSON in state file -> friendly message, exit 0", async () => {
   const dir = mkdtempSync(join(tmpdir(), "cc-cli-badjson-"));
   mkdirSync(join(dir, "state"), { recursive: true });
