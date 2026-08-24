@@ -43,3 +43,71 @@ test("updateAndRegraft re-applies the graft AFTER the update clobbers the refere
     assert.ok(readFileSync(join(refDir, f), "utf8").includes(SENTINEL), `${f} must carry the graft after updateAndRegraft`);
   rmSync(root, { recursive: true, force: true });
 });
+
+test("checkClaudeCodeUpdate: null when .last-update-result.json is missing", async () => {
+  const { mkdtempSync, rmSync } = await import("node:fs");
+  const { tmpdir } = await import("node:os");
+  const { join } = await import("node:path");
+  const { checkClaudeCodeUpdate } = await import("./component-update-check-run.mjs");
+  const dir = mkdtempSync(join(tmpdir(), "cc-missing-"));
+  assert.equal(checkClaudeCodeUpdate(dir, undefined), null);
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test("checkClaudeCodeUpdate: null on malformed JSON or a failed outcome", async () => {
+  const { mkdtempSync, writeFileSync, rmSync } = await import("node:fs");
+  const { tmpdir } = await import("node:os");
+  const { join } = await import("node:path");
+  const { checkClaudeCodeUpdate } = await import("./component-update-check-run.mjs");
+  const dir = mkdtempSync(join(tmpdir(), "cc-bad-"));
+  const file = join(dir, ".last-update-result.json");
+
+  writeFileSync(file, "{not json");
+  assert.equal(checkClaudeCodeUpdate(dir, undefined), null);
+
+  writeFileSync(file, JSON.stringify({ outcome: "failed", version_from: "1.0.0", version_to: "1.0.1" }));
+  assert.equal(checkClaudeCodeUpdate(dir, undefined), null);
+
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test("checkClaudeCodeUpdate: first-ever run reports version_from -> version_to", async () => {
+  const { mkdtempSync, writeFileSync, rmSync } = await import("node:fs");
+  const { tmpdir } = await import("node:os");
+  const { join } = await import("node:path");
+  const { checkClaudeCodeUpdate } = await import("./component-update-check-run.mjs");
+  const dir = mkdtempSync(join(tmpdir(), "cc-first-"));
+  writeFileSync(join(dir, ".last-update-result.json"),
+    JSON.stringify({ outcome: "success", version_from: "2.1.240", version_to: "2.1.241" }));
+  assert.deepEqual(checkClaudeCodeUpdate(dir, undefined),
+    { installed: "2.1.240", latest: "2.1.241", updateAvailable: true });
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test("checkClaudeCodeUpdate: repeat run with no new version is NOT re-announced", async () => {
+  const { mkdtempSync, writeFileSync, rmSync } = await import("node:fs");
+  const { tmpdir } = await import("node:os");
+  const { join } = await import("node:path");
+  const { checkClaudeCodeUpdate } = await import("./component-update-check-run.mjs");
+  const dir = mkdtempSync(join(tmpdir(), "cc-repeat-"));
+  writeFileSync(join(dir, ".last-update-result.json"),
+    JSON.stringify({ outcome: "success", version_from: "2.1.240", version_to: "2.1.241" }));
+  const prior = { installed: "2.1.240", latest: "2.1.241", updateAvailable: true };
+  assert.deepEqual(checkClaudeCodeUpdate(dir, prior),
+    { installed: "2.1.241", latest: "2.1.241", updateAvailable: false });
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test("checkClaudeCodeUpdate: a further update since the prior check IS announced", async () => {
+  const { mkdtempSync, writeFileSync, rmSync } = await import("node:fs");
+  const { tmpdir } = await import("node:os");
+  const { join } = await import("node:path");
+  const { checkClaudeCodeUpdate } = await import("./component-update-check-run.mjs");
+  const dir = mkdtempSync(join(tmpdir(), "cc-again-"));
+  writeFileSync(join(dir, ".last-update-result.json"),
+    JSON.stringify({ outcome: "success", version_from: "2.1.241", version_to: "2.1.242" }));
+  const prior = { installed: "2.1.240", latest: "2.1.241", updateAvailable: true };
+  assert.deepEqual(checkClaudeCodeUpdate(dir, prior),
+    { installed: "2.1.241", latest: "2.1.242", updateAvailable: true });
+  rmSync(dir, { recursive: true, force: true });
+});
