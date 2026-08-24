@@ -15,7 +15,13 @@ export async function main(claudeDir = defaultClaudeDir(), fetchText = realFetch
     console.log("No component-update state recorded yet — nothing to compare.");
     return 0;
   }
-  const state = JSON.parse(readFileSync(statePath, "utf8"));
+  let state;
+  try {
+    state = JSON.parse(readFileSync(statePath, "utf8"));
+  } catch {
+    console.log("No component-update state recorded yet — nothing to compare.");
+    return 0;
+  }
   const entry = state["claude-code-cli"];
   if (!entry || !entry.installed || !entry.latest) {
     console.log("No Claude Code CLI update has been recorded yet.");

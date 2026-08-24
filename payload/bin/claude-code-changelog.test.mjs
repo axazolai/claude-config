@@ -79,3 +79,15 @@ test("main: fetch failure -> clear error, exit 1", async () => {
   assert.match(errLines.join("\n"), /offline/);
   rmSync(dir, { recursive: true, force: true });
 });
+
+test("main: malformed JSON in state file -> friendly message, exit 0", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "cc-cli-badjson-"));
+  mkdirSync(join(dir, "state"), { recursive: true });
+  writeFileSync(join(dir, "state", "component-updates.json"), "{ broken json truncated");
+  const cap = captureLogs();
+  const code = await main(dir, async () => "unused");
+  cap.restore();
+  assert.equal(code, 0);
+  assert.match(cap.lines.join("\n"), /no component-update state/i);
+  rmSync(dir, { recursive: true, force: true });
+});
