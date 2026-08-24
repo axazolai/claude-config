@@ -1,8 +1,8 @@
 ---
 phase: "15"
 status: running
-action: continue SDD task loop — Task 5 next
-tasks_done: 4
+action: final whole-branch review next
+tasks_done: 5
 tasks_total: 5
 branch: feature/claude-code-changelog-tracking
 delivery: branch
@@ -48,6 +48,9 @@ test; scoped re-review confirmed ADDRESSED, no new breakage. One Minor deferred:
 `realFetchChangelogText` is imported but not re-exported, contrary to the brief's Interfaces
 wording — no functional impact, no test needs it.
 
-Remaining: Task 5 (command definition), then final whole-branch review.
+**Task 5 (claude-code-changelog.md command)** — complete, review clean, no findings at all. Commit
+range `9065fc2..6620ffd`. Pure Markdown, no test required (matches `up-update.md` precedent).
+
+All five tasks complete. Remaining: final whole-branch review, then finishing-a-development-branch.
 
 SDD workspace/ledger: `.ultrapowers/sdd/phases-15-claude-code-changelog-tracking/progress.md`.
