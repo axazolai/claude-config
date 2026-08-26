@@ -1,11 +1,11 @@
 ---
 phase: "15"
 status: complete
-action: merge and push, per user request
+action: null
 tasks_done: 5
 tasks_total: 5
-branch: feature/claude-code-changelog-tracking
-delivery: branch
+branch: feature/claude-code-changelog-tracking (merged, deleted)
+delivery: merged
 depends_on: []
 updated: 2026-08-26
 ---
@@ -73,8 +73,10 @@ deliberate `setup.mjs` run, not part of this branch).
 **Full suite at the merge/push completion boundary**: 823/823 passing, 0 failing
 (root-level + `payload/**`).
 
-All five tasks complete, final review clean, verification ACHIEVED, summary written. Remaining:
-merge and push, per direct user request — proceeding via `finishing-a-development-branch`.
+All five tasks complete, final review clean, verification ACHIEVED, summary written. Merged
+`--no-ff` into `master` and pushed on 2026-08-26 (full suite 823/823 green on the merged result);
+the feature branch was deleted locally after the merge. Not yet deployed to `~/.claude` — that is
+a separate, deliberate `setup.mjs` run.
 
 SDD workspace/ledger: `.ultrapowers/sdd/phases-15-claude-code-changelog-tracking/progress.md`.
 Summary: `15-SUMMARY.md`. Verification: `15-VERIFICATION.md`.
