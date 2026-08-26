@@ -1,13 +1,13 @@
 ---
 phase: "15"
-status: running
-action: final whole-branch review next
+status: complete
+action: merge and push, per user request
 tasks_done: 5
 tasks_total: 5
 branch: feature/claude-code-changelog-tracking
 delivery: branch
 depends_on: []
-updated: 2026-08-24
+updated: 2026-08-26
 ---
 
 # Phase 15 — claude-code-changelog-tracking — state
@@ -51,6 +51,30 @@ wording — no functional impact, no test needs it.
 **Task 5 (claude-code-changelog.md command)** — complete, review clean, no findings at all. Commit
 range `9065fc2..6620ffd`. Pure Markdown, no test required (matches `up-update.md` precedent).
 
-All five tasks complete. Remaining: final whole-branch review, then finishing-a-development-branch.
+**Final whole-branch review** (opus): "Ready to merge? With fixes." 579/579 payload tests green
+pre-fix, deployment resolved end-to-end across all three installer profiles (full/base/lite). Two
+Important findings, both plan-inherited (the plan told the implementer to mirror `up-update.mjs`,
+which itself carries the bug): a naive entry-point guard silently no-ops under a symlinked
+`~/.claude` (fixed to match `statusline.mjs`'s symlink-safe `isMainModule()`), and an unparseable
+version string could dump the ~530 KB live changelog into the session (fixed with a `parseVer`
+guard). Bundled into the same fix wave: `component-update-check-run.mjs`'s version comparison
+switched from string inequality to version ordering (a stale/downgraded `.last-update-result.json`
+could otherwise render the update banner backwards), and a stale ROADMAP row. Scoped re-review
+confirmed all 4 ADDRESSED, no new breakage, 34/34 target-scope tests independently re-run.
+
+**Verification** (`15-VERIFICATION.md`): **ACHIEVED**. Every global constraint HELD. One real gap
+found and closed before merge: README.md/README.en.md's file-tree listings were missing the two
+new `bin/`/`commands/` entries — added. Two accepted gaps, not fixed: the native "Update installed"
+banner itself isn't suppressed (nothing in this repo can reach Claude Code's own UI — the session
+note is additive, not a replacement, which is a more accurate reading of the goal than its literal
+wording), and nothing is deployed to `~/.claude` yet (by the plan's own design — deployment is a
+deliberate `setup.mjs` run, not part of this branch).
+
+**Full suite at the merge/push completion boundary**: 823/823 passing, 0 failing
+(root-level + `payload/**`).
+
+All five tasks complete, final review clean, verification ACHIEVED, summary written. Remaining:
+merge and push, per direct user request — proceeding via `finishing-a-development-branch`.
 
 SDD workspace/ledger: `.ultrapowers/sdd/phases-15-claude-code-changelog-tracking/progress.md`.
+Summary: `15-SUMMARY.md`. Verification: `15-VERIFICATION.md`.

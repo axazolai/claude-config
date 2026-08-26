@@ -1,5 +1,5 @@
 ---
-updated: 2026-08-24
+updated: 2026-08-26
 current: "15"
 deployed_through: "13"
 phases:
@@ -17,20 +17,22 @@ phases:
   - { phase: "12", slug: decision-records, status: complete, delivery: branch }
   - { phase: "13", slug: graphify-neo4j-autosync, status: complete, delivery: merged }
   - { phase: "14", slug: gsd-surface-dial, status: planned, delivery: none }
-  - { phase: "15", slug: claude-code-changelog-tracking, status: running, delivery: branch }
+  - { phase: "15", slug: claude-code-changelog-tracking, status: complete, delivery: branch }
 ---
 
 # Roadmap
 
-Phase 15 is running. Thirteen phases are complete and one is superseded by phase 04, and
-everything merged is also deployed — the waterline moved to 13 on 2026-08-02.
+Phase 15 is complete, pending merge. Fourteen phases are complete and one is superseded by phase
+04, and everything merged is also deployed — the waterline moved to 13 on 2026-08-02.
 
 Phase 15 tracks the Claude Code CLI's own updates: the native updater silently self-updates and
 only ever shows "Update installed · Restart to update", so this phase adds it to the existing
 component-update-checker and a `/claude-code-changelog` command that surfaces the actual
-changelog delta. Spec and plan at `phases/15-claude-code-changelog-tracking/`, executing via
-Subagent-Driven Development on `feature/claude-code-changelog-tracking`; task-by-task detail in
-`15-STATE.md`.
+changelog delta. All 5 tasks shipped via Subagent-Driven Development on
+`feature/claude-code-changelog-tracking`; the final whole-branch review found two plan-inherited
+bugs (a symlink-unsafe entry-point guard and an unbounded changelog dump on a malformed version
+string), both fixed and re-reviewed clean. Verification: ACHIEVED. Detail in
+`15-STATE.md`/`15-SUMMARY.md`/`15-VERIFICATION.md`.
 
 Phase 13 closed the graphify chain: a commit now refreshes the global graph and carries it to
 Neo4j with nobody typing a flag, 84,640 nodes and 77,343 edges across 99 repositories. Its live
@@ -69,7 +71,7 @@ where it gets fixed — it is not a reason to leave a stale `current` in place.
 | 13 graphify-neo4j-autosync | complete | merged at `50e26e4`, deployed |
 | 13 graphify-neo4j-autosync | running | specified, on `feat/graphify-neo4j-autosync` |
 | 14 gsd-surface-dial | planned | `phases/14-gsd-surface-dial/14-PLAN.md`, no branch |
-| 15 claude-code-changelog-tracking | running | `feature/claude-code-changelog-tracking`, 5/5 tasks done, final review fixes in progress |
+| 15 claude-code-changelog-tracking | complete | `feature/claude-code-changelog-tracking`, 5/5 tasks done, final review clean, pending merge |
 
 Phase 03's row is the reason `status` and `integration` are separate fields: its probe
 commits and its rollback are both in `master`, and the phase still did not ship. It reads
