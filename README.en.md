@@ -457,8 +457,10 @@ installed.
     pnpm-phantom-scan.mjs, pnpm-phantom-fix-install.mjs, turbopack-gvs-check.mjs # pnpm/Turbopack
     risks.mjs, adr.mjs, glossary.mjs     # decision-record CLIs (behind decision-records-nudge)
     up-update.mjs                        # checks/rebuilds the ultrapowers fork (the /up-update engine)
+    claude-code-changelog.mjs            # /claude-code-changelog engine — slices CHANGELOG.md by version range
     lib/                                 # libraries for the above (stack-markers, design-stack,
-                                          #   assemble-claude-md, claude-cleanup-lib, …)
+                                          #   assemble-claude-md, claude-cleanup-lib,
+                                          #   claude-code-changelog-lib, …)
   agents/
     leanmode-executor.md                 # subagent for explicit per-task lean opt-in (see below)
     gsd-executor-decomposing.md          # GSD executor that decomposes a task
@@ -473,6 +475,7 @@ installed.
     graphify-build-docs.md               # /graphify-build-docs — doc corpus + vectors for meaning search
     pnpm-phantom-fix.md                  # /pnpm-phantom-fix — pnpm phantom dependencies
     up-update.md                         # /up-update — update the ultrapowers fork
+    claude-code-changelog.md             # /claude-code-changelog — what's new since the last checked version
   skills/
     using-git-worktrees/SKILL.md         # no-op stub for Ultrapowers' worktree skill
     verification-before-completion/SKILL.md # no-op shadow: Opus 5 verifies its own work
