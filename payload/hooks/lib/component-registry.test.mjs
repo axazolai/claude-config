@@ -11,7 +11,7 @@ test("COMPONENTS: known entries with required fields", () => {
   assert.equal(byName["claude-config"].updateClass, "reinit");
   for (const c of COMPONENTS) {
     assert.ok(["global", "project"].includes(c.scope), `${c.name} scope`);
-    assert.ok(["safe", "reinit", "notify-restart"].includes(c.updateClass), `${c.name} class`);
+    assert.ok(["safe", "reinit"].includes(c.updateClass), `${c.name} class`);
   }
 });
 
@@ -77,21 +77,4 @@ test("pendingNames lists exactly the components with an update available", () =>
 test("pendingNames tolerates junk", () => {
   assert.deepEqual(pendingNames(null), []);
   assert.deepEqual(pendingNames({ a: null, b: "x", c: { updateAvailable: "yes" } }), []);
-});
-
-test("COMPONENTS: claude-code-cli entry", () => {
-  const cli = COMPONENTS.find((c) => c.name === "claude-code-cli");
-  assert.equal(cli.scope, "global");
-  assert.equal(cli.kind, "version");
-  assert.equal(cli.updateClass, "notify-restart");
-});
-
-test("formatUpdateNotes: notify-restart says restart, then names the command", () => {
-  const notes = formatUpdateNotes({
-    "claude-code-cli": { installed: "2.1.240", latest: "2.1.241", updateAvailable: true, class: "notify-restart" },
-  });
-  assert.equal(notes.length, 1);
-  assert.match(notes[0], /2\.1\.240.*2\.1\.241/);
-  assert.match(notes[0], /restart/i);
-  assert.match(notes[0], /\/claude-code-changelog/);
 });

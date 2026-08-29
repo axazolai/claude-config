@@ -446,10 +446,8 @@ Claude Code. Живёт в [`axazolai/ultrapowers`](https://github.com/axazolai/
     pnpm-phantom-scan.mjs, pnpm-phantom-fix-install.mjs, turbopack-gvs-check.mjs # pnpm/Turbopack
     risks.mjs, adr.mjs, glossary.mjs     # CLI решенческих записей (за ними — decision-records-nudge)
     up-update.mjs                        # проверка/пересборка форка ultrapowers (движок /up-update)
-    claude-code-changelog.mjs            # движок /claude-code-changelog — срез CHANGELOG.md по версиям
     lib/                                 # библиотеки перечисленного выше (stack-markers, design-stack,
-                                          #   assemble-claude-md, claude-cleanup-lib,
-                                          #   claude-code-changelog-lib, …)
+                                          #   assemble-claude-md, claude-cleanup-lib, …)
   agents/
     leanmode-executor.md                 # саб-агент для явного per-task lean-опта (см. ниже)
     gsd-executor-decomposing.md          # GSD-исполнитель с декомпозицией задачи
@@ -464,7 +462,6 @@ Claude Code. Живёт в [`axazolai/ultrapowers`](https://github.com/axazolai/
     graphify-build-docs.md               # /graphify-build-docs — корпус доков + векторы для поиска
     pnpm-phantom-fix.md                  # /pnpm-phantom-fix — фантомные зависимости pnpm
     up-update.md                         # /up-update — обновление форка ultrapowers
-    claude-code-changelog.md             # /claude-code-changelog — что нового с последней проверенной версии
   skills/
     using-git-worktrees/SKILL.md         # no-op заглушка worktree-скилла Ultrapowers
     verification-before-completion/SKILL.md # no-op тень: Opus 5 проверяет себя сам

@@ -14,7 +14,6 @@ import { COMPONENTS, autoUpdateEnabled, decide } from "./component-registry.mjs"
 import { checkBundleUpdate } from "./config-update-check-run.mjs";
 import { applyPromaxGraft } from "./impeccable-promax-graft.mjs";
 import { runInstaller } from "../../bin/lib/design-stack.mjs";
-import { parseVer, compareVer } from "../../bin/lib/claude-code-changelog-lib.mjs";
 
 const CLAUDE_DIR = process.env.CLAUDE_CONFIG_DIR || join(homedir(), ".claude");
 const STATE = join(CLAUDE_DIR, "state", "component-updates.json");
@@ -29,7 +28,6 @@ const PROBES = {
   "context-mode": { present: () => toolPresent("context-mode"), upgrade: () => detached("context-mode", ["upgrade"]) },
   "graphify":     { present: () => toolPresent("graphify") && toolPresent("uv"), upgrade: () => detached("uv", ["tool", "upgrade", "graphifyy"]) },
   "claude-config":{ present: () => true, check: () => checkBundleUpdate(CLAUDE_DIR) },
-  "claude-code-cli": { present: () => existsSync(join(CLAUDE_DIR, ".last-update-result.json")), check: (prior) => checkClaudeCodeUpdate(CLAUDE_DIR, prior) },
 };
 
 function loadState() { return existsSync(STATE) ? (safe(() => JSON.parse(readFileSync(STATE, "utf8"))) || {}) : {}; }
@@ -58,19 +56,6 @@ export function projectProbe(name, root) {
     // never run the installer with the real HOME (Impeccable's all-harnesses footgun).
     update: () => safe(() => runInstaller("npx", ["--yes", pkg, "update"], { root })),
   };
-}
-
-export function checkClaudeCodeUpdate(claudeDir, priorEntry) {
-  const filePath = join(claudeDir, ".last-update-result.json");
-  if (!existsSync(filePath)) return null;
-  const data = safe(() => JSON.parse(readFileSync(filePath, "utf8")));
-  if (!data || data.outcome !== "success" || !data.version_to) return null;
-  const installed = priorEntry?.latest ?? data.version_from ?? data.version_to;
-  const latest = data.version_to;
-  const vInstalled = parseVer(installed);
-  const vLatest = parseVer(latest);
-  const updateAvailable = vInstalled && vLatest ? compareVer(vLatest, vInstalled) > 0 : latest !== installed;
-  return { installed, latest, updateAvailable };
 }
 
 // Runs the component's self-update, THEN re-applies the Pro Max graft when the component declares it.
