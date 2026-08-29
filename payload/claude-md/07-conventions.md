@@ -12,6 +12,16 @@
   full suite at review or on request only.
 - Report the scope you ran. "Tests pass" means the full suite passed. A failing targeted run
   blocks the commit: fix it, never widen the run.
+- Tag a test that must outlive the push with `@critical` or `@important` as the first token of
+  its name. `@critical`: a failure means a crash, data loss or corruption, a security bypass, a
+  money error, or a broken core workflow. `@important`: the test asserts the behaviour of a
+  function, procedure, computation or transformation — input to output. Business logic and data
+  schemas are specified in the project spec; a test that only restates one is neither tier.
+- Prune after every push, in a project that has tests — no test files, no prune, and no mention
+  of it. List the untagged tests, name what survives, ask, then delete the confirmed set. Sweep
+  the residue — no test file left empty, no empty describe/suite/class block, no fixture, helper
+  or import orphaned by the deletion. Then the project's linter if it configures one, then the
+  surviving suite, then commit the prune. When a tag is arguable, the test goes.
 - Follow the repo's stated branch/merge workflow; if none is stated, default to Conventional
   Commits, branch from `main`, squash-merge — but check for an existing convention first
   (branch names like `develop`, rebase policies, protected-branch rules vary per repo and

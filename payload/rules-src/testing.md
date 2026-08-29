@@ -23,10 +23,45 @@ paths:
   project: at review or on request only.
 - A failing targeted run blocks the commit. Fix the cause; never widen the run to dilute it.
 - Report the scope with the result. "Tests pass" is reserved for a green full suite.
+- After the push: prune. See "Post-push prune" below.
+
+## Test tiers — what survives the push
+- A test that must outlive the push carries `@critical` or `@important` as the first token of its
+  name. Untagged is the default and means "deleted at the next prune". Tag at the moment the test
+  is written, never at prune time.
+- `@critical` — a failure means a crash, data loss or corruption, a security bypass, a money
+  error, or a broken core workflow.
+- `@important` — the test asserts the behaviour of a function, procedure, computation or
+  transformation: input to output.
+- Neither tier: wiring and config, registry/constant contents, structural or shape assertions,
+  documentation-consistency checks, coverage filler, scratch checks written to watch one
+  debugging session. Business logic and data schemas are specified in the project spec; a test
+  that only restates one is not a behaviour test.
+- The tag lives in the name, so every runner filters on it without a plugin:
+  `vitest -t "@critical"`, `jest -t "@critical"`, `pytest -k "critical"`,
+  `dotnet test --filter "DisplayName~@critical"`, `gradle test --tests '*@critical*'`.
+  Annotation-style languages carry it in the declared display name.
+- When the tier is arguable, the test goes.
+
+## Post-push prune
+Applies only to a project that actually has tests. No test files, no prune, no question asked —
+never open the subject to propose writing tests, and never treat an empty result as a finding.
+Otherwise, run after every `git push`, in this order:
+1. Collect every test declaration whose name carries neither tag —
+   `grep -rLn "@critical\|@important"` over the test files names the fully untagged ones, then
+   read the mixed files for the rest.
+2. List the candidates, state what survives, ask. Delete only the confirmed set.
+3. Sweep the residue: a file with no test left is deleted, not left as an empty shell; empty
+   `describe`/`suite`/class blocks go; fixtures, factories, helpers and imports orphaned by the
+   deletion go with them.
+4. Run the project's linter if it configures one.
+5. Re-run the surviving suite — a deletion can take a shared fixture with it.
+6. Commit the prune on its own.
 
 ## Test-first vs test-after
 - TDD is the default for code with real behavior: services, guards/pipes, business logic,
-  API contracts. Write the test first, then the code.
+  API contracts. Write the test first, then the code — tagged or not, it earns its keep before
+  the push.
 - RED confirmation batches with the boundary run: a test never observed failing is checked
   against the pre-change code before the work is called done.
 - Exceptions (covered by the e2e/integration test of the behavior they enable, not a
@@ -43,10 +78,8 @@ paths:
   seams (real DB/cache — don't mock the unit under test).
 - Skip: paths already unreachable per types/schema, trivial DTO mappers, pure
   getters/passthroughs.
-- Optional, project's call: tag tests whose failure means a crash, data corruption, a
-  security bypass, or a broken core workflow (e.g. `@critical`) so a CI gate can run just
-  that tier fast while the full suite runs separately/non-blocking. The tag convention and
-  CI wiring are project-specific — put those specifics in that project's own `CLAUDE.md`.
+- CI gate: run the `@critical` tier fast and blocking, the rest of the surviving suite
+  separately. The wiring is project-specific — put it in that project's own `CLAUDE.md`.
 
 - Arrange-Act-Assert; one behavior per test, name it after the behavior, not the method
   (`returns 404 when user missing`, not `testGetUser2`).

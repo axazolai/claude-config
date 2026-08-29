@@ -47,6 +47,7 @@
         "hooks/bg-supervision-nudge*", "bin/supervise-bg.mjs", "bin/lib/supervise-lib*",
         "commands/init-mcp.md",
         "hooks/schedulewakeup-loop-only-nudge*",
+        "hooks/prune-tests-nudge*",
         "hooks/pnpm-phantom-fix-hook*", "bin/pnpm-phantom-*", "bin/lib/pnpm-*",
         "bin/turbopack-gvs-check.mjs", "bin/lib/turbopack-gvs-*", "commands/pnpm-phantom-fix.md"
       ]

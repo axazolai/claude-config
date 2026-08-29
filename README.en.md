@@ -201,9 +201,9 @@ inherits `base` through `extends`; `exclude` wins over `include`).
     from the `payload-lite/` overlay layered on top of `payload/`. `CLAUDE.md` is NOT overlaid:
     it is assembled fragment by fragment from `payload/claude-md/*.md` per profile
     (`bin/lib/assemble-claude-md.mjs`, each fragment's `profiles:` frontmatter);
-  - **NOT included**, on top of what base already drops: the `schedulewakeup` nudge, the
-    pnpm-phantom guard, bg-supervision (`supervise-bg.mjs`), the Turbopack check, and the
-    `/init-mcp` and `/pnpm-phantom-fix` commands.
+  - **NOT included**, on top of what base already drops: the `schedulewakeup` nudge,
+    `prune-tests-nudge`, the pnpm-phantom guard, bg-supervision (`supervise-bg.mjs`), the
+    Turbopack check, and the `/init-mcp` and `/pnpm-phantom-fix` commands.
 
 No profile ships (`variants.json → alwaysExclude`): `hooks/task-lifecycle-probe*` (the
 `TaskCreated`/`TaskCompleted` schema probe — kept in the repo as a stub, never installed and
@@ -334,7 +334,8 @@ tests `*.test.mjs`, run via `node --test`):
   widened to the correct depth for a nested app. Read-only, changes nothing.
 - **Background-task supervision** — `bin/supervise-bg.mjs` wraps a background command in a
   timeout + staleness watchdog (a hang → an exit event, not a silent stall) + the PreToolUse nudge
-  `bg-supervision-nudge` + PostToolUse `ci-watch-nudge` (after `git push` — `gh run watch`) + the
+  `bg-supervision-nudge` + PostToolUse `ci-watch-nudge` (after `git push` — `gh run watch`) +
+  PostToolUse `prune-tests-nudge` (after `git push` — prune the untagged tests) + the
   PreToolUse nudge `schedulewakeup-loop-only-nudge` (ScheduleWakeup is for /loop pacing only; a
   tracked background task's completion re-invokes the model by itself, so polling wakeups are
   pure waste).
@@ -417,6 +418,7 @@ installed.
     graphify-global-sync.mjs             # after a Claude `git commit` — bg. refresh of global-graph.json
     gsd-config-patch.mjs                 # PostToolUse: one-time .planning/config.json patches (model+workflow)
     ci-watch-nudge.mjs                   # PostToolUse: after `git push` — nudge to `gh run watch`
+    prune-tests-nudge.mjs                 # PostToolUse: after `git push` — nudge to prune untagged tests
     pnpm-phantom-fix-hook.mjs            # PostToolUse: phantom-dependency scan after an install
     inject-axes.mjs                      # SessionStart + SubagentStart: rule-axis injector (see below)
     session-init.mjs                     # SessionStart: project bootstrap (+ registration in graphify,
@@ -985,6 +987,14 @@ The "background-task supervision" family. Shared idea: a hung background job NEV
   re-invokes me: "did CI pass?" becomes a guaranteed push event instead of something I must
   remember to poll. The git-command parse honestly handles the value-flags `-C`/`-c` and chains
   via `&&`/`||`/`;`/`|`. Fail-open.
+- **prune-tests-nudge.mjs** (PostToolUse: `Bash`). After a `git push`, reminds me the test prune
+  is due: everything not tagged `@critical`/`@important` in its name is deleted, then the residue
+  is swept (empty files, empty `describe`/`suite`/class blocks, orphaned fixtures and imports),
+  then the linter and a run of the surviving suite. The hook forbids deleting without
+  confirmation — it only raises the question. It fires only while untagged tests actually remain,
+  so the prune's own push no longer raises it. The scan is bounded (400 directories, 300 files,
+  512 KB per file) and skips `node_modules`/`dist`/`build` and the rest of the build output.
+  Fail-open.
 A stub that **no profile installs** (`variants.json → alwaysExclude`):
 `hooks/task-lifecycle-probe*` — the `TaskCreated`/`TaskCompleted` schema probe. Both events are
 in the public docs, but whether they're wired in the current harness build is unconfirmed, so

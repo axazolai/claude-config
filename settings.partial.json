@@ -75,6 +75,12 @@
         "hooks": [
           { "type": "command", "command": "node", "args": ["<HOME>/.claude/hooks/ci-watch-nudge.mjs"] }
         ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          { "type": "command", "command": "node", "args": ["<HOME>/.claude/hooks/prune-tests-nudge.mjs"] }
+        ]
       }
     ],
     "Stop": [

@@ -196,9 +196,9 @@ notepad bootstrap.ps1; .\bootstrap.ps1
     оба берутся из оверлея `payload-lite/`, который накладывается поверх `payload/`.
     `CLAUDE.md` оверлеем НЕ подменяется: он собирается пофрагментно из `payload/claude-md/*.md`
     по профилю (`bin/lib/assemble-claude-md.mjs`, фронтматтер `profiles:` в каждом фрагменте);
-  - **НЕТ** дополнительно к исключённому в base: `schedulewakeup`-нуджа, pnpm-phantom-guard,
-    bg-supervision (`supervise-bg.mjs`), turbopack-проверки, команд `/init-mcp` и
-    `/pnpm-phantom-fix`.
+  - **НЕТ** дополнительно к исключённому в base: `schedulewakeup`-нуджа, `prune-tests-nudge`,
+    pnpm-phantom-guard, bg-supervision (`supervise-bg.mjs`), turbopack-проверки, команд
+    `/init-mcp` и `/pnpm-phantom-fix`.
 
 Ни в один профиль не входят (`variants.json → alwaysExclude`): `hooks/task-lifecycle-probe*`
 (probe-логгер схемы `TaskCreated`/`TaskCompleted` — остаётся в репозитории как заготовка, но не
@@ -329,6 +329,7 @@ Claude Code. Живёт в [`axazolai/ultrapowers`](https://github.com/axazolai/
 - **Супервизия фоновых задач** — `bin/supervise-bg.mjs` оборачивает фоновую команду в
   timeout + staleness-watchdog (зависание → exit-событие, а не тихий столл) + PreToolUse-нудж
   `bg-supervision-nudge` + PostToolUse `ci-watch-nudge` (после `git push` — `gh run watch`) +
+  PostToolUse `prune-tests-nudge` (после `git push` — вычистить непомеченные тесты) +
   PreToolUse-нудж `schedulewakeup-loop-only-nudge` (ScheduleWakeup — только для /loop-пейсинга;
   завершение отслеживаемой фоновой задачи ре-инвокает модель само, wakeup-поллинг — впустую).
 - **Design stack фронтенд-проекта** — `bin/install-design-stack.mjs` (шаг 5 `/init-stack`,
@@ -406,6 +407,7 @@ Claude Code. Живёт в [`axazolai/ultrapowers`](https://github.com/axazolai/
     graphify-global-sync.mjs             # после `git commit` Claude — фон. обновление global-graph.json
     gsd-config-patch.mjs                 # PostToolUse: разовые патчи .planning/config.json (модель+воркфлоу)
     ci-watch-nudge.mjs                   # PostToolUse: после `git push` — нудж `gh run watch`
+    prune-tests-nudge.mjs                 # PostToolUse: после `git push` — нудж вычистить непомеченные тесты
     pnpm-phantom-fix-hook.mjs            # PostToolUse: скан фантомных зависимостей после install
     inject-axes.mjs                      # SessionStart + SubagentStart: инжектор осей правил (см. ниже)
     session-init.mjs                     # SessionStart: бутстрап проекта (+ регистрация в graphify,
@@ -983,6 +985,13 @@ README (источник истины — сами `rules-src/*.md` и их `REA
   переподнимает меня: «прошёл ли CI?» становится гарантированным push-событием, а не тем, что
   надо помнить и поллить. Разбор git-команды честно учитывает value-флаги `-C`/`-c` и цепочки
   через `&&`/`||`/`;`/`|`. Fail-open.
+- **prune-tests-nudge.mjs** (PostToolUse: `Bash`). После `git push` напоминает провести чистку
+  тестов: всё, что не помечено `@critical`/`@important` в имени, удаляется, затем подметаются
+  остатки (пустые файлы, пустые `describe`/`suite`/классы, осиротевшие фикстуры и импорты),
+  затем линтер и прогон выжившего набора. Удалять без подтверждения хук запрещает — он только
+  поднимает вопрос. Срабатывает, только пока непомеченные тесты реально есть, поэтому пуш самой
+  чистки его уже не поднимает. Скан ограничен (400 каталогов, 300 файлов, 512 КБ на файл),
+  `node_modules`/`dist`/`build` и прочая сборка пропускаются. Fail-open.
 Заготовка, которая **не ставится ни в одном профиле** (`variants.json → alwaysExclude`):
 `hooks/task-lifecycle-probe*` — probe-логгер схемы `TaskCreated`/`TaskCompleted`. Оба события
 есть в публичных доках, но включены ли они в текущем билде харнесса — не подтверждено, поэтому

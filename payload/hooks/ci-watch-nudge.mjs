@@ -7,28 +7,9 @@
 import { readFileSync, existsSync, realpathSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
+import { isGitPush } from "./lib/git-command.mjs";
 
-// First non-flag token after `git`, honouring the value-taking globals `-C <path>` / `-c <kv>`.
-function gitSubcommand(tokens) {
-  let i = 1;
-  while (i < tokens.length) {
-    const t = tokens[i];
-    if (t === "-C" || t === "-c") { i += 2; continue; }
-    if (t.startsWith("-")) { i++; continue; }
-    return t;
-  }
-  return null;
-}
-
-export function isGitPush(cmd) {
-  for (const seg of String(cmd || "").split(/&&|\|\||;|\|/)) {
-    const tokens = seg.trim().split(/\s+/).filter(Boolean);
-    if (!tokens.length) continue;
-    if (tokens[0] !== "git" && tokens[0] !== "git.exe") continue;
-    if (gitSubcommand(tokens) === "push") return true;
-  }
-  return false;
-}
+export { isGitPush };
 
 function hasGithubActions(start) {
   let dir = resolve(start);
