@@ -13,14 +13,14 @@ function runHook(payload) {
   return { status: r.status, out: (r.stdout || "").trim() };
 }
 
-test("stop:true (ending a loop) passes silently", () => {
+test("@important stop:true (ending a loop) passes silently", () => {
   assert.equal(shouldNudge({ stop: true }), false);
   const { status, out } = runHook({ tool_name: "ScheduleWakeup", tool_input: { stop: true } });
   assert.equal(status, 0);
   assert.equal(out, "", "no advisory when a loop is being ended");
 });
 
-test("a scheduling call gets the loop-only reminder, non-blocking", () => {
+test("@important a scheduling call gets the loop-only reminder, non-blocking", () => {
   assert.equal(shouldNudge({ delaySeconds: 300, prompt: "x", reason: "waiting for executor" }), true);
   const { status, out } = runHook({
     tool_name: "ScheduleWakeup",
@@ -33,7 +33,7 @@ test("a scheduling call gets the loop-only reminder, non-blocking", () => {
   assert.match(parsed.hookSpecificOutput.additionalContext, /re-invokes you automatically/);
 });
 
-test("malformed stdin fails open (exit 0, no output)", () => {
+test("@important malformed stdin fails open (exit 0, no output)", () => {
   const r = spawnSync(process.execPath, [HOOK], { input: "not json", encoding: "utf8", timeout: 10000 });
   assert.equal(r.status, 0);
   assert.equal((r.stdout || "").trim(), "");

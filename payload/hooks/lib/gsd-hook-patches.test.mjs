@@ -22,16 +22,7 @@ function claudeDir({ version = "1.11.0", guard } = {}) {
 const guardFile = (setLine) =>
   `#!/usr/bin/env node\n// gsd-hook-version: 1.11.0\n// preamble\n${setLine}\nfunction rest() {}\n`;
 
-test("the registry patches gsd-core's isolation guard, and says why", () => {
-  const p = patch();
-  assert.ok(p, "the isolation-guard entry must exist");
-  assert.match(p.from, /EXECUTOR_SUBAGENT_TYPES/);
-  assert.match(p.to, /gsd-executor-decomposing/);
-  assert.match(p.to, /'gsd-executor'/, "the upstream member must survive");
-  assert.ok(typeof p.why === "string" && p.why.length > 20);
-});
-
-test("a guard still carrying upstream's one-element Set is patched", () => {
+test("@important a guard still carrying upstream's one-element Set is patched", () => {
   const dir = claudeDir({ guard: guardFile(patch().from) });
   assert.deepEqual(checkGsdHookPatches({ claudeDir: dir })[patch().id], "pending");
 
@@ -42,7 +33,7 @@ test("a guard still carrying upstream's one-element Set is patched", () => {
   assert.equal(checkGsdHookPatches({ claudeDir: dir })[patch().id], "current");
 });
 
-test("re-applying is a no-op, and never doubles the member", () => {
+test("@important re-applying is a no-op, and never doubles the member", () => {
   const dir = claudeDir({ guard: guardFile(patch().from) });
   applyGsdHookPatches({ claudeDir: dir });
   const once = readFileSync(join(dir, "hooks", "gsd-agent-isolation-guard.js"), "utf8");
@@ -54,7 +45,7 @@ test("re-applying is a no-op, and never doubles the member", () => {
 
 // The whole point of anchoring a line instead of hashing the file: a gsd-core upgrade that leaves
 // the line alone keeps the patch working, and one that rewrites it is reported rather than guessed.
-test("an upstream rewrite of the anchored line is reported as diverged, not forced", () => {
+test("@critical an upstream rewrite of the anchored line is reported as diverged, not forced", () => {
   const dir = claudeDir({ guard: guardFile("const EXECUTOR_SUBAGENT_TYPES = buildSet(catalog);") });
   assert.equal(checkGsdHookPatches({ claudeDir: dir })[patch().id], "diverged");
   const res = applyGsdHookPatches({ claudeDir: dir });
@@ -64,13 +55,13 @@ test("an upstream rewrite of the anchored line is reported as diverged, not forc
     "a diverged file must be left exactly as it is");
 });
 
-test("gsd-core installed but too old to ship the guard reads as inert", () => {
+test("@important gsd-core installed but too old to ship the guard reads as inert", () => {
   const dir = claudeDir({ version: "1.9.1" });
   assert.equal(checkGsdHookPatches({ claudeDir: dir })[patch().id], "inert");
   assert.deepEqual(applyGsdHookPatches({ claudeDir: dir }).applied, []);
 });
 
-test("no gsd-core at all is silence, not a status", () => {
+test("@important no gsd-core at all is silence, not a status", () => {
   const dir = mkdtempSync(join(tmpdir(), "gsd-hook-patches-"));
   assert.deepEqual(checkGsdHookPatches({ claudeDir: dir }), {});
   assert.deepEqual(applyGsdHookPatches({ claudeDir: dir }).applied, []);

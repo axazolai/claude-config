@@ -69,6 +69,20 @@ Otherwise, run after every `git push`, in this order:
   Dockerfile, docker-compose.yml), trivial DTO mappers, pure getters/passthroughs with no
   branching.
 
+## Choosing what to test — plan before code
+- Write the scenario list first: one line per behaviour, naming the input class and the expected
+  result. Trim it, then implement it. State the plan in the reply; wait for approval only when it
+  runs past a dozen lines.
+- Pick inputs by equivalence partitioning: split the input domain into classes the code treats
+  identically, take ONE representative per class. A second example from a covered class is a
+  duplicate, not a test.
+- Add each class's boundaries: the values either side of every limit, empty, and the maximum the
+  contract admits.
+- Default budget per unit: 1-2 happy path, 2-3 boundary, 2-3 error. Go past it only when the code
+  has more real branches, and name the branch each extra test pins.
+- A path matched by `.gitignore` is not a test target and is excluded from coverage: build output,
+  generated code, vendored trees, local config, the scratchpad. Test the source that produces it.
+
 ## Test density — "boundary trust"
 - Test behavior actually reachable given real callers/guarantees, not the full domain of a
   signature. If a precondition is already enforced upstream (schema validation, an
@@ -77,7 +91,8 @@ Otherwise, run after every `git push`, in this order:
 - Cover: business-logic branches, reachable errors, security-relevant behavior, integration
   seams (real DB/cache — don't mock the unit under test).
 - Skip: paths already unreachable per types/schema, trivial DTO mappers, pure
-  getters/passthroughs.
+  getters/passthroughs, and the language or framework itself — getters, setters, constructors,
+  plain data holders, library behaviour.
 - CI gate: run the `@critical` tier fast and blocking, the rest of the surviving suite
   separately. The wiring is project-specific — put it in that project's own `CLAUDE.md`.
 

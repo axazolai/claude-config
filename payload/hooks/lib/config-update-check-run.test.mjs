@@ -6,7 +6,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { bundleUpdateAvailable, reconcileBundleInstall } from "./config-update-check-run.mjs";
 
-test("bundleUpdateAvailable: true only when both SHAs present and differ", () => {
+test("@important bundleUpdateAvailable: true only when both SHAs present and differ", () => {
   assert.equal(bundleUpdateAvailable("aaa", "bbb"), true);
   assert.equal(bundleUpdateAvailable("aaa", "aaa"), false);
   assert.equal(bundleUpdateAvailable("", "bbb"), false);
@@ -20,47 +20,47 @@ const stale = (over = {}) => ({
     updateAvailable: true, lastCheckedAt: "2026-08-02T15:10:54.916Z", ...over },
 });
 
-test("reconcileBundleInstall: clears the notice once the install catches up to the checked remote", () => {
+test("@important reconcileBundleInstall: clears the notice once the install catches up to the checked remote", () => {
   const out = reconcileBundleInstall(stale(), "remote");
   assert.equal(out["claude-config"].installed, "remote");
   assert.equal(out["claude-config"].updateAvailable, false);
 });
 
-test("reconcileBundleInstall: a moved install voids the verdict rather than re-deciding it", () => {
+test("@important reconcileBundleInstall: a moved install voids the verdict rather than re-deciding it", () => {
   const out = reconcileBundleInstall(stale(), "newer-than-the-checked-remote");
   assert.equal(out["claude-config"].installed, "newer-than-the-checked-remote");
   assert.equal(out["claude-config"].updateAvailable, false, "never point at a SHA the install passed");
 });
 
-test("reconcileBundleInstall: re-installing the same SHA leaves a real notice standing", () => {
+test("@important reconcileBundleInstall: re-installing the same SHA leaves a real notice standing", () => {
   const out = reconcileBundleInstall(stale({ installed: "same" }), "same");
   assert.equal(out["claude-config"].updateAvailable, true);
   assert.equal(out["claude-config"].lastCheckedAt, "2026-08-02T15:10:54.916Z");
 });
 
-test("reconcileBundleInstall: drops lastCheckedAt so the next session re-checks", () => {
+test("@important reconcileBundleInstall: drops lastCheckedAt so the next session re-checks", () => {
   const out = reconcileBundleInstall(stale(), "remote");
   assert.equal("lastCheckedAt" in out["claude-config"], false);
 });
 
-test("reconcileBundleInstall: claims nothing when no remote SHA was ever recorded", () => {
+test("@important reconcileBundleInstall: claims nothing when no remote SHA was ever recorded", () => {
   const out = reconcileBundleInstall(stale({ latest: undefined }), "fresh");
   assert.equal(out["claude-config"].updateAvailable, false);
 });
 
-test("reconcileBundleInstall: leaves other components untouched", () => {
+test("@important reconcileBundleInstall: leaves other components untouched", () => {
   const before = stale();
   const out = reconcileBundleInstall(before, "remote");
   assert.deepEqual(out.graphify, before.graphify);
 });
 
-test("reconcileBundleInstall: returns state unchanged without an entry or a SHA", () => {
+test("@important reconcileBundleInstall: returns state unchanged without an entry or a SHA", () => {
   assert.deepEqual(reconcileBundleInstall({ graphify: {} }, "remote"), { graphify: {} });
   assert.deepEqual(reconcileBundleInstall(stale(), ""), stale());
   assert.equal(reconcileBundleInstall(null, "remote"), null);
 });
 
-test("importing the module does not run main() / write update-check.json", () => {
+test("@critical importing the module does not run main() / write update-check.json", () => {
   const tmp = mkdtempSync(join(tmpdir(), "config-update-check-run-"));
   try {
     mkdirSync(join(tmp, "state"), { recursive: true });

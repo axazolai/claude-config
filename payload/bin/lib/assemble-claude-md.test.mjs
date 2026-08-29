@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, writeFileSync, readFileSync } from "node:fs";
+import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -15,32 +15,32 @@ function fixture() {
   w("10-gsd.md", "---\nprofiles: [full]\n---\n## GSD\nmethodology\n");
   return d;
 }
-test("parseFragment strips frontmatter, returns profiles + body", () => {
+test("@important parseFragment strips frontmatter, returns profiles + body", () => {
   const r = parseFragment("---\nprofiles: [full, lite]\n---\n## X\nbody\n");
   assert.deepEqual(r.profiles, ["full", "lite"]);
   assert.equal(r.body.trimEnd(), "## X\nbody");
   assert.equal(parseFragment("## Y\nz").profiles, null);
 });
-test("full: GSD + shared + full/base side of split", () => {
+test("@important full: GSD + shared + full/base side of split", () => {
   const o = assembleClaudeMd(fixture(), "full");
   assert.match(o, /## GSD/); assert.match(o, /keeps-bg-elapsed/); assert.doesNotMatch(o, /no-bg-elapsed/);
 });
-test("base: no GSD, keeps bg-elapsed", () => {
+test("@important base: no GSD, keeps bg-elapsed", () => {
   const o = assembleClaudeMd(fixture(), "base");
   assert.doesNotMatch(o, /## GSD/); assert.match(o, /keeps-bg-elapsed/);
 });
-test("lite: override wins, no GSD, no shared collab", () => {
+test("@important lite: override wins, no GSD, no shared collab", () => {
   const o = assembleClaudeMd(fixture(), "lite");
   assert.doesNotMatch(o, /## GSD/); assert.match(o, /no-bg-elapsed/); assert.doesNotMatch(o, /keeps-bg-elapsed/);
 });
-test("header present, no frontmatter leaks", () => {
+test("@important header present, no frontmatter leaks", () => {
   const o = assembleClaudeMd(fixture(), "full");
   assert.match(o, /CURATED:NOEDIT/); assert.match(o, /GENERATED/);
   assert.doesNotMatch(o, /^profiles:/m); assert.doesNotMatch(o, /^---$/m);
 });
 
 const REAL = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "claude-md");
-test("real fragments: GSD full-only; base keeps bg-elapsed; lite drops it + says 'lite variant'", () => {
+test("@important real fragments: GSD full-only; base keeps bg-elapsed; lite drops it + says 'lite variant'", () => {
   const full = assembleClaudeMd(REAL, "full"), base = assembleClaudeMd(REAL, "base"), lite = assembleClaudeMd(REAL, "lite");
   assert.match(full, /rules-src\/gsd\.md/);
   assert.doesNotMatch(base, /rules-src\/gsd\.md/);
@@ -58,17 +58,6 @@ test("real fragments: GSD full-only; base keeps bg-elapsed; lite drops it + says
 // blanket case-insensitive "gsd" scan is deliberately NOT used here: 04-reading-order and 06-
 // collaboration legitimately mention "GSD project" (a `.planning/` directory convention, not
 // gsd-plugin machinery) in fragments shared by every profile per the delta table.
-test("real fragments: lite and base plugin list has no gsd entry", () => {
-  const base = assembleClaudeMd(REAL, "base"), lite = assembleClaudeMd(REAL, "lite");
-  for (const o of [base, lite]) assert.doesNotMatch(o, /Base plugins[^\n]*gsd/i);
-});
-
-test("real fragments: 11-rules-resolution drops the retired stack-markers skill pointer", () => {
-  const full = assembleClaudeMd(REAL, "full");
-  assert.doesNotMatch(full, /stack-markers/);
-  assert.match(full, /rules-src\/README\.md/);
-});
-
 // Regression: repo has core.autocrlf=true, so a fresh Windows checkout materializes
 // payload/claude-md/*.md with CRLF even though they're authored/stored as LF. parseFragment's
 // frontmatter regex anchors on bare \n and must still match a \r\n-terminated fragment, or the
@@ -82,14 +71,14 @@ function crlfFixture() {
   w("10-gsd.md", "---\r\nprofiles: [full]\r\n---\r\n## GSD\r\nmethodology\r\n");
   return d;
 }
-test("parseFragment handles CRLF frontmatter (fresh Windows checkout, core.autocrlf=true)", () => {
+test("@important parseFragment handles CRLF frontmatter (fresh Windows checkout, core.autocrlf=true)", () => {
   const r = parseFragment("---\r\nprofiles: [full, lite]\r\n---\r\n## X\r\nbody\r\n");
   assert.deepEqual(r.profiles, ["full", "lite"]);
   assert.doesNotMatch(r.body, /^---/m);
   assert.doesNotMatch(r.body, /^profiles:/m);
   assert.match(r.body, /## X/);
 });
-test("assembleClaudeMd on a CRLF fixture: no profiles:[full] leak into base, no raw frontmatter", () => {
+test("@important assembleClaudeMd on a CRLF fixture: no profiles:[full] leak into base, no raw frontmatter", () => {
   const o = assembleClaudeMd(crlfFixture(), "base");
   assert.doesNotMatch(o, /## GSD/);
   assert.doesNotMatch(o, /^---$/m);

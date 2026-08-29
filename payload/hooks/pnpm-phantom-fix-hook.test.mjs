@@ -3,7 +3,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { classifyPnpmCommand } from "./pnpm-phantom-fix-hook.mjs";
 
-test("classifies install-family and scope", () => {
+test("@important classifies install-family and scope", () => {
   assert.deepEqual(classifyPnpmCommand("pnpm install"), { run: true, packages: null });
   assert.deepEqual(classifyPnpmCommand("pnpm i"), { run: true, packages: null });
   assert.deepEqual(classifyPnpmCommand("pnpm add zod react"), { run: true, packages: ["zod", "react"] });

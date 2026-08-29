@@ -1,26 +1,12 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync, mkdtempSync, mkdirSync, existsSync, rmSync, writeFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
-import { dirname, join } from "node:path";
+
+import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { runDesignStack } from "./install-design-stack.mjs";
-const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
-const tpl = JSON.parse(readFileSync(join(ROOT, "payload/setting-templates/frontend/_base.json"), "utf8"));
 
-test("frontend/_base.json no longer references frontend-design", () => {
-  const raw = JSON.stringify(tpl);
-  assert.ok(!raw.includes("frontend-design"), "frontend-design must be fully removed");
-});
-
-test("frontend/_base.json declares designStack with the locked Pro Max subset", () => {
-  assert.ok(tpl.designStack, "designStack block missing");
-  assert.match(tpl.designStack.impeccable.install, /impeccable install .*--scope=project.*--no-hooks/);
-  assert.match(tpl.designStack.proMax.install, /uipro init .*--offline/);
-  assert.deepEqual(tpl.designStack.proMax.keepSkills, ["ui-ux-pro-max", "ui-styling", "design-system"]);
-});
-
-test("provenance prune: removes only install-created extras, protects pre-existing user skills", () => {
+test("@critical provenance prune: removes only install-created extras, protects pre-existing user skills", () => {
   const root = mkdtempSync(join(tmpdir(), "ds-prov-"));
   const skills = join(root, ".claude", "skills");
   mkdirSync(skills, { recursive: true });

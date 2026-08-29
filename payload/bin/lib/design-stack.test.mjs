@@ -1,16 +1,16 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, readdirSync, rmSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, rmSync } from "node:fs";
 import { tmpdir, homedir } from "node:os";
 import { join } from "node:path";
 import { runInstaller, pruneProMaxSkills, registerDesignHook } from "./design-stack.mjs";
 
-test("runInstaller with skip=true never spawns and reports skipped", () => {
+test("@important runInstaller with skip=true never spawns and reports skipped", () => {
   const r = runInstaller("npx", ["impeccable", "install"], { root: tmpdir(), skip: true });
   assert.deepEqual(r, { ok: true, skipped: true, stdout: "", stderr: "" });
 });
 
-test("pruneProMaxSkills removes only non-kept uipro skills, protecting others", () => {
+test("@critical pruneProMaxSkills removes only non-kept uipro skills, protecting others", () => {
   const dir = mkdtempSync(join(tmpdir(), "skills-"));
   for (const s of ["ui-ux-pro-max", "ui-styling", "design-system", "design", "brand", "slides", "impeccable", "shadcn"])
     mkdirSync(join(dir, s), { recursive: true });
@@ -22,7 +22,7 @@ test("pruneProMaxSkills removes only non-kept uipro skills, protecting others", 
   rmSync(dir, { recursive: true, force: true });
 });
 
-test("registerDesignHook adds Edit|Write|MultiEdit + Stop once (idempotent)", () => {
+test("@important registerDesignHook adds Edit|Write|MultiEdit + Stop once (idempotent)", () => {
   const dir = mkdtempSync(join(tmpdir(), "hook-"));
   const settingsFile = join(dir, "settings.json");
   const first = registerDesignHook(settingsFile, { scriptPath: ".claude/skills/impeccable/scripts/hook.mjs" });
@@ -39,7 +39,7 @@ test("registerDesignHook adds Edit|Write|MultiEdit + Stop once (idempotent)", ()
   rmSync(dir, { recursive: true, force: true });
 });
 
-test("runInstaller isolates HOME/USERPROFILE from the real home", () => {
+test("@critical runInstaller isolates HOME/USERPROFILE from the real home", () => {
   const root = mkdtempSync(join(tmpdir(), "ri-root-"));
   // write a test script to avoid shell escaping issues
   const testScript = join(root, "test.mjs");
@@ -54,7 +54,7 @@ test("runInstaller isolates HOME/USERPROFILE from the real home", () => {
   rmSync(root, { recursive: true, force: true });
 });
 
-test("registerDesignHook recognises Impeccable's own $CLAUDE_PROJECT_DIR spelling and adds nothing", () => {
+test("@important registerDesignHook recognises Impeccable's own $CLAUDE_PROJECT_DIR spelling and adds nothing", () => {
   const dir = mkdtempSync(join(tmpdir(), "hook-alt-"));
   const settingsFile = join(dir, "settings.json");
   const theirs = 'node "$CLAUDE_PROJECT_DIR/.claude/skills/impeccable/scripts/hook.mjs"';
@@ -71,7 +71,7 @@ test("registerDesignHook recognises Impeccable's own $CLAUDE_PROJECT_DIR spellin
   rmSync(dir, { recursive: true, force: true });
 });
 
-test("registerDesignHook collapses duplicates an earlier run left, keeping unrelated hooks", () => {
+test("@important registerDesignHook collapses duplicates an earlier run left, keeping unrelated hooks", () => {
   const dir = mkdtempSync(join(tmpdir(), "hook-dup-"));
   const settingsFile = join(dir, "settings.json");
   const rel = "node .claude/skills/impeccable/scripts/hook.mjs";

@@ -14,7 +14,7 @@ function fixture() {
   return { dir, refDir };
 }
 
-test("graft inserts the sentinel into every anchored reference file", () => {
+test("@important graft inserts the sentinel into every anchored reference file", () => {
   const { dir, refDir } = fixture();
   const r = applyPromaxGraft({ skillsDir: dir });
   assert.deepEqual(r.applied.sort(), Object.keys(ANCHORS).sort());
@@ -23,7 +23,7 @@ test("graft inserts the sentinel into every anchored reference file", () => {
   rmSync(dir, { recursive: true, force: true });
 });
 
-test("graft is idempotent — second run inserts nothing", () => {
+test("@important graft is idempotent — second run inserts nothing", () => {
   const { dir } = fixture();
   applyPromaxGraft({ skillsDir: dir });
   const r2 = applyPromaxGraft({ skillsDir: dir });
@@ -32,7 +32,7 @@ test("graft is idempotent — second run inserts nothing", () => {
   rmSync(dir, { recursive: true, force: true });
 });
 
-test("graft re-applies after an update clobber restores the file", () => {
+test("@important graft re-applies after an update clobber restores the file", () => {
   const { dir, refDir } = fixture();
   applyPromaxGraft({ skillsDir: dir });
   const file = Object.keys(ANCHORS)[0];
@@ -43,7 +43,7 @@ test("graft re-applies after an update clobber restores the file", () => {
   rmSync(dir, { recursive: true, force: true });
 });
 
-test("missing/renamed reference file is skipped, never corrupted", () => {
+test("@critical missing/renamed reference file is skipped, never corrupted", () => {
   const dir = mkdtempSync(join(tmpdir(), "graft-empty-"));
   mkdirSync(join(dir, "impeccable", "reference"), { recursive: true });
   const r = applyPromaxGraft({ skillsDir: dir });
@@ -52,7 +52,7 @@ test("missing/renamed reference file is skipped, never corrupted", () => {
   rmSync(dir, { recursive: true, force: true });
 });
 
-test("file present but anchor absent is skipped, never corrupted", () => {
+test("@critical file present but anchor absent is skipped, never corrupted", () => {
   // distinct from the missing-file case above: the file EXISTS with content but has no `## `
   // heading, so applyPromaxGraft's `at < 0` branch must skip it (not insert at offset 0).
   const dir = mkdtempSync(join(tmpdir(), "graft-noanchor-"));

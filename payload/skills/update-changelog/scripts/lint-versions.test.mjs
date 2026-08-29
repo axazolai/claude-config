@@ -11,38 +11,38 @@ const SCRIPT = join(dirname(fileURLToPath(import.meta.url)), "lint-versions.mjs"
 const feat = { subject: "feat: a", body: "" };
 const junk = { subject: "wip", body: "" };
 
-test("a clean queue lints clean", () => {
+test("@important a clean queue lints clean", () => {
   assert.deepEqual(lintVersions({ entries: [{ hash: "a", level: "patch" }], lookup: () => feat }), []);
 });
 
-test("a queue of nothing but well-formed commits lints clean", () => {
+test("@important a queue of nothing but well-formed commits lints clean", () => {
   const byHash = { a: feat, b: { subject: "fix(x): b", body: "" }, c: { subject: "chore: c", body: "" } };
   const entries = [{ hash: "a", level: "minor" }, { hash: "b", level: "patch" }, { hash: "c", level: "none" }];
   assert.deepEqual(lintVersions({ entries, lookup: (h) => byHash[h] }), []);
 });
 
-test("commits with no recognised type are reported with their hashes", () => {
+test("@important commits with no recognised type are reported with their hashes", () => {
   const found = lintVersions({ entries: [{ hash: "abc1234", level: null }], lookup: () => junk });
   assert.equal(found.length, 1);
   assert.match(found[0].problem, /abc1234/);
   assert.match(found[0].problem, /no recognised/i);
 });
 
-test("a pending major proposal is reported", () => {
+test("@important a pending major proposal is reported", () => {
   const found = lintVersions({ entries: [{ hash: "a", level: null }], lookup: () => ({ subject: "feat!: x", body: "" }) });
   assert.ok(found.some((f) => /major/i.test(f.problem)));
 });
 
-test("a major proposal is still reported when the entry already carries a level", () => {
+test("@important a major proposal is still reported when the entry already carries a level", () => {
   const found = lintVersions({ entries: [{ hash: "a", level: "minor" }], lookup: () => ({ subject: "fix: x", body: "BREAKING CHANGE: drops ids" }) });
   assert.ok(found.some((f) => /major/i.test(f.problem)));
 });
 
-test("an empty queue reports nothing", () => {
+test("@important an empty queue reports nothing", () => {
   assert.deepEqual(lintVersions({ entries: [], lookup: () => feat }), []);
 });
 
-test("a hash git cannot resolve is reported as drift, not a crash", () => {
+test("@important a hash git cannot resolve is reported as drift, not a crash", () => {
   const found = lintVersions({
     entries: [{ hash: "dead123", level: null }, { hash: "b", level: "patch" }],
     lookup: (h) => { if (h === "dead123") throw new Error("unknown revision"); return feat; },
@@ -52,7 +52,7 @@ test("a hash git cannot resolve is reported as drift, not a crash", () => {
   assert.match(found[0].problem, /history/i);
 });
 
-test("a lookup that returns no commit is reported like one that throws", () => {
+test("@important a lookup that returns no commit is reported like one that throws", () => {
   const found = lintVersions({
     entries: [{ hash: "dead123", level: null }, { hash: "b", level: "patch" }],
     lookup: (h) => (h === "dead123" ? undefined : feat),
@@ -61,7 +61,7 @@ test("a lookup that returns no commit is reported like one that throws", () => {
   assert.match(found[0].problem, /dead123/);
 });
 
-test("a version-bump commit sitting in the queue is reported as drift, once", () => {
+test("@important a version-bump commit sitting in the queue is reported as drift, once", () => {
   const byHash = { a: { subject: "v0.4.0", body: "" }, b: { subject: "патч: сайт v0.4.7", body: "" } };
   const found = lintVersions({ entries: [{ hash: "aaa1111", level: null }, { hash: "bbb2222", level: null }], lookup: (h) => byHash[h === "aaa1111" ? "a" : "b"] });
   assert.equal(found.length, 1);
@@ -94,7 +94,7 @@ function run(root) {
   }
 }
 
-test("the CLI stays silent and exits zero when there is nothing to say", () => {
+test("@important the CLI stays silent and exits zero when there is nothing to say", () => {
   const root = repo();
   commit(root, "feat: a");
   const clean = run(root);
@@ -102,7 +102,7 @@ test("the CLI stays silent and exits zero when there is nothing to say", () => {
   assert.equal(clean.stdout + clean.stderr, "");
 });
 
-test("the CLI exits non-zero and names the commit when the queue holds an unclassifiable one", () => {
+test("@important the CLI exits non-zero and names the commit when the queue holds an unclassifiable one", () => {
   const root = repo();
   const hash = commit(root, "wip");
   queue(root, `${hash}\n`);
@@ -112,7 +112,7 @@ test("the CLI exits non-zero and names the commit when the queue holds an unclas
   assert.match(found.stderr, new RegExp(hash.slice(0, 7)));
 });
 
-test("the CLI reports a queued hash that is not in this repository's history", () => {
+test("@important the CLI reports a queued hash that is not in this repository's history", () => {
   const root = repo();
   commit(root, "feat: a");
   queue(root, "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef\n");

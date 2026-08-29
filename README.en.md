@@ -891,6 +891,10 @@ distribution); risks — `RISK-STACKRULES-001/002` in `.ultrapowers/RISK_REGISTE
   IDE, `--amend`), independent of Claude Code. If a `post-commit` already exists (husky,
   pre-commit, graphify's own local hook) — it's appended to, not overwritten. Same toggle:
   `CLAUDE_GRAPHIFY_AUTOSYNC=0`.
+  One more every-session idempotent step: inside a git repository it appends `.scratchpad/` to
+  `.claude/.gitignore` (creating the file when absent), so the temp files the rules keep in
+  `<project>/.claude/.scratchpad` cannot reach a commit. Additive — existing lines are kept and
+  a repeat run duplicates nothing.
   A separate `additionalContext` hint (not a mutation, every session): when the leanmode dial
   for the project isn't `off`, reminds me (the assistant) of a standing convention every
   session — before dispatching any subagent via the Agent tool, resolve its effective level

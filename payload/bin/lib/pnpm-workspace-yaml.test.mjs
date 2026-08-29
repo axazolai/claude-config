@@ -3,7 +3,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { addOptionalPeers } from "./pnpm-workspace-yaml.mjs";
 
-test("creates packageExtensions block when absent", () => {
+test("@important creates packageExtensions block when absent", () => {
   const r = addOptionalPeers("packages:\n  - 'apps/*'\n", new Map([["@hookform/resolvers", ["zod"]]]));
   assert.equal(r.safe, true);
   assert.deepEqual(r.added, [["@hookform/resolvers", "zod"]]);
@@ -13,7 +13,7 @@ test("creates packageExtensions block when absent", () => {
   assert.match(r.text, /optional:\s*true/);
 });
 
-test("idempotent: does not re-add an existing P->Q", () => {
+test("@important idempotent: does not re-add an existing P->Q", () => {
   const first = addOptionalPeers("packages: []\n", new Map([["@hookform/resolvers", ["zod"]]])).text;
   const second = addOptionalPeers(first, new Map([["@hookform/resolvers", ["zod"]]]));
   assert.deepEqual(second.added, []);
@@ -21,7 +21,7 @@ test("idempotent: does not re-add an existing P->Q", () => {
   assert.equal(second.text, first);
 });
 
-test("fail-safe on flow-style packageExtensions (no write)", () => {
+test("@critical fail-safe on flow-style packageExtensions (no write)", () => {
   const flow = "packageExtensions: { '@a/b': { peerDependencies: { zod: '*' } } }\n";
   const r = addOptionalPeers(flow, new Map([["@a/b", ["yup"]]]));
   assert.equal(r.safe, false);

@@ -24,29 +24,29 @@ function gateOn(content) {
   }
 }
 
-test("a placeholder value does not block a commit", () => {
+test("@critical a placeholder value does not block a commit", () => {
   const r = gateOn('api_key = "YOUR_API_KEY_HERE"\n');
   assert.equal(r.status, 0, `blocked on a placeholder:\n${r.stderr}`);
 });
 
-test("an angle-bracket placeholder does not block a commit", () => {
+test("@critical an angle-bracket placeholder does not block a commit", () => {
   const r = gateOn('password: "<your-password-here>"\n');
   assert.equal(r.status, 0, `blocked on a placeholder:\n${r.stderr}`);
 });
 
-test("an x-run placeholder token does not block a commit", () => {
+test("@critical an x-run placeholder token does not block a commit", () => {
   const r = gateOn("token = ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n");
   assert.equal(r.status, 0, `blocked on a placeholder:\n${r.stderr}`);
 });
 
-test("a real AWS access key id still blocks", () => {
+test("@critical a real AWS access key id still blocks", () => {
   assert.equal(gateOn("aws_key = AKIAIOSFODNN7EXAMPLQ\n").status, 2);
 });
 
-test("a real hardcoded secret assignment still blocks", () => {
+test("@critical a real hardcoded secret assignment still blocks", () => {
   assert.equal(gateOn('password = "hunter2Kj9mPqW4xZ"\n').status, 2);
 });
 
-test("a secret read from the environment is not a hit", () => {
+test("@critical a secret read from the environment is not a hit", () => {
   assert.equal(gateOn('const token = process.env.GITHUB_TOKEN_VALUE_LONG;\n').status, 0);
 });

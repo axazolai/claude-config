@@ -42,7 +42,7 @@ const run = (base, root) => execFileSync("node", [HOOK], {
   env: { ...process.env, ...QUIET, CLAUDE_CONFIG_DIR: join(base, "home") },
 });
 
-test("register under .ultrapowers/ gets the GSD-clobber risk, and only once", () => {
+test("@important register under .ultrapowers/ gets the GSD-clobber risk, and only once", () => {
   const { base, root } = withProject([".ultrapowers"]);
   run(base, root);
   assert.equal(risks(registerAt(root, ".ultrapowers")), 1);
@@ -51,7 +51,7 @@ test("register under .ultrapowers/ gets the GSD-clobber risk, and only once", ()
   rmSync(base, { recursive: true, force: true });
 });
 
-test("a root register still outranks the .ultrapowers one", () => {
+test("@important a root register still outranks the .ultrapowers one", () => {
   const { base, root } = withProject(["", ".ultrapowers"]);
   run(base, root);
   assert.equal(risks(registerAt(root, "")), 1);
@@ -59,10 +59,36 @@ test("a root register still outranks the .ultrapowers one", () => {
   rmSync(base, { recursive: true, force: true });
 });
 
-test(".planning and .ultrapowers registers tie on depth -> both maintained", () => {
+test("@important .planning and .ultrapowers registers tie on depth -> both maintained", () => {
   const { base, root } = withProject([".planning", ".ultrapowers"]);
   run(base, root);
   assert.equal(risks(registerAt(root, ".planning")), 1);
   assert.equal(risks(registerAt(root, ".ultrapowers")), 1);
+  rmSync(base, { recursive: true, force: true });
+});
+
+const gitignoreAt = (root) => readFileSync(join(root, ".claude", ".gitignore"), "utf8");
+
+test("@important a project with no .claude/.gitignore gets one carrying the scratchpad", () => {
+  const { base, root } = withProject([]);
+  run(base, root);
+  assert.equal(gitignoreAt(root), ".scratchpad/\n");
+  rmSync(base, { recursive: true, force: true });
+});
+
+test("@important an existing .gitignore with no trailing newline keeps its lines and gains one", () => {
+  const { base, root } = withProject([]);
+  mkdirSync(join(root, ".claude"), { recursive: true });
+  writeFileSync(join(root, ".claude", ".gitignore"), "token-usage.jsonl");
+  run(base, root);
+  assert.equal(gitignoreAt(root), "token-usage.jsonl\n.scratchpad/\n");
+  rmSync(base, { recursive: true, force: true });
+});
+
+test("@important a second session does not re-append the scratchpad line", () => {
+  const { base, root } = withProject([]);
+  run(base, root);
+  run(base, root);
+  assert.equal(gitignoreAt(root).match(/^\.scratchpad\/$/gm).length, 1);
   rmSync(base, { recursive: true, force: true });
 });

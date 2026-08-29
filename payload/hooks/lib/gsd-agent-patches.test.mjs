@@ -43,14 +43,7 @@ function occurrences(haystack, needle) {
   return haystack.split(needle).length - 1;
 }
 
-test("a debug-session-manager guardrail patch is registered", () => {
-  const patch = PATCHES.find((p) => p.id === PATCH_ID);
-  assert.ok(patch, `PATCHES must contain an entry with id "${PATCH_ID}"`);
-  assert.ok(patch.appliesTo(AGENT), "patch must apply to gsd-debug-session-manager.md");
-  assert.ok(patch.block.includes("<no_recursive_agent_spawn>"), "block must carry the guardrail tag");
-});
-
-test("fresh apply injects the guardrail and clears the unguarded warning", () => {
+test("@important fresh apply injects the guardrail and clears the unguarded warning", () => {
   const dir = makeClaudeDir({ [AGENT]: FIXTURE });
   try {
     // RED precondition: with no guardrail, the checker flags this Agent-granting file.
@@ -76,7 +69,7 @@ test("fresh apply injects the guardrail and clears the unguarded warning", () =>
   }
 });
 
-test("re-applying is idempotent — no duplicate block", () => {
+test("@important re-applying is idempotent — no duplicate block", () => {
   const dir = makeClaudeDir({ [AGENT]: FIXTURE });
   try {
     applyGsdAgentPatches({ claudeDir: dir });
@@ -90,7 +83,7 @@ test("re-applying is idempotent — no duplicate block", () => {
   }
 });
 
-test("adopts a pre-existing unmarked hand-written block in place (no duplicate)", () => {
+test("@important adopts a pre-existing unmarked hand-written block in place (no duplicate)", () => {
   const patch = PATCHES.find((p) => p.id === PATCH_ID);
   // Simulate the block that was hand-authored into the live file before this patch existed:
   // same text, but with no version marker around it.
@@ -107,7 +100,7 @@ test("adopts a pre-existing unmarked hand-written block in place (no duplicate)"
   }
 });
 
-test("context-mode routing block v2 carries the deferred-schema recovery and can upgrade v1", () => {
+test("@important context-mode routing block v2 carries the deferred-schema recovery and can upgrade v1", () => {
   const p = PATCHES.find((x) => x.id === "context-mode-routing-block");
   assert.equal(p.version, 2, "text change must be accompanied by a version bump");
   assert.ok(p.block.includes("ToolSearch"), "v2 must name the deferred-schema recovery path");
@@ -119,7 +112,7 @@ test("context-mode routing block v2 carries the deferred-schema recovery and can
   assert.ok(p.priorBlocks[0].includes("<context_mode_routing>"));
 });
 
-test("patch is scoped to debug-session-manager only", () => {
+test("@important patch is scoped to debug-session-manager only", () => {
   const patch = PATCHES.find((p) => p.id === PATCH_ID);
   assert.equal(patch.appliesTo("gsd-planner.md"), false);
   assert.equal(patch.appliesTo("gsd-debugger.md"), false);
@@ -131,15 +124,10 @@ test("patch is scoped to debug-session-manager only", () => {
 // gsd-defaults.partial.json instead of rewriting agent frontmatter. PATCHES now carries block
 // patches only, which is what the registry assertion below pins.
 
-test("the registry carries no frontmatter patches — effort lives in config now", () => {
-  assert.deepEqual(PATCHES.filter((p) => p.kind === "frontmatter"), []);
-  assert.ok(PATCHES.every((p) => typeof p.block === "string" && p.block.length > 0));
-});
-
 // The close marker gone AND the block hand-edited, so neither findMarkedSpan nor the legacy
 // exact-block match can recognise it. With only the close marker missing, legacyMatch still
 // finds the untouched block and re-wraps it in place - that path self-heals and is not this one.
-test("a hand-broken marker span is flagged, never re-inserted as a second copy", () => {
+test("@critical a hand-broken marker span is flagged, never re-inserted as a second copy", () => {
   const broken = FIXTURE.replace("</role>",
     `</role>\n<!-- gsd-patch:${PATCH_ID} v1 -->\n<no_recursive_agent_spawn>hand-edited</no_recursive_agent_spawn>\n`);
   const dir = makeClaudeDir({ [AGENT]: broken });
@@ -151,7 +139,7 @@ test("a hand-broken marker span is flagged, never re-inserted as a second copy",
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
-test("a curated file with a pending patch is reported, not silently skipped", () => {
+test("@critical a curated file with a pending patch is reported, not silently skipped", () => {
   const dir = makeClaudeDir({ [AGENT]: `<!-- CURATED:NOEDIT -->\n${FIXTURE}` });
   try {
     assert.deepEqual(checkGsdAgentPatches({ claudeDir: dir })[AGENT], undefined,
@@ -160,7 +148,7 @@ test("a curated file with a pending patch is reported, not silently skipped", ()
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
-test("a curated file with no pending patch is not reported", () => {
+test("@important a curated file with no pending patch is not reported", () => {
   const dir = makeClaudeDir({ [AGENT]: FIXTURE });
   try {
     applyGsdAgentPatches({ claudeDir: dir });

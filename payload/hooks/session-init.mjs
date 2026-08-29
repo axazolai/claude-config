@@ -241,6 +241,17 @@ if (existsSync(rootClaude) && !isMarked(rootClaude)) {
   }
 }
 
+// 3) .claude/.gitignore carries the scratchpad, so the first temp file written into the project
+// cannot reach a commit. Additive: an existing file keeps every line it already has.
+const gitignore = join(root, ".claude", ".gitignore");
+if (existsSync(join(root, ".git"))) {
+  const cur = existsSync(gitignore) ? (safe(() => readFileSync(gitignore, "utf8")) ?? "") : "";
+  if (!cur.split(/\r?\n/).some((l) => l.trim() === ".scratchpad/")) {
+    const next = cur && !cur.endsWith("\n") ? cur + "\n.scratchpad/\n" : cur + ".scratchpad/\n";
+    if (writeFile(gitignore, next)) actions.push("added .scratchpad/ to .claude/.gitignore");
+  }
+}
+
 // Graphify cross-project sync: an INDEPENDENT one-time flag, not gated by `firstTime` -
 // so a project that was already initialized before this feature existed still gets it
 // on its next session, instead of being permanently skipped.

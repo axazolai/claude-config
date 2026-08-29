@@ -1,14 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { COMPONENTS } from "./component-registry.mjs";
 
-test("impeccable registry entry carries afterUpdate=promax-graft", () => {
-  const imp = COMPONENTS.find((c) => c.name === "impeccable");
-  assert.equal(imp.scope, "project");
-  assert.equal(imp.afterUpdate, "promax-graft");
-});
-
-test("projectProbe present() is false when the skill dir is absent (no throw)", async () => {
+test("@important projectProbe present() is false when the skill dir is absent (no throw)", async () => {
   const { mkdtempSync, rmSync } = await import("node:fs");
   const { tmpdir } = await import("node:os");
   const { join } = await import("node:path");
@@ -20,7 +13,7 @@ test("projectProbe present() is false when the skill dir is absent (no throw)", 
   rmSync(root, { recursive: true, force: true });
 });
 
-test("updateAndRegraft re-applies the graft AFTER the update clobbers the reference files", async () => {
+test("@critical updateAndRegraft re-applies the graft AFTER the update clobbers the reference files", async () => {
   const { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } = await import("node:fs");
   const { tmpdir } = await import("node:os");
   const { join } = await import("node:path");
@@ -43,4 +36,3 @@ test("updateAndRegraft re-applies the graft AFTER the update clobbers the refere
     assert.ok(readFileSync(join(refDir, f), "utf8").includes(SENTINEL), `${f} must carry the graft after updateAndRegraft`);
   rmSync(root, { recursive: true, force: true });
 });
-

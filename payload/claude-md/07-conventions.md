@@ -22,6 +22,16 @@
   the residue — no test file left empty, no empty describe/suite/class block, no fixture, helper
   or import orphaned by the deletion. Then the project's linter if it configures one, then the
   surviving suite, then commit the prune. When a tag is arguable, the test goes.
+- Temporary files stay inside the project: scratch scripts, inventories, intermediate dumps and
+  run logs go to `<project>/.claude/.scratchpad`, never to the home directory, `~/.claude`, or a
+  system temp dir. Create or extend `.claude/.gitignore` before the first write. Durable
+  user-scope state is out of scope and does not move — the memory directory, `~/.claude/state/`,
+  token logs, the bundle manifest.
+- Never `rm -rf`. Delete by naming each path, after looking at what it holds; a glob, a mask or
+  "everything in this directory" is not grounds for deletion. Same bar for git: `git clean` in
+  any form, `git reset --hard`, `git checkout -- .` and `git rm -r` are out, while
+  `git checkout -- <one named file>` and `git rm <one named file>` are fine. A path in
+  `.gitignore` is local, not disposable — `.env`, local settings and caches live there.
 - Follow the repo's stated branch/merge workflow; if none is stated, default to Conventional
   Commits, branch from `main`, squash-merge — but check for an existing convention first
   (branch names like `develop`, rebase policies, protected-branch rules vary per repo and

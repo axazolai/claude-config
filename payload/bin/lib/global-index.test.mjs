@@ -12,13 +12,13 @@ const graph = {
   ],
 };
 
-test("every labelled node becomes one row; unlabelled nodes are dropped", () => {
+test("@important every labelled node becomes one row; unlabelled nodes are dropped", () => {
   const rows = buildIndex(graph).split("\n").filter(Boolean);
   assert.equal(rows.length, 4);
 });
 
 // A hit with no file is a dead end - there is nowhere to go and look.
-test("a node with no source file is dropped", () => {
+test("@important a node with no source file is dropped", () => {
   const g = { nodes: [
     { label: "Lock", repo: "r", source_file: "", source_location: "", file_type: "code" },
     { label: "real()", repo: "r", source_file: "a.mjs", source_location: "L1", file_type: "code" },
@@ -28,12 +28,12 @@ test("a node with no source file is dropped", () => {
   assert.match(rows[0], /^real\(\)/);
 });
 
-test("a row carries label, repo, file and location, tab separated", () => {
+test("@important a row carries label, repo, file and location, tab separated", () => {
   const row = buildIndex(graph).split("\n").find((r) => r.startsWith("isHeld()"));
   assert.deepEqual(row.split("\t"), ["isHeld()", "claude-config", "hooks/lock.mjs", "L8", "code"]);
 });
 
-test("a query finds the symbol regardless of case", () => {
+test("@important a query finds the symbol regardless of case", () => {
   const idx = buildIndex(graph);
   assert.equal(queryIndex(idx, "buildsynccommand").length, 1);
   assert.equal(queryIndex(idx, "BUILDSYNCCOMMAND").length, 1);
@@ -41,14 +41,14 @@ test("a query finds the symbol regardless of case", () => {
 
 // The same file reached through a git worktree is the same code, not a second implementation.
 // Collapsing them is what makes "have I written this before" answerable.
-test("the same label in the same file across repos collapses to one hit that names them all", () => {
+test("@important the same label in the same file across repos collapses to one hit that names them all", () => {
   const hits = queryIndex(buildIndex(graph), "buildSyncCommand");
   assert.equal(hits.length, 1);
   assert.equal(hits[0].file, "hooks/sync.mjs");
   assert.deepEqual(hits[0].repos.sort(), ["claude-config", "claude-config-wt-plan13"]);
 });
 
-test("the same label in a different file stays a separate hit", () => {
+test("@important the same label in a different file stays a separate hit", () => {
   const g = { nodes: [
     { label: "run()", repo: "a", source_file: "one.mjs", source_location: "L1", file_type: "code" },
     { label: "run()", repo: "b", source_file: "two.mjs", source_location: "L1", file_type: "code" },
@@ -56,11 +56,11 @@ test("the same label in a different file stays a separate hit", () => {
   assert.equal(queryIndex(buildIndex(g), "run").length, 2);
 });
 
-test("a miss is an empty list, not a throw", () => {
+test("@important a miss is an empty list, not a throw", () => {
   assert.deepEqual(queryIndex(buildIndex(graph), "nothing-like-this"), []);
 });
 
-test("the limit caps the hits returned", () => {
+test("@important the limit caps the hits returned", () => {
   const g = { nodes: Array.from({ length: 50 }, (_, i) => (
     { label: `handler${i}()`, repo: "r", source_file: `f${i}.mjs`, source_location: "L1", file_type: "code" })) };
   assert.equal(queryIndex(buildIndex(g), "handler", { limit: 5 }).length, 5);

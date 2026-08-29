@@ -26,7 +26,7 @@ function leanmodeRoot() {
   return root;
 }
 
-test("SubagentStart injects the leanmode block for a mapped-to-full agent", () => {
+test("@important SubagentStart injects the leanmode block for a mapped-to-full agent", () => {
   const root = leanmodeRoot();
   const res = run({ hook_event_name: "SubagentStart", agent_type: "x", cwd: root });
   assert.ok(res, "expected output");
@@ -36,21 +36,21 @@ test("SubagentStart injects the leanmode block for a mapped-to-full agent", () =
   rmSync(root, { recursive: true, force: true });
 });
 
-test("SubagentStart with no agent_type yields no output (retired leanmode-subagent.mjs parity)", () => {
+test("@important SubagentStart with no agent_type yields no output (retired leanmode-subagent.mjs parity)", () => {
   const root = leanmodeRoot();
   const res = run({ hook_event_name: "SubagentStart", cwd: root });
   assert.equal(res, null);
   rmSync(root, { recursive: true, force: true });
 });
 
-test("CLAUDE_LEANMODE=0 disables the leanmode axis (no output)", () => {
+test("@important CLAUDE_LEANMODE=0 disables the leanmode axis (no output)", () => {
   const root = leanmodeRoot();
   const res = run({ hook_event_name: "SubagentStart", agent_type: "x", cwd: root }, { CLAUDE_LEANMODE: "0" });
   assert.equal(res, null);
   rmSync(root, { recursive: true, force: true });
 });
 
-test("SessionStart yields nothing yet (leanmode is SubagentStart-only)", () => {
+test("@important SessionStart yields nothing yet (leanmode is SubagentStart-only)", () => {
   const root = leanmodeRoot();
   const res = run({ hook_event_name: "SessionStart", cwd: root });
   assert.equal(res, null);
@@ -65,7 +65,7 @@ function bothRoot() {
   return root;
 }
 
-test("SessionStart injects verbosity only (leanmode not subscribed)", () => {
+test("@important SessionStart injects verbosity only (leanmode not subscribed)", () => {
   const root = bothRoot();
   const res = run({ hook_event_name: "SessionStart", cwd: root });
   assert.ok(res);
@@ -74,7 +74,7 @@ test("SessionStart injects verbosity only (leanmode not subscribed)", () => {
   rmSync(root, { recursive: true, force: true });
 });
 
-test("SubagentStart injects both axes when both on", () => {
+test("@important SubagentStart injects both axes when both on", () => {
   const root = bothRoot();
   const res = run({ hook_event_name: "SubagentStart", agent_type: "x", cwd: root });
   assert.match(res.systemMessage, /leanmode: full/);
@@ -82,7 +82,7 @@ test("SubagentStart injects both axes when both on", () => {
   rmSync(root, { recursive: true, force: true });
 });
 
-test("leanmode disabled still injects verbosity (axis independence)", () => {
+test("@important leanmode disabled still injects verbosity (axis independence)", () => {
   const root = bothRoot();
   const res = run({ hook_event_name: "SubagentStart", agent_type: "x", cwd: root }, { CLAUDE_LEANMODE: "0" });
   assert.ok(res);

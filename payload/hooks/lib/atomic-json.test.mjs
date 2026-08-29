@@ -9,7 +9,7 @@ import { withFileLock, updateJsonFile, writeFileAtomic } from "./atomic-json.mjs
 const MODULE_URL = new URL("./atomic-json.mjs", import.meta.url).href;
 const tmp = () => mkdtempSync(join(tmpdir(), "atomic-json-"));
 
-test("updateJsonFile creates the file and applies the mutation", () => {
+test("@critical updateJsonFile creates the file and applies the mutation", () => {
   const d = tmp();
   try {
     const f = join(d, "state.json");
@@ -18,7 +18,7 @@ test("updateJsonFile creates the file and applies the mutation", () => {
   } finally { rmSync(d, { recursive: true, force: true }); }
 });
 
-test("a mutation that changes nothing writes nothing", () => {
+test("@critical a mutation that changes nothing writes nothing", () => {
   const d = tmp();
   try {
     const f = join(d, "state.json");
@@ -27,7 +27,7 @@ test("a mutation that changes nothing writes nothing", () => {
   } finally { rmSync(d, { recursive: true, force: true }); }
 });
 
-test("a corrupt target is treated as empty rather than throwing", () => {
+test("@critical a corrupt target is treated as empty rather than throwing", () => {
   const d = tmp();
   try {
     const f = join(d, "state.json");
@@ -37,7 +37,7 @@ test("a corrupt target is treated as empty rather than throwing", () => {
   } finally { rmSync(d, { recursive: true, force: true }); }
 });
 
-test("a BOM on the target does not break the read", () => {
+test("@critical a BOM on the target does not break the read", () => {
   const d = tmp();
   try {
     const f = join(d, "state.json");
@@ -47,7 +47,7 @@ test("a BOM on the target does not break the read", () => {
   } finally { rmSync(d, { recursive: true, force: true }); }
 });
 
-test("no temp sibling survives a write", () => {
+test("@critical no temp sibling survives a write", () => {
   const d = tmp();
   try {
     const f = join(d, "state.json");
@@ -56,7 +56,7 @@ test("no temp sibling survives a write", () => {
   } finally { rmSync(d, { recursive: true, force: true }); }
 });
 
-test("the lock is released when the guarded function throws", () => {
+test("@critical the lock is released when the guarded function throws", () => {
   const d = tmp();
   try {
     const f = join(d, "state.json");
@@ -65,7 +65,7 @@ test("the lock is released when the guarded function throws", () => {
   } finally { rmSync(d, { recursive: true, force: true }); }
 });
 
-test("a lock left behind by a crashed holder is broken, not waited out", () => {
+test("@critical a lock left behind by a crashed holder is broken, not waited out", () => {
   const d = tmp();
   try {
     const f = join(d, "state.json");
@@ -79,7 +79,7 @@ test("a lock left behind by a crashed holder is broken, not waited out", () => {
 // The guarantee the module exists for: a writer that races in between must be merged onto, not
 // clobbered. Both children hold the mutation open long enough to overlap, so an unlocked
 // read-modify-write loses one key every time.
-test("concurrent updaters do not lose each other's keys", async () => {
+test("@critical concurrent updaters do not lose each other's keys", async () => {
   const d = tmp();
   try {
     const f = join(d, "state.json");

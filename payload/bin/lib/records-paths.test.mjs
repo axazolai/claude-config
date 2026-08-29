@@ -7,7 +7,7 @@ import { resolveRecordPaths } from "./records-paths.mjs";
 
 const tmp = () => mkdtempSync(join(tmpdir(), "records-paths-"));
 
-test("without the tree, records live at the repository root", () => {
+test("@important without the tree, records live at the repository root", () => {
   const root = tmp();
   const p = resolveRecordPaths(root);
   assert.equal(p.base, root);
@@ -16,7 +16,7 @@ test("without the tree, records live at the repository root", () => {
   assert.equal(p.glossary, join(root, "GLOSSARY.md"));
 });
 
-test("with the tree, records live inside it", () => {
+test("@important with the tree, records live inside it", () => {
   const root = tmp();
   mkdirSync(join(root, ".ultrapowers"));
   const p = resolveRecordPaths(root);

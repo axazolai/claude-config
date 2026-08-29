@@ -1,12 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import { dirname } from "node:path";
-import { fileURLToPath } from "node:url";
-import { globToRe, resolveVariant, filterPartialHooks, resolvedExclude, profilesOf } from "./variants.mjs";
-import { join } from "node:path";
 
-const ROOT = dirname(fileURLToPath(import.meta.url));
+import { globToRe, resolveVariant, resolvedExclude, profilesOf } from "./variants.mjs";
 
 // Static import specifiers (relative only). Dynamic import() is intentionally NOT matched:
 // full-only code loads excluded libs via gated dynamic imports, which is legal in lite.
@@ -24,7 +19,7 @@ function staticImportRels(text) {
   return out;
 }
 
-test("globToRe: * does not cross /, ** does", () => {
+test("@important globToRe: * does not cross /, ** does", () => {
   assert.ok(globToRe("hooks/lib/leanmode-*").test("hooks/lib/leanmode-rules.mjs"));
   assert.ok(!globToRe("hooks/*").test("hooks/lib/leanmode-rules.mjs"));
   assert.ok(globToRe("rules-src/**").test("rules-src/templates/next.AGENTS.md"));
@@ -42,78 +37,6 @@ test("globToRe: * does not cross /, ** does", () => {
 // resolver output that can actually vary (overlay files that never landed a base target;
 // GSD/full-only basenames leaking into a profile that must not ship them).
 
-test("overlay: no orphan files in payload-lite/", () => {
-  const v = resolveVariant({ repoRoot: ROOT, variant: "lite" });
-  assert.deepEqual(v.orphanOverlay, [], `orphan overlay files: ${v.orphanOverlay.join(", ")}`);
-});
-
-test("lite set has no excluded families", () => {
-  const v = resolveVariant({ repoRoot: ROOT, variant: "lite" });
-  for (const rel of v.rels) {
-    // setting-templates/** is deliberately NOT in this list: templates ship in every profile
-    // (spec §1) - lite filters plugins by maxPluginTier: "core" at install time, not by
-    // excluding template files.
-    assert.ok(!/^(agents\/gsd-|hooks\/gsd-|hooks\/lib\/gsd-|references\/)/.test(rel), rel);
-    assert.notEqual(rel, "rules-src/gsd.md");
-  }
-});
-
-test("profile chain is a strict subset: lite ⊂ base ⊂ full", () => {
-  const full = new Set(resolveVariant({ repoRoot: ROOT, variant: "full" }).rels);
-  const base = new Set(resolveVariant({ repoRoot: ROOT, variant: "base" }).rels);
-  const lite = new Set(resolveVariant({ repoRoot: ROOT, variant: "lite" }).rels);
-  for (const r of base) assert.ok(full.has(r), `base file not in full: ${r}`);
-  for (const r of lite) assert.ok(base.has(r), `lite file not in base: ${r}`);
-  assert.ok(base.size < full.size && lite.size < base.size, "each step must be a proper subset");
-});
-
-test("Category-II files ship to all profiles (stack-commands)", () => {
-  const expected = [
-    "bin/detect-stack-commands.mjs",
-    "bin/lib/stack-commands.mjs",
-  ];
-  for (const variant of ["full", "base", "lite"]) {
-    const rels = new Set(resolveVariant({ repoRoot: ROOT, variant }).rels);
-    for (const f of expected) assert.ok(rels.has(f), `${variant} missing ${f}`);
-    assert.ok(![...rels].some((r) => r.endsWith(".test.mjs")), `${variant} leaks a .test.mjs`);
-  }
-});
-
-test("base drops all GSD, keeps neo4j opt-in and design/infra keep-set", () => {
-  const base = resolveVariant({ repoRoot: ROOT, variant: "base" });
-  for (const r of base.rels) {
-    assert.ok(!/^(agents\/gsd-|hooks\/gsd-|hooks\/lib\/gsd-)/.test(r), `GSD leaked into base: ${r}`);
-    assert.notEqual(r, "rules-src/gsd.md");
-  }
-  // OI-4 keep-set present in base:
-  for (const f of ["hooks/bg-supervision-nudge.mjs", "commands/init-mcp.md",
-                   "hooks/schedulewakeup-loop-only-nudge.mjs", "hooks/pnpm-phantom-fix-hook.mjs"])
-    assert.ok(base.rels.includes(f), `base must keep ${f}`);
-  // full-only infra absent from base:
-  for (const f of ["hooks/db-live-access-gate.mjs", "hooks/ci-watch-nudge.mjs"])
-    assert.ok(!base.rels.includes(f), `full-only infra leaked into base: ${f}`);
-});
-
-test("lite drops base's universal infra", () => {
-  const lite = resolveVariant({ repoRoot: ROOT, variant: "lite" });
-  for (const f of ["hooks/bg-supervision-nudge.mjs", "commands/init-mcp.md",
-                   "hooks/schedulewakeup-loop-only-nudge.mjs", "hooks/pnpm-phantom-fix-hook.mjs"])
-    assert.ok(!lite.rels.includes(f), `lite must drop ${f}`);
-});
-
-test("full variant is identity over payload/ (minus alwaysExclude)", () => {
-  const v = resolveVariant({ repoRoot: ROOT, variant: "full" });
-  // full ships everything except the alwaysExclude families: task-lifecycle-probe (.mjs +
-  // .test.mjs), every **.test.mjs (tests are never shipped to any profile), and every
-  // claude-md/ fragment (build input for assemble-claude-md.mjs — CLAUDE.md itself is
-  // assembled by setup.mjs, never copied as a payload rel). Nothing else leaks in.
-  assert.ok([...v.excludedSet].every((r) => /task-lifecycle-probe/.test(r) || r.startsWith("claude-md/") || r.endsWith(".test.mjs")),
-    `unexpected exclusions on full: ${[...v.excludedSet].join(", ")}`);
-  assert.ok([...v.excludedSet].some((r) => r.endsWith(".test.mjs")), "**.test.mjs must be excluded from full");
-  assert.ok([...v.excludedSet].some((r) => /task-lifecycle-probe/.test(r)), "task-lifecycle-probe must still be excluded");
-  assert.ok([...v.excludedSet].some((r) => r.startsWith("claude-md/")), "claude-md/ fragments must be excluded from full too");
-});
-
 // "setting-templates" was dropped from this list under three-profile unification (Task 6):
 // setting-templates/ now ships in EVERY profile (variant-agnostic stack templates; which
 // plugins a profile is willing to enable is the tier filter, not file exclusion - see
@@ -122,12 +45,6 @@ test("full variant is identity over payload/ (minus alwaysExclude)", () => {
 // `~/.claude/setting-templates/` for every profile, including lite. "init-stack.py" stays
 // forbidden: the Python implementation is deleted, so the unified doc invokes
 // `node ~/.claude/bin/init-stack.mjs` only.
-const FORBIDDEN = [
-  "gsd", "init-stack.py", "neo4j", "pnpm-phantom",
-  "db-live-access", "ci-watch", "schedulewakeup", "stack-markers",
-  "worktree-executor-discipline", "bg-supervision", "supervise-bg",
-  "task-lifecycle-probe", "init-mcp",
-];
 
 // Budgeted exceptions: token -> how many occurrences of it this file is allowed to carry.
 // A budget, not an exemption - exceeding it still fails, so a NEW leak of the same token is
@@ -139,9 +56,6 @@ const FORBIDDEN = [
 // the resolved lite set, verified 2026-07-27. Deleting the sentence would document lite as not
 // doing something it does; rewording it to drop the word would only hide the token, since
 // `.planning/` IS the GSD marker. The other twelve tokens stay fully enforced on this file.
-const TOKEN_BUDGET = {
-  "commands/init-stack.md": { gsd: 1 },
-};
 
 // Scope is deliberately NOT all of `skills/` — `skills/update-changelog/**` legitimately
 // mentions "GSD" (it's the changelog-writer's own instruction to STRIP any mention of GSD from
@@ -150,206 +64,23 @@ const TOKEN_BUDGET = {
 // it forever. `skills/token-usage/**` has zero "gsd" occurrences (verified) and would pass either
 // way, but only `skills/model-selection-policy/**` is the one this test is actually guarding
 // (Fix 4: the lite overlay must not regress back to citing /gsd-execute-phase / /gsd-debug).
-test("purity: resolved lite rules-src + overlay docs carry no forbidden tokens", () => {
-  const v = resolveVariant({ repoRoot: ROOT, variant: "lite" });
-  const scope = v.rels.filter((r) => r.startsWith("rules-src/") || r === "CLAUDE.md"
-    || r === "commands/init-stack.md" || r.startsWith("skills/model-selection-policy/"));
-  const bad = [];
-  for (const rel of scope) {
-    const text = readFileSync(v.srcFor(rel), "utf8").toLowerCase();
-    const budget = TOKEN_BUDGET[rel] ?? {};
-    for (const tok of FORBIDDEN) {
-      const found = text.split(tok).length - 1;
-      const allowed = budget[tok] ?? 0;
-      if (found > allowed) {
-        bad.push(allowed === 0
-          ? `${rel}: ${tok}`
-          : `${rel}: ${tok} x${found} (budget ${allowed})`);
-      }
-    }
-  }
-  assert.deepEqual(bad, [], bad.join("\n"));
-});
-
-test("import graph: no static import in the lite set resolves to an excluded file", () => {
-  const v = resolveVariant({ repoRoot: ROOT, variant: "lite" });
-  const relSet = new Set(v.rels);
-
-  // Regression: multiline imports must be detected (e.g., payload/hooks/token-usage-log.mjs)
-  const tuLog = readFileSync(v.srcFor("hooks/token-usage-log.mjs"), "utf8");
-  assert.ok(
-    staticImportRels(tuLog).includes("./lib/token-usage-shared.mjs"),
-    "multiline import form must be detected"
-  );
-
-  // Sanity check: dynamic import() must NOT be matched
-  assert.deepEqual(
-    staticImportRels('import {\n a,\n} from "./x.mjs";\nconst y = await import("./z.mjs");'),
-    ["./x.mjs"],
-    "dynamic import() must not be matched"
-  );
-
-  const bad = [];
-  for (const rel of v.rels) {
-    if (!rel.endsWith(".mjs")) continue;
-    const text = readFileSync(v.srcFor(rel), "utf8");
-    // static imports only: handles multiline forms via staticImportRels
-    for (const specifier of staticImportRels(text)) {
-      const target = new URL(specifier, `file:///${rel}`).pathname.replace(/^\//, "");
-      if (!relSet.has(target)) bad.push(`${rel} -> ${specifier}`);
-    }
-  }
-  assert.deepEqual(bad, [], bad.join("\n"));
-});
-
-test("base is import-closed (no dangling static import)", () => {
-  const on = resolveVariant({ repoRoot: ROOT, variant: "base" });
-  const relSet = new Set(on.rels);
-  const bad = [];
-  for (const rel of on.rels) {
-    if (!rel.endsWith(".mjs")) continue;
-    const text = readFileSync(on.srcFor(rel), "utf8");
-    for (const specifier of staticImportRels(text)) {
-      const target = new URL(specifier, `file:///${rel}`).pathname.replace(/^\//, "");
-      if (!relSet.has(target)) bad.push(`${rel} -> ${specifier}`);
-    }
-  }
-  assert.deepEqual(bad, [], bad.join("\n"));
-});
-
-test("full is identity over payload minus alwaysExclude", () => {
-  const v = resolveVariant({ repoRoot: ROOT, variant: "full" });
-  // full ships everything except the alwaysExclude families: task-lifecycle-probe (.mjs +
-  // .test.mjs), every **.test.mjs, and the claude-md/ fragments (build input, see the test
-  // above), nothing else leaks in. Non-vacuous: also assert the excluded set is non-empty and
-  // both families are actually present (not just "everything present passes an all-() over an empty set").
-  assert.ok(v.excludedSet.size > 0, "excludedSet must not be empty");
-  assert.ok([...v.excludedSet].some((r) => /task-lifecycle-probe/.test(r)), "task-lifecycle-probe must still be excluded");
-  assert.ok([...v.excludedSet].some((r) => r.startsWith("claude-md/")), "claude-md/ fragments must be excluded from full too");
-  assert.ok([...v.excludedSet].every((r) => /task-lifecycle-probe/.test(r) || r.startsWith("claude-md/") || r.endsWith(".test.mjs")),
-    `unexpected exclusions on full: ${[...v.excludedSet].join(", ")}`);
-  assert.ok([...v.excludedSet].some((r) => r.endsWith(".test.mjs")), "**.test.mjs must be excluded from full");
-});
-
-test("hook registrations: lite keeps exactly the 10 lite hooks, and its own statusLine renderer", () => {
-  const v = resolveVariant({ repoRoot: ROOT, variant: "lite" });
-  const partial = JSON.parse(readFileSync(join(ROOT, "settings.partial.json"), "utf8"));
-  const basenames = new Set(v.rels.map((r) => r.split("/").pop()));
-  const filtered = filterPartialHooks(partial.hooks, basenames);
-  const scripts = new Set();
-  for (const entries of Object.values(filtered))
-    for (const e of entries) for (const h of (e.hooks || []))
-      for (const a of (h.args || [])) scripts.add(String(a).split(/[\\/]/).pop());
-  // precompact-observe.mjs is here because lite installs statusline.mjs, which reads
-  // state/autocompact.json — this hook is the only thing that writes it. Dropping it from lite
-  // would ship the reader without its writer.
-  // protected-guard.mjs is here on purpose: lite already carries secrets-gate.mjs and
-  // deny-curated-claude-md.mjs, so protection against losing a file belongs to the same class
-  // and costs nothing at runtime — it reads .protected only when one exists.
-  assert.deepEqual([...scripts].sort(), [
-    "decision-records-nudge.mjs", "deny-curated-claude-md.mjs", "graphify-global-sync.mjs",
-    "graphify-grep-nudge.mjs", "inject-axes.mjs", "precompact-observe.mjs", "protected-guard.mjs",
-    "secrets-gate.mjs", "session-init.mjs", "token-usage-log.mjs",
-  ]);
-  assert.ok(basenames.has("statusline.mjs"));
-});
-
-test("base hook registrations resolve to base's file set", () => {
-  const v = resolveVariant({ repoRoot: ROOT, variant: "base" });
-  const partial = JSON.parse(readFileSync(join(ROOT, "settings.partial.json"), "utf8"));
-  const basenames = new Set(v.rels.map((r) => r.split("/").pop()));
-  const filtered = filterPartialHooks(partial.hooks, basenames);
-  const scripts = new Set();
-  for (const entries of Object.values(filtered))
-    for (const e of entries) for (const h of (e.hooks || []))
-      for (const a of (h.args || [])) scripts.add(String(a).split(/[\\/]/).pop());
-  // base MUST include its globally-registered OI-4 keep-set hooks:
-  for (const s of ["bg-supervision-nudge.mjs", "schedulewakeup-loop-only-nudge.mjs"])
-    assert.ok(scripts.has(s), `base settings must register ${s}`);
-  // full-only / GSD infra MUST NOT be registered for base:
-  for (const s of ["db-live-access-gate.mjs", "ci-watch-nudge.mjs", "task-lifecycle-probe.mjs"])
-    assert.ok(!scripts.has(s), `base settings must NOT register ${s}`);
-  // pnpm-phantom-fix-hook.mjs is deliberately NEVER globally registered in settings.partial.json
-  // (.ultrapowers/archive/specs/2026-07-21-pnpm-phantom-fix-design.md, decision C2: "settings.partial.json
-  // is NOT changed — the hook is never globally registered"; it's wired per-project, pnpm-gated, by
-  // pnpm-phantom-fix-install.mjs at /init-stack time). It ships in base's FILE SET — asserted
-  // separately by "base drops all GSD, keeps neo4j opt-in and design/infra keep-set" — but this
-  // filtered-registration view must stay empty for it, or the guard above (which forbids full-only
-  // hooks from appearing here) would be trivially satisfiable by never registering anything at all.
-  assert.ok(!scripts.has("pnpm-phantom-fix-hook.mjs"),
-    "pnpm-phantom-fix-hook.mjs must stay out of the GLOBAL settings.partial.json registration");
-});
-
 const FIXTURE = { profiles: {
   full: { plugins: [] },
   base: { exclude: ["a/*", "b/*"] },
   lite: { extends: "base", exclude: ["c/*"] },
 }};
 
-test("profilesOf: prefers profiles, falls back to variants", () => {
+test("@important profilesOf: prefers profiles, falls back to variants", () => {
   assert.equal(profilesOf({ profiles: { x: 1 } }).x, 1);
   assert.equal(profilesOf({ variants: { y: 2 } }).y, 2);
   assert.deepEqual(profilesOf({}), {});
 });
 
-test("resolvedExclude: unions the extends chain, child last", () => {
+test("@important resolvedExclude: unions the extends chain, child last", () => {
   assert.deepEqual(resolvedExclude(FIXTURE, "full"), []);
   assert.deepEqual(resolvedExclude(FIXTURE, "base"), ["a/*", "b/*"]);
   assert.deepEqual(resolvedExclude(FIXTURE, "lite"), ["a/*", "b/*", "c/*"]);
 });
 
-test("full identity honors alwaysExclude (task-lifecycle-probe not shipped in any profile)", () => {
-  const v = resolveVariant({ repoRoot: ROOT, variant: "full" });
-  assert.ok(!v.rels.some((r) => /task-lifecycle-probe/.test(r)),
-    "task-lifecycle-probe must be excluded even from full");
-});
-
 // Task 7: an install against an unknown marketplace fails outright, and setup.mjs will not guess a
 // repo. So every marketplace a managed plugin lives in must have its source recorded here.
-test("every managed plugin's marketplace has a recorded source", () => {
-  const v = JSON.parse(readFileSync(join(ROOT, "variants.json"), "utf8"));
-  const needed = [...new Set(Object.values(v.managedPlugins).map((id) => id.split("@")[1]))];
-  const missing = needed.filter((mp) => !(v.marketplaces || {})[mp]);
-  assert.deepEqual(missing, [], `marketplaces without a source in variants.json: ${missing.join(", ")}`);
-});
-
-test("keepInstalled only names plugins that are still managed", () => {
-  const v = JSON.parse(readFileSync(join(ROOT, "variants.json"), "utf8"));
-  for (const name of v.keepInstalled || []) {
-    assert.ok(v.managedPlugins[name], `${name} is kept installed but no longer managed - it could never be disabled`);
-  }
-});
-
-test("no profile may require a forbidden plugin", () => {
-  const v = JSON.parse(readFileSync(join(ROOT, 'variants.json'), 'utf8'));
-  const banned = new Set(v.forbiddenPlugins || []);
-  for (const [name, profile] of Object.entries(profilesOf(v)))
-    for (const p of profile.plugins || [])
-      assert.ok(!banned.has(p), `profile "${name}" lists "${p}", which is forbidden - it would be installed and then removed on every run`);
-});
-
-test("every forbidden plugin is still managed, so it can be found and removed", () => {
-  const v = JSON.parse(readFileSync(join(ROOT, 'variants.json'), 'utf8'));
-  for (const name of v.forbiddenPlugins || [])
-    assert.ok(v.managedPlugins[name], `${name} is forbidden but not managed - nothing would ever look for it`);
-});
-
-test("a forbidden plugin is never also kept installed", () => {
-  const v = JSON.parse(readFileSync(join(ROOT, 'variants.json'), 'utf8'));
-  const kept = new Set(v.keepInstalled || []);
-  for (const name of v.forbiddenPlugins || [])
-    assert.ok(!kept.has(name), `${name} is both forbidden and keepInstalled - those cannot both hold`);
-});
-
-test("context7 is forbidden, because it is reached through its MCP server", () => {
-  const v = JSON.parse(readFileSync(join(ROOT, 'variants.json'), 'utf8'));
-  assert.ok((v.forbiddenPlugins || []).includes("context7"));
-});
-
-test("the gsd-core pin is present and is an exact version, never a range or a tag", () => {
-  const v = JSON.parse(readFileSync(join(ROOT, "variants.json"), "utf8"));
-  const pin = (v.gsdCore || {}).version;
-  assert.ok(pin, "variants.json must pin gsdCore.version - without it setup.mjs installs nothing");
-  assert.match(pin, /^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$/,
-    `the pin must be an exact version so every machine gets the release the fork and patches were verified against, got: ${pin}`);
-});

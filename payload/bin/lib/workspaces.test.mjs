@@ -16,7 +16,7 @@ function repo(files) {
 }
 const pkg = JSON.stringify({ name: "x" });
 
-test("reads pnpm-workspace.yaml packages", () => {
+test("@important reads pnpm-workspace.yaml packages", () => {
   const root = repo({
     "pnpm-workspace.yaml": "packages:\n  - 'apps/*'\n",
     "apps/web/package.json": pkg,
@@ -28,7 +28,7 @@ test("reads pnpm-workspace.yaml packages", () => {
   assert.equal(r.isMonorepo, true);
 });
 
-test("falls back to package.json workspaces", () => {
+test("@important falls back to package.json workspaces", () => {
   const root = repo({
     "package.json": JSON.stringify({ workspaces: ["packages/*"] }),
     "packages/ui/package.json": pkg,
@@ -39,12 +39,12 @@ test("falls back to package.json workspaces", () => {
   assert.equal(r.isMonorepo, false);
 });
 
-test("falls back to conventional globs when only turbo.json is present", () => {
+test("@important falls back to conventional globs when only turbo.json is present", () => {
   const root = repo({ "turbo.json": "{}", "apps/web/package.json": pkg });
   assert.equal(listWorkspaces(root).detectionSource, "conventional-fallback");
 });
 
-test("a directory without package.json is not a workspace", () => {
+test("@important a directory without package.json is not a workspace", () => {
   const root = repo({
     "pnpm-workspace.yaml": "packages:\n  - 'apps/*'\n",
     "apps/web/package.json": pkg,
@@ -53,7 +53,7 @@ test("a directory without package.json is not a workspace", () => {
   assert.deepEqual(listWorkspaces(root).workspaces.map((w) => w.relDir), ["apps/web"]);
 });
 
-test("a single-package repository has no workspaces", () => {
+test("@important a single-package repository has no workspaces", () => {
   const root = repo({ "package.json": pkg });
   const r = listWorkspaces(root);
   assert.deepEqual(r.workspaces, []);

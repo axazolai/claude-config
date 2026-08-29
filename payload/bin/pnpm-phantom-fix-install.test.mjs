@@ -6,20 +6,20 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { isPnpmProject, addPostinstall, addHookToSettings } from "./pnpm-phantom-fix-install.mjs";
 
-test("isPnpmProject true when pnpm-workspace.yaml present, false otherwise", () => {
+test("@important isPnpmProject true when pnpm-workspace.yaml present, false otherwise", () => {
   const dir = mkdtempSync(join(tmpdir(), "pnpm-inst-"));
   assert.equal(isPnpmProject(dir), false);
   writeFileSync(join(dir, "pnpm-workspace.yaml"), "packages: []\n");
   assert.equal(isPnpmProject(dir), true);
 });
 
-test("isPnpmProject true with pnpm-lock.yaml", () => {
+test("@important isPnpmProject true with pnpm-lock.yaml", () => {
   const dir = mkdtempSync(join(tmpdir(), "pnpm-inst-"));
   writeFileSync(join(dir, "pnpm-lock.yaml"), "lockfileVersion: '9.0'\n");
   assert.equal(isPnpmProject(dir), true);
 });
 
-test("addPostinstall adds when absent, appends when present, no-op when already there", () => {
+test("@important addPostinstall adds when absent, appends when present, no-op when already there", () => {
   const a = addPostinstall({ name: "x" });
   assert.equal(a.changed, true);
   assert.match(a.obj.scripts.postinstall, /pnpm-phantom-scan\.mjs/);
@@ -34,7 +34,7 @@ test("addPostinstall adds when absent, appends when present, no-op when already 
   assert.equal(c.obj.scripts.postinstall, b.obj.scripts.postinstall);
 });
 
-test("addPostinstall emits a cmd-safe command — no bare ~ that cmd.exe can't expand", () => {
+test("@important addPostinstall emits a cmd-safe command — no bare ~ that cmd.exe can't expand", () => {
   const { obj } = addPostinstall({ name: "x" });
   const cmd = obj.scripts.postinstall;
   // The whole failure mode: `~` is literal in cmd.exe. node must resolve home itself.
@@ -43,7 +43,7 @@ test("addPostinstall emits a cmd-safe command — no bare ~ that cmd.exe can't e
   assert.match(cmd, /existsSync/);
 });
 
-test("addPostinstall migrates a previously-wired broken tilde form in place", () => {
+test("@important addPostinstall migrates a previously-wired broken tilde form in place", () => {
   const legacy = { name: "x", scripts: { postinstall: "husky install && node ~/.claude/bin/pnpm-phantom-scan.mjs" } };
   const m = addPostinstall(legacy);
   assert.equal(m.changed, true);
@@ -55,7 +55,7 @@ test("addPostinstall migrates a previously-wired broken tilde form in place", ()
   assert.equal(again.changed, false);
 });
 
-test("addHookToSettings adds once and is idempotent", () => {
+test("@important addHookToSettings adds once and is idempotent", () => {
   const first = addHookToSettings({});
   assert.equal(first.changed, true);
   const post = first.obj.hooks.PostToolUse;

@@ -16,33 +16,33 @@ function project(version = "1.2.3") {
   return root;
 }
 
-test("--version-only bumps package.json and writes no changelog", () => {
+test("@important --version-only bumps package.json and writes no changelog", () => {
   const root = project();
   run(["--version-only", "--final-version", "1.3.0", "--root", root]);
   assert.equal(JSON.parse(readFileSync(join(root, "package.json"), "utf8")).version, "1.3.0");
   assert.equal(existsSync(join(root, "changelog.json")), false);
 });
 
-test("--version-only updates version.json when it already exists", () => {
+test("@important --version-only updates version.json when it already exists", () => {
   const root = project();
   writeFileSync(join(root, "version.json"), '{\n  "version": "1.2.3"\n}\n');
   run(["--version-only", "--final-version", "1.3.0", "--root", root]);
   assert.match(readFileSync(join(root, "version.json"), "utf8"), /1\.3\.0/);
 });
 
-test("--version-only rejects a malformed version", () => {
+test("@critical --version-only rejects a malformed version", () => {
   const root = project();
   assert.throws(() => run(["--version-only", "--final-version", "v1.3", "--root", root]));
 });
 
-test("without --version-only an empty entries file is still refused", () => {
+test("@critical without --version-only an empty entries file is still refused", () => {
   const root = project();
   const f = join(root, "entries.json");
   writeFileSync(f, JSON.stringify({ entries: [], finalVersion: "1.3.0" }));
   assert.throws(() => run(["--entries-file", f, "--root", root]));
 });
 
-test("a root with no package.json reports the script's own error, not a stack trace", () => {
+test("@important a root with no package.json reports the script's own error, not a stack trace", () => {
   const root = mkdtempSync(join(tmpdir(), "write-changelog-"));
   const r = attempt(["--version-only", "--final-version", "1.3.0", "--root", root]);
   assert.equal(r.status, 1);
@@ -50,7 +50,7 @@ test("a root with no package.json reports the script's own error, not a stack tr
   assert.equal(r.stderr, "");
 });
 
-test("a root with no package.json writes no changelog.json either", () => {
+test("@important a root with no package.json writes no changelog.json either", () => {
   const root = mkdtempSync(join(tmpdir(), "write-changelog-"));
   const f = join(root, "entries.json");
   writeFileSync(f, JSON.stringify({

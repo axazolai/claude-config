@@ -37,7 +37,7 @@ const run = (f) => {
   catch (e) { return (e.stdout || "").trim(); }
 };
 
-test("symlink-robust guard runs main() through a symlinked dir", (t) => {
+test("@important symlink-robust guard runs main() through a symlinked dir", (t) => {
   const fx = makeLinkedFixtures();
   try {
     if (!fx.linked || realpathSync(fx.link) === fx.link) return t.skip("symlink/reparse unavailable here");
@@ -46,7 +46,7 @@ test("symlink-robust guard runs main() through a symlinked dir", (t) => {
   } finally { rmSync(fx.root, { recursive: true, force: true }); }
 });
 
-test("naive guard is skipped through a symlink (the bug this fix addresses)", (t) => {
+test("@important naive guard is skipped through a symlink (the bug this fix addresses)", (t) => {
   const fx = makeLinkedFixtures();
   try {
     if (!fx.linked || realpathSync(fx.link) === fx.link) return t.skip("symlink/reparse unavailable here");
