@@ -77,8 +77,11 @@ export const MESSAGE =
   "carry @critical or @important is deleted: @critical = a failure means a crash, data loss or " +
   "corruption, a security bypass, a money error, or a broken core workflow; @important = the test " +
   "asserts the behaviour of a function, procedure, computation or transformation (input -> " +
-  "output). Everything else goes, structural, wiring, registry and documentation-consistency " +
-  "checks included. Then sweep the residue: no test file left empty, no empty describe/suite/class " +
+  "output), and the correct result is not obvious from reading the code. Everything else goes: " +
+  "obvious mappings and passthroughs, cosmetic formatting, structural, wiring, registry and " +
+  "documentation-consistency checks, and every @temp test whose feature is now pushed — @temp " +
+  "needs no confirmation, the tag is the consent. Then sweep the residue: no test file left " +
+  "empty, no empty describe/suite/class " +
   "block, no fixture, helper or import orphaned by the deletion. Then run the project's linter if " +
   "it configures one, re-run the surviving suite, and commit the prune. Delete nothing yet — list " +
   "the candidates, state what survives, and ask for confirmation first.";

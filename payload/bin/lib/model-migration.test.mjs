@@ -14,14 +14,6 @@ test("@important superseded opus ids migrate to claude-opus-5", () => {
   }
 });
 
-test("@important superseded sonnet ids migrate to claude-sonnet-5 (no cross-tier jump)", () => {
-  for (const id of ["claude-sonnet-4-5", "claude-3-5-sonnet-20241022", "claude-3-7-sonnet-20250219"]) {
-    const r = migrateSettingsModel(id);
-    assert.equal(r.changed, true, `${id} should be flagged`);
-    assert.equal(r.value, "claude-sonnet-5");
-  }
-});
-
 test("@important aliases are left untouched (opus[1m] is the deliberate exception)", () => {
   for (const id of ["opus", "sonnet", "haiku", "fable", "sonnet[1m]"]) {
     const r = migrateSettingsModel(id);
@@ -63,16 +55,6 @@ test("@important all six §6.3 roles migrate old -> new", () => {
   // Untouched roles stay put.
   assert.equal(config.model_overrides["gsd-planner"], "opus");
   assert.equal(config.model_overrides["gsd-doc-verifier"], "haiku");
-});
-
-test("@important already-migrated config is a no-op", () => {
-  const migrated = {
-    "gsd-pattern-mapper": "sonnet", "gsd-integration-checker": "sonnet",
-    "gsd-nyquist-auditor": "sonnet", "gsd-ui-checker": "sonnet",
-    "gsd-ui-auditor": "sonnet", "gsd-verifier": "opus",
-  };
-  const { changes } = migrateProjectModelConfig({ model_overrides: { ...migrated } });
-  assert.deepEqual(changes, []);
 });
 
 test("@critical a foreign (user-chosen) value is left untouched", () => {

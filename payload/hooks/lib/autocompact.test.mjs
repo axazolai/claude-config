@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { resolveAutocompact, observationFrom, promotePending, autoCompactEnabledFrom } from "./autocompact.mjs";
+import { resolveAutocompact, observationFrom, promotePending } from "./autocompact.mjs";
 
 test("@important resolveAutocompact: an explicit env override wins", () => {
   const r = resolveAutocompact({ windowSize: 1_000_000, modelId: "m", state: null,
@@ -49,13 +49,6 @@ test("@important observationFrom: sums the last assistant usage", () => {
   assert.deepEqual(observationFrom(records), { tokens: 100, model: "claude-opus-5" });
 });
 
-test("@important observationFrom: nothing usable yields null", () => {
-  assert.equal(observationFrom([]), null);
-  assert.equal(observationFrom([{ type: "user", message: { content: "x" } }]), null);
-  assert.equal(observationFrom([{ type: "assistant", message: {} }]), null);
-  assert.equal(observationFrom([{ type: "assistant", message: { usage: { input_tokens: 0 } } }]), null);
-});
-
 test("@important promotePending: an unkeyed record becomes a keyed one and the pending clears", () => {
   const state = { pending: { tokens: 835000, model: "claude-opus-5", at: "2026-07-30T18:00:00Z" } };
   const { next, changed } = promotePending(state, { modelId: "claude-opus-5[1m]", windowSize: 1_000_000 });
@@ -80,11 +73,4 @@ test("@important promotePending: does not mutate the caller's original state obj
   const before = JSON.parse(JSON.stringify(state));
   promotePending(state, { modelId: "claude-opus-5[1m]", windowSize: 1_000_000 });
   assert.deepEqual(state, before);
-});
-
-test("@important autoCompactEnabledFrom: absent means on", () => {
-  assert.equal(autoCompactEnabledFrom({}), true);
-  assert.equal(autoCompactEnabledFrom(null), true);
-  assert.equal(autoCompactEnabledFrom({ autoCompactEnabled: true }), true);
-  assert.equal(autoCompactEnabledFrom({ autoCompactEnabled: false }), false);
 });

@@ -37,14 +37,6 @@ test("@important severityOf: the icon follows the autocompact ladder and is sile
   assert.equal(severityOf({ windowPct: 0, acProgress: 300 }).icon, "💀");
 });
 
-test("@important severityOf: every icon renders as a colour glyph, not a monochrome one", () => {
-  for (const acProgress of [40, 60, 75, 90]) {
-    const { icon } = severityOf({ windowPct: 0, acProgress });
-    assert.match(icon, /^\p{Emoji_Presentation}$/u,
-      `${JSON.stringify(icon)} needs U+FE0F to show colour, and xterm.js ignores it`);
-  }
-});
-
 test("@important severityOf: the two scales are independent", () => {
   assert.deepEqual(severityOf({ windowPct: 32, acProgress: 96 }), { colour: "33", icon: "💀" });
   assert.deepEqual(severityOf({ windowPct: 96, acProgress: 32 }), { colour: "31", icon: "" });

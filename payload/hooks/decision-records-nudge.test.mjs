@@ -14,11 +14,6 @@ test("@important does not fire on other git commands", () => {
   for (const cmd of ["git push", "git status", "git log --oneline"]) assert.equal(isGitCommit(cmd), false, cmd);
 });
 
-test("@important a commit message mentioning commit does not matter - only the command does", () => {
-  assert.equal(isGitCommit("echo 'how to commit' > notes.txt"), false);
-  assert.equal(isGitCommit("git commit -m 'do not commit secrets'"), true);
-});
-
 const HOOK = join(dirname(fileURLToPath(import.meta.url)), "decision-records-nudge.mjs");
 const run = (payload) => spawnSync(process.execPath, [HOOK], { input: payload, encoding: "utf8" });
 

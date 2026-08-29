@@ -16,10 +16,6 @@ test("@important parses terms and their definitions", () => {
   assert.match(parseGlossary(GOOD)[0].definition, /installs into/);
 });
 
-test("@important a well-formed glossary lints clean", () => {
-  assert.deepEqual(lintGlossary(GOOD), []);
-});
-
 test("@important an empty definition is reported", () => {
   assert.match(lintGlossary(GOOD + "\n## delta\n")[0].problem, /delta/);
 });

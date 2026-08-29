@@ -6,14 +6,9 @@ import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, utimesSync
 import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { renderUpdates, renderGsd, render, installedProfile, paintContext, renderHookPatches } from "./statusline.mjs";
+import { renderUpdates, renderGsd, render, renderHookPatches } from "./statusline.mjs";
 
 const strip = (s) => s.replace(/\x1b\[[0-9;]*m/g, "");
-
-test("@important nothing pending renders no updates segment", () => {
-  assert.equal(renderUpdates([]), "");
-  assert.equal(renderUpdates(null), "");
-});
 
 test("@important up to two components are named, the rest collapse", () => {
   assert.equal(strip(renderUpdates(["context-mode"])), "⬆ context-mode");
@@ -23,12 +18,6 @@ test("@important up to two components are named, the rest collapse", () => {
 
 // renderSdd, renderPhase and roadmapPhases moved to lib/phase-segment.mjs and are tested there.
 // What stays here is the entry point's behaviour, which is what this file is for.
-
-test("@important render joins the floor in order", () => {
-  const line = strip(render({ updates: [], model: "Opus 5 (1M)", context: "45.0K/200K 22%",
-    project: "claude-config" }));
-  assert.equal(line, "Opus 5 (1M) │ 45.0K/200K 22% │ claude-config");
-});
 
 test("@important the gsd bar is full only at 100% and empty only at 0%", () => {
   const bar = (percent) => /\[(.*?)\]/.exec(renderGsd({ milestone: "v1", phase: "1", status: "x", percent }))[1];
@@ -76,13 +65,6 @@ const payload = (root, extra = {}) => JSON.stringify({ workspace: { current_dir:
 // Rendering without a subprocess is the reason the git segment was dropped, so it is a property of
 // the source and not of any one render: a reintroduced spawn would still pass every test below.
 // Method calls are excluded by the lookbehind - `.exec(` on a RegExp is all over this renderer.
-test("@important entry point: the project segment is the directory name and nothing else", () => {
-  const root = dir("proj-only");
-  const out = runEntry(payload(root, { model: { display_name: "Opus 5" } }));
-  assert.equal(out.status, 0);
-  assert.equal(strip(out.stdout), "Opus 5 │ proj-only");
-});
-
 test("@important entry point: malformed JSON on stdin yields a clean line and a zero exit", () => {
   const root = dir("plain-malformed");
   const bad = runEntry("{ this is not json");
@@ -92,15 +74,6 @@ test("@important entry point: malformed JSON on stdin yields a clean line and a 
   const rooted = runEntry(`{ "workspace": broken ${root}`);
   assert.equal(rooted.status, 0);
   assert.equal(rooted.stderr, "");
-});
-
-test("@important entry point: a missing state file renders no updates segment", () => {
-  const root = dir("plain-nostate");
-  const out = runEntry(payload(root));
-  assert.equal(out.status, 0);
-  assert.equal(out.stderr, "");
-  assert.doesNotMatch(out.stdout, /⬆/);
-  assert.ok(strip(out.stdout).startsWith("plain-nostate"), `got: ${JSON.stringify(out.stdout)}`);
 });
 
 test("@important entry point: pending components are named first, in registry order", () => {
@@ -139,30 +112,6 @@ test("@important entry point: CLAUDE_CODE_AUTO_COMPACT_WINDOW narrows the icon l
   // icon: 320K of a 600K capacity is 53% of the way to compaction - past the 💡 floor.
   // Asserting both, on the same render, fails if colour and icon ever collapse onto one number.
   assert.match(strip(out.stdout), /💡 320\.0K\/1M 32%/, `icon: got ${JSON.stringify(out.stdout)}`);
-});
-
-const GSD_STATE = `---
-gsd_state_version: 1.0
-milestone: v1.0
-milestone_name: milestone
-current_phase: 05.1
-current_phase_name: nas-transport-robustness-hardening
-status: verifying
-progress:
-  total_phases: 6
-  completed_phases: 5
----
-
-# Project State
-`;
-
-test("@important entry point: a real GSD project renders the gsd segment", () => {
-  const root = dir("gsd-proj");
-  write(join(root, ".planning", "config.json"), "{}");
-  write(join(root, ".planning", "STATE.md"), GSD_STATE);
-  const out = runEntry(payload(root), { claudeDir: GSD_CLAUDE_DIR });
-  assert.equal(out.status, 0);
-  assert.equal(strip(out.stdout), "gsd-proj │ v1.0 [██░] 83% · Phase 05.1 verifying");
 });
 
 const phaseTree = (name, { current, rows = [], phases = {}, eol = "\n" }) => {
@@ -227,11 +176,6 @@ const claudeDirWithProfile = (name, profile) => {
   return d;
 };
 
-test("@important installedProfile reads the manifest, and null when there is none", () => {
-  assert.equal(installedProfile(claudeDirWithProfile("prof-lite", "lite")), "lite");
-  assert.equal(installedProfile(claudeDirWithProfile("prof-none")), null);
-});
-
 // A machine installed by a pre-`profile` bundle carries `variant` only. Without the fallback a
 // legacy lite install resolves to null, fails open, and shows the segment lite exists to suppress.
 test("@important entry point: lite suppresses the ultrapowers segment, base keeps it", () => {
@@ -265,39 +209,6 @@ test("@important entry point: stdin that never closes still renders and exits", 
   const code = await new Promise((resolve) => child.on("close", resolve));
   assert.equal(code, 0);
   assert.ok(strip(out).includes("hang-guard"), `got: ${JSON.stringify(out)}`);
-});
-
-test("@important paintContext: wraps the text in the colour and leads with the icon, outside it", () => {
-  assert.equal(paintContext("12K/1M 12%", { colour: "32", icon: "" }), "\x1b[32m12K/1M 12%\x1b[0m");
-  assert.equal(paintContext("12K/1M 12%", { colour: "31", icon: "💀" }), "💀 \x1b[31m12K/1M 12%\x1b[0m");
-  assert.equal(paintContext("", { colour: "31", icon: "💀" }), "");
-});
-
-test("@important entry point: a full window is red and carries the skull", () => {
-  const out = runEntry(payload(dir("proj-hot"), {
-    context_window: { context_window_size: 200000, used_percentage: 96,
-      current_usage: { input_tokens: 192000, cache_creation_input_tokens: 0,
-        cache_read_input_tokens: 0, output_tokens: 0 } },
-  }), { claudeDir: dir("claude-hot") });
-  assert.equal(out.status, 0);
-  assert.ok(out.stdout.includes("\x1b[31m"), `no red: ${JSON.stringify(out.stdout)}`);
-  assert.ok(out.stdout.includes("💀"), `no skull: ${JSON.stringify(out.stdout)}`);
-});
-
-test("@important entry point: an observed autocompact point makes the icon lead the colour", () => {
-  const claudeDir = dir("claude-lead");
-  write(join(claudeDir, "state", "autocompact.json"), JSON.stringify({
-    models: { "claude-opus-5[1m]": { tokens: 600000, windowSize: 1000000 } },
-  }));
-  const out = runEntry(payload(dir("proj-lead"), {
-    model: { id: "claude-opus-5[1m]", display_name: "Opus 5 (1M context)" },
-    context_window: { context_window_size: 1000000, used_percentage: 32,
-      current_usage: { input_tokens: 320000, cache_creation_input_tokens: 0,
-        cache_read_input_tokens: 0, output_tokens: 0 } },
-  }), { claudeDir });
-  assert.equal(out.status, 0);
-  assert.ok(out.stdout.includes("\x1b[33m"), `expected yellow: ${JSON.stringify(out.stdout)}`);
-  assert.ok(out.stdout.includes("💡"), `expected the lamp: ${JSON.stringify(out.stdout)}`);
 });
 
 test("@important entry point: a pending observation is promoted and cleared", () => {

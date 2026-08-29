@@ -13,12 +13,6 @@ test("@important isPnpmProject true when pnpm-workspace.yaml present, false othe
   assert.equal(isPnpmProject(dir), true);
 });
 
-test("@important isPnpmProject true with pnpm-lock.yaml", () => {
-  const dir = mkdtempSync(join(tmpdir(), "pnpm-inst-"));
-  writeFileSync(join(dir, "pnpm-lock.yaml"), "lockfileVersion: '9.0'\n");
-  assert.equal(isPnpmProject(dir), true);
-});
-
 test("@important addPostinstall adds when absent, appends when present, no-op when already there", () => {
   const a = addPostinstall({ name: "x" });
   assert.equal(a.changed, true);

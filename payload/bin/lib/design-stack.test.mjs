@@ -54,23 +54,6 @@ test("@critical runInstaller isolates HOME/USERPROFILE from the real home", () =
   rmSync(root, { recursive: true, force: true });
 });
 
-test("@important registerDesignHook recognises Impeccable's own $CLAUDE_PROJECT_DIR spelling and adds nothing", () => {
-  const dir = mkdtempSync(join(tmpdir(), "hook-alt-"));
-  const settingsFile = join(dir, "settings.json");
-  const theirs = 'node "$CLAUDE_PROJECT_DIR/.claude/skills/impeccable/scripts/hook.mjs"';
-  writeFileSync(settingsFile, JSON.stringify({ hooks: {
-    PostToolUse: [{ matcher: "Edit|Write|MultiEdit", hooks: [{ type: "command", command: theirs }] }],
-    Stop: [{ hooks: [{ type: "command", command: theirs }] }],
-  } }, null, 2));
-  const r = registerDesignHook(settingsFile, { scriptPath: ".claude/skills/impeccable/scripts/hook.mjs" });
-  assert.equal(r.added, false, "equality on the whole command called this absent and appended a duplicate");
-  const s = JSON.parse(readFileSync(settingsFile, "utf8"));
-  assert.equal(s.hooks.PostToolUse[0].hooks.length, 1);
-  assert.equal(s.hooks.Stop[0].hooks.length, 1);
-  assert.equal(s.hooks.PostToolUse[0].hooks[0].command, theirs, "the existing spelling stays untouched");
-  rmSync(dir, { recursive: true, force: true });
-});
-
 test("@important registerDesignHook collapses duplicates an earlier run left, keeping unrelated hooks", () => {
   const dir = mkdtempSync(join(tmpdir(), "hook-dup-"));
   const settingsFile = join(dir, "settings.json");

@@ -43,19 +43,3 @@ test("@important falls back to conventional globs when only turbo.json is presen
   const root = repo({ "turbo.json": "{}", "apps/web/package.json": pkg });
   assert.equal(listWorkspaces(root).detectionSource, "conventional-fallback");
 });
-
-test("@important a directory without package.json is not a workspace", () => {
-  const root = repo({
-    "pnpm-workspace.yaml": "packages:\n  - 'apps/*'\n",
-    "apps/web/package.json": pkg,
-    "apps/docs/README.md": "x",
-  });
-  assert.deepEqual(listWorkspaces(root).workspaces.map((w) => w.relDir), ["apps/web"]);
-});
-
-test("@important a single-package repository has no workspaces", () => {
-  const root = repo({ "package.json": pkg });
-  const r = listWorkspaces(root);
-  assert.deepEqual(r.workspaces, []);
-  assert.equal(r.detectionSource, null);
-});

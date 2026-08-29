@@ -13,10 +13,16 @@
 - Report the scope you ran. "Tests pass" means the full suite passed. A failing targeted run
   blocks the commit: fix it, never widen the run.
 - Tag a test that must outlive the push with `@critical` or `@important` as the first token of
-  its name. `@critical`: a failure means a crash, data loss or corruption, a security bypass, a
-  money error, or a broken core workflow. `@important`: the test asserts the behaviour of a
-  function, procedure, computation or transformation — input to output. Business logic and data
-  schemas are specified in the project spec; a test that only restates one is neither tier.
+  its name. `@critical`: a failure destroys or exposes — data loss or corruption, a security
+  bypass, a money error, a broken core workflow. `@important`: a failure is silent and plausible
+  — a wrong answer that looks right and nothing downstream catches; the tag is earned by
+  non-obviousness (branching, precedence, ordering, boundaries, an external contract). Neither
+  tier: code whose correct result is obvious from reading it — a mapping, a passthrough, a
+  rename, a forwarding wrapper — plus wiring, registry contents, cosmetic formatting, and tests
+  that only restate the project spec. Logic the user calls critical or important is tagged at
+  that tier regardless. `@temp` marks scaffolding for work in flight — capped at 5 per unit and
+  never more than that unit's permanent tests, deleted at the first prune after the feature is
+  pushed, without asking.
 - Prune after every push, in a project that has tests — no test files, no prune, and no mention
   of it. List the untagged tests, name what survives, ask, then delete the confirmed set. Sweep
   the residue — no test file left empty, no empty describe/suite/class block, no fixture, helper

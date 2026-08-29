@@ -33,10 +33,6 @@ test("@important parses the legacy flat format, with no sections", () => {
 // An entry's status is its FIRST occurrence: prose that quotes the field - migration notes do
 // exactly this - must not overwrite it. The live register has no such case today; this pins the
 // behaviour before one appears.
-test("@important clean input lints clean", () => {
-  assert.deepEqual(lintRegister(parseRegister(SECTIONED), { knownAdrIds: [] }), []);
-});
-
 test("@important an unknown status value is reported", () => {
   const bad = SECTIONED.replace("- **Status:** Active", "- **Status:** Open (accepted)");
   const found = lintRegister(parseRegister(bad), { knownAdrIds: [] });

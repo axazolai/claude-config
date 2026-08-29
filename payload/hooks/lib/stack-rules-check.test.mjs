@@ -56,11 +56,6 @@ test("@important a nested stack changes the fingerprint", () => {
   assert.notEqual(before, after);
 });
 
-test("@important a repository with no workspaces has a root entry and nothing else", () => {
-  const root = repo({ "pnpm-workspace.yaml": "packages:\n  - 'apps/*'\n", "package.json": pkg });
-  assert.deepEqual(Object.keys(detectMarkersByWorkspace(root)), ["."]);
-});
-
 test("@important a workspace with no stack of its own carries only node, and root markers do not leak in", () => {
   const root = repo({
     "pnpm-workspace.yaml": "packages:\n  - 'apps/*'\n",
@@ -96,11 +91,6 @@ test("@important workspace keys are sorted and slash-separated, whatever order t
 
 test("@important an unreadable root yields an empty root entry rather than throwing", () => {
   assert.deepEqual(detectMarkersByWorkspace(join(repo({}), "does-not-exist")), { ".": [] });
-});
-
-test("@important no snapshot at all is missing", () => {
-  const r = checkStackRules(repo({ "package.json": pkg }), emptySrc());
-  assert.equal(r.status, "missing");
 });
 
 test("@important a legacy snapshot whose stacks is a flat list is reported, never flagged as drift", () => {

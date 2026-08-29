@@ -38,26 +38,9 @@ test("@important reconcileBundleInstall: re-installing the same SHA leaves a rea
   assert.equal(out["claude-config"].lastCheckedAt, "2026-08-02T15:10:54.916Z");
 });
 
-test("@important reconcileBundleInstall: drops lastCheckedAt so the next session re-checks", () => {
-  const out = reconcileBundleInstall(stale(), "remote");
-  assert.equal("lastCheckedAt" in out["claude-config"], false);
-});
-
 test("@important reconcileBundleInstall: claims nothing when no remote SHA was ever recorded", () => {
   const out = reconcileBundleInstall(stale({ latest: undefined }), "fresh");
   assert.equal(out["claude-config"].updateAvailable, false);
-});
-
-test("@important reconcileBundleInstall: leaves other components untouched", () => {
-  const before = stale();
-  const out = reconcileBundleInstall(before, "remote");
-  assert.deepEqual(out.graphify, before.graphify);
-});
-
-test("@important reconcileBundleInstall: returns state unchanged without an entry or a SHA", () => {
-  assert.deepEqual(reconcileBundleInstall({ graphify: {} }, "remote"), { graphify: {} });
-  assert.deepEqual(reconcileBundleInstall(stale(), ""), stale());
-  assert.equal(reconcileBundleInstall(null, "remote"), null);
 });
 
 test("@critical importing the module does not run main() / write update-check.json", () => {

@@ -26,11 +26,6 @@ const STATE = {
   "ui-ux-pro-max": { installed: "2.0.0", latest: "2.1.0", updateAvailable: true,  class: "safe",   autoUpdated: false },
 };
 
-test("@important pendingCount: counts only updateAvailable entries", () => {
-  assert.equal(pendingCount(STATE), 3);
-  assert.equal(pendingCount({}), 0);
-});
-
 test("@important formatUpdateNotes: safe-applied says restart; reinit says the command", () => {
   const notes = formatUpdateNotes(STATE);
   assert.equal(notes.length, 3);
@@ -46,11 +41,6 @@ test("@important formatUpdateNotes: safe-applied says restart; reinit says the c
   assert.doesNotMatch(safeNotAuto, /init-stack|setup\.mjs|installer/i);
 });
 
-test("@important formatUpdateNotes: handles empty and null state", () => {
-  assert.deepEqual(formatUpdateNotes({}), []);
-  assert.deepEqual(formatUpdateNotes(null), []);
-});
-
 test("@important pendingNames lists exactly the components with an update available", () => {
   const state = {
     graphify: { updateAvailable: false },
@@ -59,9 +49,4 @@ test("@important pendingNames lists exactly the components with an update availa
   };
   assert.deepEqual(pendingNames(state), ["claude-config", "context-mode"]);
   assert.equal(pendingCount(state), 2);
-});
-
-test("@important pendingNames tolerates junk", () => {
-  assert.deepEqual(pendingNames(null), []);
-  assert.deepEqual(pendingNames({ a: null, b: "x", c: { updateAvailable: "yes" } }), []);
 });

@@ -60,9 +60,3 @@ test("@important gsd-core installed but too old to ship the guard reads as inert
   assert.equal(checkGsdHookPatches({ claudeDir: dir })[patch().id], "inert");
   assert.deepEqual(applyGsdHookPatches({ claudeDir: dir }).applied, []);
 });
-
-test("@important no gsd-core at all is silence, not a status", () => {
-  const dir = mkdtempSync(join(tmpdir(), "gsd-hook-patches-"));
-  assert.deepEqual(checkGsdHookPatches({ claudeDir: dir }), {});
-  assert.deepEqual(applyGsdHookPatches({ claudeDir: dir }).applied, []);
-});

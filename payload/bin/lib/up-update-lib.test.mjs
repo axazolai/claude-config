@@ -15,12 +15,6 @@ test("@important behind when upstream has published a newer release", () => {
   assert.equal(r.latest, "6.3.0");
 });
 
-test("@important current when the recorded base is the latest release", () => {
-  const r = compareVersions("v6.2.0", "upstream/6.2.0");
-  assert.equal(r.current, true);
-  assert.equal(r.behind, false);
-});
-
 test("@important an upstream pre-release does not count as being behind", () => {
   const r = compareVersions("v6.3.0-rc.1", "upstream/6.2.0");
   assert.equal(r.behind, false);
@@ -89,12 +83,6 @@ const CLEAN = {
   mainDrift: [],
   cfg: CFG,
 };
-
-test("@important a clean rebuild is ok", () => {
-  const a = assess(CLEAN);
-  assert.equal(a.verdict, "ok");
-  assert.deepEqual(a.reasons, []);
-});
 
 test("@critical a delta that fails to apply refuses, and names the delta", () => {
   const a = assess({ ...CLEAN, buildResult: { ...CLEAN.buildResult, failed: ["003-plugin-version-source.patch"],

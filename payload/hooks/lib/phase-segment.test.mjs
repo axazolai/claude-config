@@ -14,23 +14,6 @@ test("@important executing mode prints id, three counts, em dash and name", () =
   assert.equal(strip(renderPhaseSegment(EXEC)), "09 2/1/3 — ctx-severity");
 });
 
-test("@important action mode prints the action in parentheses between id and name", () => {
-  assert.equal(strip(renderPhaseSegment({ mode: "action", id: "09", name: "ctx-severity",
-    action: "planning", status: "running" })), "09 (planning) ctx-severity");
-});
-
-test("@important a phase with no action prints its id and name alone", () => {
-  assert.equal(strip(renderPhaseSegment({ mode: "action", id: "09", name: "ctx-severity" })),
-    "09 ctx-severity");
-});
-
-test("@important tally mode prints done over total and the phase name", () => {
-  const out = renderPhaseSegment({ mode: "tally", name: "unified-statusline", phasesDone: 8, phasesTotal: 9 });
-  assert.equal(strip(out), "8/9 unified-statusline");
-  assert.ok(out.includes("\x1b[32m8\x1b[0m"), "numerator green");
-  assert.ok(out.includes("/9 "), "denominator plain");
-});
-
 test("@important a negative queue prints the action instead of provably wrong arithmetic", () => {
   const broken = { mode: "executing", id: "09", name: "n", action: "review", status: "running",
     counts: { done: 5, active: 1, fixing: 0, queued: -2, blocked: 0 } };

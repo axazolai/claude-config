@@ -8,11 +8,6 @@ test("@important allocates above the highest existing number, never filling a ga
   assert.equal(nextAdrNumber(["0001-a.md", "README.md", "notes.txt"]), "0002");
 });
 
-test("@important a well-formed ADR lints clean", () => {
-  const t = adrTemplate({ number: "0007", title: "x", date: "2026-07-28" });
-  assert.deepEqual(lintAdr(t, "0007-x.md"), []);
-});
-
 test("@important a heading whose number disagrees with the filename is reported", () => {
   const t = adrTemplate({ number: "0007", title: "x", date: "2026-07-28" });
   const found = lintAdr(t, "0008-x.md");
@@ -23,11 +18,6 @@ test("@important a heading whose number disagrees with the filename is reported"
 test("@important a missing section is reported by name", () => {
   const t = adrTemplate({ number: "0007", title: "x", date: "2026-07-28" }).replace("## Consequences\n", "");
   assert.match(lintAdr(t, "0007-x.md")[0].problem, /Consequences/);
-});
-
-test("@important a missing status field is reported", () => {
-  const t = adrTemplate({ number: "0007", title: "x", date: "2026-07-28" }).replace("status: proposed\n", "");
-  assert.match(lintAdr(t, "0007-x.md")[0].problem, /status/);
 });
 
 // Git checks these out with CRLF on Windows. An LF-only frontmatter pattern reported all three

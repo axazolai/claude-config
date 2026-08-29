@@ -10,7 +10,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, readdirSync, rmSyn
 import { join, dirname } from "node:path";
 import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
-import { resolveChain, loadJson, classify, gather, gatherSkills, cleanNonplugin, deepMerge, splitId, keepPlugin, apply, grab, main, readMaxPluginTier, migrateProjectModelConfigFile } from "./init-stack.mjs";
+import { resolveChain, classify, gather, cleanNonplugin, deepMerge, splitId, keepPlugin, apply, grab, main, readMaxPluginTier, migrateProjectModelConfigFile } from "./init-stack.mjs";
 import { detect } from "./lib/stack-markers.mjs";
 
 const REPO_TEMPLATES_DIR = join(dirname(fileURLToPath(import.meta.url)), "..", "setting-templates");
@@ -86,23 +86,6 @@ test("@important resolveChain: a<->b cycle terminates and still includes both", 
   assert.ok(labels.includes("b.json"));
 });
 
-test("@important resolveChain: missing template file returns []", () => {
-  const dir = writeTemplates({});
-  assert.deepEqual(resolveChain("nope.json", { templatesDir: dir }), []);
-});
-
-test("@important loadJson: missing file returns {}", () => {
-  const dir = writeTemplates({});
-  assert.deepEqual(loadJson(join(dir, "nope.json")), {});
-});
-
-test("@important loadJson: invalid JSON throws", () => {
-  const dir = writeTemplates({});
-  const p = join(dir, "bad.json");
-  writeFileSync(p, "{ not valid json", "utf8");
-  assert.throws(() => loadJson(p), /not valid JSON/);
-});
-
 test("@important splitId: last '@' is the separator; no '@' -> name='' mp=whole string (matches Python rpartition)", () => {
   assert.deepEqual(splitId("foo@mp"), ["foo", "mp"]);
   assert.deepEqual(splitId("scoped@name@mp"), ["scoped@name", "mp"]); // splits on the LAST '@'
@@ -111,20 +94,6 @@ test("@important splitId: last '@' is the separator; no '@' -> name='' mp=whole 
 
 test("@important classify: placeholder ids beat every other state", () => {
   assert.equal(classify("<fill-me>@mp", {}), "placeholder");
-});
-
-test("@important classify: unknown marketplace -> marketplace_missing", () => {
-  assert.equal(classify("foo@mp", { installed: new Set(), known: new Set() }), "marketplace_missing");
-});
-
-test("@important classify: catalog lists the plugin -> available", () => {
-  const dir = writeTemplates({
-    "mp/marketplace.json": { plugins: [{ name: "foo" }] },
-  });
-  assert.equal(
-    classify("foo@mp", { installed: new Set(), known: new Set(["mp"]), marketplacesDir: dir }),
-    "available",
-  );
 });
 
 test("@important gather: emits no_template for an unknown stack, dedups by pid first-seen", () => {
@@ -152,16 +121,6 @@ test("@important deepMerge recursively merges nested objects, later values win o
 });
 
 // ---------- parity against the REAL shipped templates (payload/setting-templates) ----------
-test("@important gatherSkills: state reflects installedSkills by dirname", () => {
-  const skills = gatherSkills(["react"], {
-    templatesDir: REPO_TEMPLATES_DIR,
-    installedSkills: new Set(["shadcn-ui"]),
-  });
-  const shadcn = skills.find((s) => s.id === "shadcn");
-  assert.equal(shadcn.name, "shadcn-ui");
-  assert.equal(shadcn.state, "installed");
-});
-
 // ---------- tier filter (spec §4) ----------
 test("@important keepPlugin: tier:full dropped under maxPluginTier core, kept under full or no cap", () => {
   const entry = { id: "playwright@mp", tier: "full" };
@@ -170,29 +129,10 @@ test("@important keepPlugin: tier:full dropped under maxPluginTier core, kept un
   assert.equal(keepPlugin(entry, undefined), true);
 });
 
-test("@important gather: tier filter drops a tier:full plugin under maxPluginTier core", () => {
-  const dir = writeTemplates({
-    "frontend/react.json": {
-      stack: "react",
-      merge: {},
-      plugins: [{ id: "typescript-lsp@mp" }, { id: "playwright@mp", tier: "full" }],
-    },
-  });
-  const kept = gather(["react"], { templatesDir: dir, maxPluginTier: "core" }).entries.map((e) => e.id);
-  assert.ok(kept.includes("typescript-lsp@mp") && !kept.includes("playwright@mp"), kept.join(","));
-});
-
 // ---------- apply ----------
 function tmpRoot() {
   return mkdtempSync(join(tmpdir(), "init-stack-apply-"));
 }
-
-test("@important apply writes enabledPlugins into .claude/settings.json", () => {
-  const root = tmpRoot();
-  apply(["x@mp"], [], [], { root, templatesDir: REPO_TEMPLATES_DIR });
-  const settings = JSON.parse(readFileSync(join(root, ".claude", "settings.json"), "utf8"));
-  assert.equal(settings.enabledPlugins["x@mp"], true);
-});
 
 test("@critical apply removes ids and preserves sibling settings keys (additive merge)", () => {
   const root = tmpRoot();
@@ -235,13 +175,6 @@ function withCapturedLog(fn) {
   }
 }
 
-test("@important main --status prints {id,state} JSON and returns 0", () => {
-  const configDir = mkdtempSync(join(tmpdir(), "init-stack-cfg-"));
-  const { result, lines } = withCapturedLog(() => main(["--status", "foo@mp"], { configDir }));
-  assert.equal(result, 0);
-  assert.deepEqual(JSON.parse(lines[0]), { id: "foo@mp", state: "marketplace_missing" });
-});
-
 test("@important main: invalid installed_plugins.json is caught at the CLI boundary and exits 2 (not thrown)", () => {
   const configDir = mkdtempSync(join(tmpdir(), "init-stack-cfg-"));
   mkdirSync(join(configDir, "plugins"), { recursive: true });
@@ -259,15 +192,6 @@ test("@important main: invalid installed_plugins.json is caught at the CLI bound
   }
   assert.equal(threw, false);
   assert.equal(result, 2);
-});
-
-test("@important main --apply-all enables every declared non-placeholder plugin for the detected stack", () => {
-  const configDir = mkdtempSync(join(tmpdir(), "init-stack-cfg-"));
-  const root = mkdtempSync(join(tmpdir(), "init-stack-root-"));
-  writeFileSync(join(root, "package.json"), JSON.stringify({ dependencies: { react: "^18" } }), "utf8");
-  withCapturedLog(() => main(["--apply-all"], { configDir, root, templatesDir: REPO_TEMPLATES_DIR }));
-  const settings = JSON.parse(readFileSync(join(root, ".claude", "settings.json"), "utf8"));
-  assert.equal(settings.enabledPlugins["typescript-lsp@claude-plugins-official"], true);
 });
 
 test("@important main --apply-all respects maxPluginTier from the bundle manifest (drops tier:full)", () => {

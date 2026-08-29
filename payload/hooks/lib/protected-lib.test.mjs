@@ -17,12 +17,6 @@ const tree = (files) => {
   return root;
 };
 
-test("@important an exact path matches only itself", () => {
-  const r = parseRules("docs/spec.md\n");
-  assert.equal(hit(r, "docs/spec.md"), "docs/spec.md");
-  assert.equal(hit(r, "docs/other.md"), null);
-});
-
 test("@important a leading slash anchors to the declaring directory", () => {
   const r = parseRules("/root-only.md\n");
   assert.equal(hit(r, "root-only.md"), "/root-only.md");
@@ -56,10 +50,6 @@ test("@important rules come from every .protected down the target's own chain", 
 test("@critical a .protected hidden by .gitignore is reported", () => {
   const root = tree({ ".gitignore": ".protected\n", ".protected": "docs/\n" });
   assert.equal(collectRules(root, "docs/spec.md").hidden, ".protected");
-});
-
-test("@important reads are never destructive", () => {
-  assert.equal(bashTargets("cat docs/spec.md").destructive, false);
 });
 
 test("@important rm, mv, git rm, sed -i, find -delete and redirection are destructive", () => {

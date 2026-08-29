@@ -147,13 +147,3 @@ test("@critical a curated file with a pending patch is reported, not silently sk
     assert.ok(checkCuratedGsdAgentPatches({ claudeDir: dir })[AGENT].includes(PATCH_ID));
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
-
-test("@important a curated file with no pending patch is not reported", () => {
-  const dir = makeClaudeDir({ [AGENT]: FIXTURE });
-  try {
-    applyGsdAgentPatches({ claudeDir: dir });
-    const p = join(dir, "agents", AGENT);
-    writeFileSync(p, `<!-- CURATED:NOEDIT -->\n${readFileSync(p, "utf8")}`);
-    assert.deepEqual(checkCuratedGsdAgentPatches({ claudeDir: dir })[AGENT], undefined);
-  } finally { rmSync(dir, { recursive: true, force: true }); }
-});

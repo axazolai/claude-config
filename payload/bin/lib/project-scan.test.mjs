@@ -13,11 +13,6 @@ test("@important a directory with a package manifest is a project root", () => {
   assert.equal(isProjectRoot("/x", fs(["go.mod"])), true);
 });
 
-test("@important a solution or project file counts by extension", () => {
-  assert.equal(isProjectRoot("/x", fs(["App.sln"])), true);
-  assert.equal(isProjectRoot("/x", fs(["App.csproj"])), true);
-});
-
 test("@important a directory with a .git directory is a project root", () => {
   assert.equal(isProjectRoot("/x", fs([".git", "src"])), true);
 });
@@ -31,10 +26,6 @@ test("@important a directory whose .git is a file is a worktree or submodule, no
 
 test("@important a worktree that also has a manifest still counts, on the manifest", () => {
   assert.equal(isProjectRoot("/x", fs([".git", "package.json"], true)), true);
-});
-
-test("@important a directory with nothing recognisable is not a project root", () => {
-  assert.equal(isProjectRoot("/x", fs(["notes.txt", "img.png"])), false);
 });
 
 test("@important an unreadable directory is not a project root, and does not throw", () => {
@@ -53,11 +44,6 @@ test("@important archive-looking directory names are recognised", () => {
     assert.equal(looksArchival(n), true, `${n} should look archival`);
 });
 
-test("@important ordinary names are not archival", () => {
-  for (const n of ["src", "_parser", "CHD", "packages", "old-router", "production"])
-    assert.equal(looksArchival(n), false, `${n} must not be treated as an archive`);
-});
-
 // Nesting alone is wrong: a monorepo package is nested and legitimate. An archival name alone is
 // wrong too: a top-level project may simply be called `backup`. Only the pair is evidence.
 test("@important only a nested AND archival directory is dropped", () => {
@@ -70,11 +56,6 @@ test("@important only a nested AND archival directory is dropped", () => {
   ];
   assert.deepEqual(dropNestedArchives(dirs).sort(),
     ["D:/w/ArkBot", "D:/w/LobbyBot", "D:/w/LobbyBot/_parser", "D:/w/backup"].sort());
-});
-
-test("@important nothing is dropped when no project is nested", () => {
-  const dirs = ["D:/w/a", "D:/w/b"];
-  assert.deepEqual(dropNestedArchives(dirs), dirs);
 });
 
 test("@important backslash paths are handled the same as forward slashes", () => {

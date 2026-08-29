@@ -29,14 +29,26 @@ paths:
 - A test that must outlive the push carries `@critical` or `@important` as the first token of its
   name. Untagged is the default and means "deleted at the next prune". Tag at the moment the test
   is written, never at prune time.
-- `@critical` — a failure means a crash, data loss or corruption, a security bypass, a money
-  error, or a broken core workflow.
-- `@important` — the test asserts the behaviour of a function, procedure, computation or
-  transformation: input to output.
-- Neither tier: wiring and config, registry/constant contents, structural or shape assertions,
-  documentation-consistency checks, coverage filler, scratch checks written to watch one
-  debugging session. Business logic and data schemas are specified in the project spec; a test
-  that only restates one is not a behaviour test.
+- `@critical` — a failure destroys or exposes: data loss or corruption, a security bypass, a
+  money error, a broken core workflow.
+- `@important` — a failure is silent and plausible: the code returns a wrong answer that looks
+  right and nothing downstream catches it. The tag is earned by non-obviousness — branching,
+  precedence, ordering, boundaries, an external format or contract.
+- Neither tier: code whose correct result is obvious from reading it — a field-for-field mapping,
+  a passthrough, a rename, a forwarding wrapper. When such code makes a decision (a default, a
+  unit conversion, a dropped or renamed field, null handling), test the decision, not the copy.
+  Also neither: wiring and config, registry/constant contents, structural or shape assertions,
+  documentation-consistency checks, cosmetic formatting, coverage filler, scratch checks written
+  to watch one debugging session. Business logic and data schemas are specified in the project
+  spec; a test that only restates one adds nothing to it.
+- Logic the user has called critical or important is tagged at that tier whatever the lists above
+  would have said. Their word sets the tier and nothing here overrides it.
+- `@temp` — scaffolding written to cover a feature densely while building it. Tag every one and
+  delete them at the first prune after that feature is pushed. A `@temp` test never outlives its
+  feature; it is the one tier the prune removes without asking, because the tag is the consent.
+- Cap the scaffolding: at most 5 `@temp` tests per unit under test, and never more than the
+  permanent tests that unit keeps. Needing more means the unit is too big — split it, and give
+  each piece its own budget.
 - The tag lives in the name, so every runner filters on it without a plugin:
   `vitest -t "@critical"`, `jest -t "@critical"`, `pytest -k "critical"`,
   `dotnet test --filter "DisplayName~@critical"`, `gradle test --tests '*@critical*'`.
@@ -47,10 +59,11 @@ paths:
 Applies only to a project that actually has tests. No test files, no prune, no question asked —
 never open the subject to propose writing tests, and never treat an empty result as a finding.
 Otherwise, run after every `git push`, in this order:
-1. Collect every test declaration whose name carries neither tag —
+1. Collect every test declaration whose name carries neither surviving tag —
    `grep -rLn "@critical\|@important"` over the test files names the fully untagged ones, then
-   read the mixed files for the rest.
-2. List the candidates, state what survives, ask. Delete only the confirmed set.
+   read the mixed files for the rest. `grep -rn "@temp"` names the scaffolding separately.
+2. Delete every `@temp` test whose feature is now pushed; no confirmation needed. For the
+   untagged, list the candidates, state what survives, ask, and delete only the confirmed set.
 3. Sweep the residue: a file with no test left is deleted, not left as an empty shell; empty
    `describe`/`suite`/class blocks go; fixtures, factories, helpers and imports orphaned by the
    deletion go with them.

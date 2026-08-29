@@ -25,20 +25,6 @@ test("@important full: GSD + shared + full/base side of split", () => {
   const o = assembleClaudeMd(fixture(), "full");
   assert.match(o, /## GSD/); assert.match(o, /keeps-bg-elapsed/); assert.doesNotMatch(o, /no-bg-elapsed/);
 });
-test("@important base: no GSD, keeps bg-elapsed", () => {
-  const o = assembleClaudeMd(fixture(), "base");
-  assert.doesNotMatch(o, /## GSD/); assert.match(o, /keeps-bg-elapsed/);
-});
-test("@important lite: override wins, no GSD, no shared collab", () => {
-  const o = assembleClaudeMd(fixture(), "lite");
-  assert.doesNotMatch(o, /## GSD/); assert.match(o, /no-bg-elapsed/); assert.doesNotMatch(o, /keeps-bg-elapsed/);
-});
-test("@important header present, no frontmatter leaks", () => {
-  const o = assembleClaudeMd(fixture(), "full");
-  assert.match(o, /CURATED:NOEDIT/); assert.match(o, /GENERATED/);
-  assert.doesNotMatch(o, /^profiles:/m); assert.doesNotMatch(o, /^---$/m);
-});
-
 const REAL = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "claude-md");
 test("@important real fragments: GSD full-only; base keeps bg-elapsed; lite drops it + says 'lite variant'", () => {
   const full = assembleClaudeMd(REAL, "full"), base = assembleClaudeMd(REAL, "base"), lite = assembleClaudeMd(REAL, "lite");

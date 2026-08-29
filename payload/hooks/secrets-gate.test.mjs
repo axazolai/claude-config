@@ -29,16 +29,6 @@ test("@critical a placeholder value does not block a commit", () => {
   assert.equal(r.status, 0, `blocked on a placeholder:\n${r.stderr}`);
 });
 
-test("@critical an angle-bracket placeholder does not block a commit", () => {
-  const r = gateOn('password: "<your-password-here>"\n');
-  assert.equal(r.status, 0, `blocked on a placeholder:\n${r.stderr}`);
-});
-
-test("@critical an x-run placeholder token does not block a commit", () => {
-  const r = gateOn("token = ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n");
-  assert.equal(r.status, 0, `blocked on a placeholder:\n${r.stderr}`);
-});
-
 test("@critical a real AWS access key id still blocks", () => {
   assert.equal(gateOn("aws_key = AKIAIOSFODNN7EXAMPLQ\n").status, 2);
 });

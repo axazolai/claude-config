@@ -4,7 +4,7 @@ import { mkdtempSync, writeFileSync, mkdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
 
-import { detect, detectStacks } from "./stack-markers.mjs";
+import { detect } from "./stack-markers.mjs";
 
 function tmp(files) {
   const d = mkdtempSync(join(tmpdir(), "sm-"));
@@ -70,9 +70,4 @@ test("@important kitchen sink: multi-stack repo returns ids in insertion order, 
   });
   const s = detect(d);
   assert.deepEqual(s, ["next", "fastapi", "turbo", "sql"]);
-});
-
-test("@important detectStacks({root}) wraps detect(root)", () => {
-  const d = tmp({ "package.json": JSON.stringify({ dependencies: { next: "14" } }) });
-  assert.deepEqual(detectStacks({ root: d }), detect(d));
 });

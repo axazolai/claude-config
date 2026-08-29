@@ -1,18 +1,7 @@
 // payload/hooks/lib/statusline-lib.test.mjs
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { formatCurrentTokens, formatContextWindow, computeContext, contextMetrics } from "./statusline-lib.mjs";
-
-test("@important formatCurrentTokens: thousands with one decimal digit", () => {
-  assert.equal(formatCurrentTokens(123400), "123.4K");
-  assert.equal(formatCurrentTokens(0), "0.0K");
-});
-
-test("@important formatContextWindow: compact K/M label, trailing .0 stripped", () => {
-  assert.equal(formatContextWindow(200000), "200K");
-  assert.equal(formatContextWindow(1000000), "1M");
-  assert.equal(formatContextWindow(1500000), "1.5M");
-});
+import { computeContext, contextMetrics } from "./statusline-lib.mjs";
 
 test("@important computeContext: window size comes from context_window_size", () => {
   assert.equal(
@@ -41,13 +30,6 @@ test("@important computeContext: tokens without a percentage, and a percentage w
     "6.0K/200K 3%");
 });
 
-test("@important computeContext: nothing to show yields an empty segment", () => {
-  assert.equal(computeContext({}), "");
-  assert.equal(computeContext({ context_window: {} }), "");
-  assert.equal(computeContext({ context_window: { current_usage: {} } }), "");
-  assert.equal(computeContext(null), "");
-});
-
 test("@important computeContext: the autocompact env var no longer changes anything", () => {
   const data = { context_window: { context_window_size: 1000000, used_percentage: 20 } };
   const before = computeContext(data);
@@ -69,11 +51,4 @@ test("@important contextMetrics: estimates tokens from the percentage when curre
   const m = contextMetrics({ context_window: { total_tokens: 200000, used_percentage: 10 } });
   assert.equal(m.windowSize, 200000);
   assert.equal(m.tokens, 20000);
-});
-
-test("@important contextMetrics: null exactly where computeContext returns empty", () => {
-  assert.equal(contextMetrics({}), null);
-  assert.equal(computeContext({}), "");
-  assert.equal(contextMetrics({ context_window: {} }), null);
-  assert.equal(computeContext({ context_window: {} }), "");
 });

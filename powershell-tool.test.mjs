@@ -70,8 +70,3 @@ test("@critical a non-interactive run with no flag decides nothing and records n
   assert.deepEqual(powerShellToolPlan({ os: "win32", interactive: false, pwshMajor: null }),
     { action: "skip", reason: "non-interactive" });
 });
-
-test("@important an env object without the key is undecided, not decided-false", () => {
-  const plan = powerShellToolPlan({ os: "win32", env: { CLAUDE_CONFIG_UPDATE_CHECK: "0" }, interactive: true, pwshMajor: 7 });
-  assert.deepEqual(plan, { action: "offer-enable" });
-});

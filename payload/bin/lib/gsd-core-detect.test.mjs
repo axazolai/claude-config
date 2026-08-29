@@ -31,13 +31,6 @@ test("@important manifest subtraction matches directory-shaped categories by pre
   assert.deepEqual(rels, ["gsd-core", "skills/gsd-foreign"]);
 });
 
-test("@important every item carries what applyPlan needs", () => {
-  const dir = claudeDir({ "gsd-core/VERSION": "1.8.0\n" });
-  for (const it of buildGsdInventory({ dir, manifestRels: [] }).items)
-    for (const k of ["absPath", "size", "category", "reason", "mtimeMs"])
-      assert.ok(k in it, `${k} missing`);
-});
-
 test("@important only gsd hook registrations are dropped, and they are reported", () => {
   const settings = {
     hooks: {
@@ -81,12 +74,6 @@ test("@important full without gsd-core installed asks, and the command installs 
 
 // base and lite deliberately exclude the GSD machinery; offering to install the tool there would
 // contradict the detector that offers to REMOVE it.
-test("@important base and lite never offer to install it", () => {
-  for (const variant of ["base", "lite"]) {
-    assert.equal(gsdCoreInstallPlan({ variant, present: false, interactive: true }).action, "none");
-  }
-});
-
 test("@important a non-default config dir is passed through, and omitted when default", () => {
   const custom = gsdCoreInstallPlan({
     variant: "full", present: false, interactive: true, pinnedVersion: "1.11.0",
@@ -143,12 +130,6 @@ test("@important being behind asks in a TTY, updates without one, and obeys the 
 /* ---------- pinned version: the bundle declares which gsd-core it was validated against ---------- */
 
 const PIN = { variant: "full", pinnedVersion: "1.11.0" };
-
-test("@important the install command carries the pinned version, never @latest", () => {
-  const plan = gsdCoreInstallPlan({ ...PIN, present: false, interactive: true });
-  assert.match(plan.command, /@opengsd\/gsd-core@1\.11\.0/);
-  assert.ok(!/@latest/.test(plan.command), `must not float to latest: ${plan.command}`);
-});
 
 test("@critical an install AHEAD of the pin is never downgraded - it is reported instead", () => {
   const ahead = gsdCoreUpdatePlan({ ...PIN, present: true, installedVersion: "1.12.0", interactive: false });

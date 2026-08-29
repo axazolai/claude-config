@@ -19,10 +19,6 @@ test("@important parseSuperviseArgs defaults, and command without an explicit --
   assert.deepEqual(r.cmd, ["pnpm", "dev"]);
 });
 
-test("@important hangCheck: healthy => null", () => {
-  assert.equal(hangCheck({ now: 1000, startTs: 0, lastOutputTs: 900, timeoutMs: 10000, staleMs: 500 }), null);
-});
-
 test("@important hangCheck: wall-clock timeout wins over staleness", () => {
   const h = hangCheck({ now: 10000, startTs: 0, lastOutputTs: 0, timeoutMs: 5000, staleMs: 1000 });
   assert.equal(h.type, "timeout");

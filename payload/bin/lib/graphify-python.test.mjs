@@ -18,7 +18,3 @@ test("@important a PATH python that can import graphify is accepted", () => {
     cmd === "python3" && argv[0] === "-c" ? { status: 0 } : fail();
   assert.equal(findGraphifyPython({ run, env: {} }), "python3");
 });
-
-test("@important nothing found is null, never a throw", () => {
-  assert.equal(findGraphifyPython({ run: fail, env: {} }), null);
-});

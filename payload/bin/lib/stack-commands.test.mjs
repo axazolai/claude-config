@@ -2,23 +2,8 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { commandsForMarkers } from "./stack-commands.mjs";
 
-test("@important plain node/next → pnpm test/build", () => {
-  assert.deepEqual(commandsForMarkers(["node", "next"]), { test: "pnpm test", build: "pnpm build" });
-});
 test("@important pnpm workspace → workspace-root script form", () => {
   assert.deepEqual(commandsForMarkers(["node", "pnpm-ws"]), { test: "pnpm -w test", build: "pnpm -w build" });
-});
-test("@important django → uv run pytest, no build", () => {
-  assert.deepEqual(commandsForMarkers(["python", "django"]), { test: "uv run pytest", build: null });
-});
-test("@important kotlin/android → gradlew", () => {
-  assert.deepEqual(commandsForMarkers(["kotlin", "android"]), { test: "./gradlew test", build: "./gradlew build" });
-});
-test("@important dart → flutter", () => {
-  assert.deepEqual(commandsForMarkers(["dart"]), { test: "flutter test", build: "flutter build" });
-});
-test("@important go → go test/build ./...", () => {
-  assert.deepEqual(commandsForMarkers(["go"]), { test: "go test ./...", build: "go build ./..." });
 });
 test("@important native beats co-present JS (kotlin + node → gradlew)", () => {
   assert.deepEqual(commandsForMarkers(["node", "kotlin"]), { test: "./gradlew test", build: "./gradlew build" });

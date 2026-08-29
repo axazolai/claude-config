@@ -16,15 +16,6 @@ test("@important rejects empty and relative paths", () => {
   assert.equal(validateConfigDir("relative/dir", FIXED).ok, false);
 });
 
-test("@important accepts a creatable path under an existing fixed dir + normalizes slashes", () => {
-  const base = tmp();
-  try {
-    const r = validateConfigDir(join(base, "newcfg").replace(/\\/g, "/"), FIXED); // forward-slash input
-    assert.equal(r.ok, true);
-    if (isWin) assert.match(r.norm, /\\/); // normalized to backslashes
-  } finally { rmSync(base, { recursive: true, force: true }); }
-});
-
 test("@important rejects a file component in the path", () => {
   const base = tmp();
   try {

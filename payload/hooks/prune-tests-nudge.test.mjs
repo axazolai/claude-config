@@ -6,7 +6,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { hasUntaggedTest, findUntaggedTests, repoRoot, MESSAGE } from "./prune-tests-nudge.mjs";
+import { hasUntaggedTest, findUntaggedTests, MESSAGE } from "./prune-tests-nudge.mjs";
 
 const HOOK = join(dirname(fileURLToPath(import.meta.url)), "prune-tests-nudge.mjs");
 
@@ -23,11 +23,6 @@ const runHook = (payload) =>
 test("@important hasUntaggedTest sees an untagged JS declaration", () => {
   assert.equal(hasUntaggedTest('test("parses an empty header list", () => {});'), true);
   assert.equal(hasUntaggedTest('it("rounds half up", () => {});'), true);
-});
-
-test("@important hasUntaggedTest accepts either surviving tag", () => {
-  assert.equal(hasUntaggedTest('test("@critical rejects an expired token", () => {});'), false);
-  assert.equal(hasUntaggedTest('it("@important returns 404 when user missing", () => {});'), false);
 });
 
 test("@important hasUntaggedTest reads pytest and Go declarations", () => {
@@ -71,23 +66,11 @@ test("@important findUntaggedTests is false once every test is tagged", () => {
   rmSync(dir, { recursive: true, force: true });
 });
 
-test("@important repoRoot climbs to the directory holding .git", () => {
-  const dir = scratch((d) => mkdirSync(join(d, "src", "deep"), { recursive: true }));
-  assert.equal(repoRoot(join(dir, "src", "deep")), dir);
-  rmSync(dir, { recursive: true, force: true });
-});
-
 test("@important a push with untagged tests left emits the prune reminder", () => {
   const dir = scratch((d) => writeFileSync(join(d, "parser.test.mjs"), 'test("parses", () => {});'));
   const out = runHook({ tool_input: { command: "git push origin master" }, cwd: dir });
   assert.equal(JSON.parse(out).hookSpecificOutput.additionalContext, MESSAGE);
   rmSync(dir, { recursive: true, force: true });
-});
-
-test("@important the reminder names both surviving tags and withholds deletion", () => {
-  assert.match(MESSAGE, /@critical/);
-  assert.match(MESSAGE, /@important/);
-  assert.match(MESSAGE, /ask for confirmation/i);
 });
 
 test("@important a project carrying no tests is never asked to prune", () => {
@@ -103,12 +86,6 @@ test("@important a project carrying no tests is never asked to prune", () => {
 test("@important the prune's own push does not re-raise the reminder", () => {
   const dir = scratch((d) => writeFileSync(join(d, "parser.test.mjs"), 'test("@important parses", () => {});'));
   assert.equal(runHook({ tool_input: { command: "git push" }, cwd: dir }), "");
-  rmSync(dir, { recursive: true, force: true });
-});
-
-test("@important a non-push command stays silent", () => {
-  const dir = scratch((d) => writeFileSync(join(d, "parser.test.mjs"), 'test("parses", () => {});'));
-  assert.equal(runHook({ tool_input: { command: "git commit -m x" }, cwd: dir }), "");
   rmSync(dir, { recursive: true, force: true });
 });
 

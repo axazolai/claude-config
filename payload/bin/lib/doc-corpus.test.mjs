@@ -18,19 +18,10 @@ test("@important a blank line between comment and symbol ends the block", () => 
   assert.equal(liftDoc(lines, 3), "");
 });
 
-test("@important hash and docstring markers work too", () => {
-  assert.equal(liftDoc(["# reads the queue", "def drain():"], 2), "reads the queue");
-  assert.equal(liftDoc(['""" hydrate the environment """', "def go():"], 2), "hydrate the environment");
-});
-
 // A box-drawing separator carries no meaning and would dominate the index by sheer length.
 test("@important separator rules are dropped, not indexed", () => {
   assert.equal(liftDoc(["// ── Section ──────────────────────", "function f() {"], 2), "Section");
   assert.equal(liftDoc(["// ==========================", "function f() {"], 2), "");
-});
-
-test("@important a symbol with no comment yields nothing", () => {
-  assert.equal(liftDoc(["export function bare() {"], 1), "");
 });
 
 // A file that opens with a licence header or a long design note would otherwise turn one
@@ -54,21 +45,6 @@ const nodes = [
   { label: "bare()", repo: "r1", source_file: "a.mjs", source_location: "L9", file_type: "code" },
   { label: "Themes", repo: "r1", source_file: "p.json", source_location: "L1", file_type: "concept" },
 ];
-const read = (repo, file) => (repo === "r1" && file === "a.mjs" ? js.concat(["", "", "", "", "", "function bare() {"]) : null);
-
-test("@important only code symbols with a comment reach the corpus", () => {
-  const out = buildDocCorpus(nodes, read);
-  assert.equal((out.match(/^## /gm) || []).length, 1);
-  assert.match(out, /parseEnvFile\(\)/);
-  assert.doesNotMatch(out, /bare\(\)/);
-  assert.doesNotMatch(out, /Themes/);
-});
-
-test("@important each entry names the file and the repo so a hit is actionable", () => {
-  const out = buildDocCorpus(nodes, read);
-  assert.match(out, /## parseEnvFile\(\) — a\.mjs:L3/);
-  assert.match(out, /repo: r1/);
-});
 
 test("@important an unreadable file is skipped, not thrown on", () => {
   assert.equal(buildDocCorpus(nodes, () => null), "");
@@ -99,11 +75,4 @@ test("@important a heading inside a comment cannot break the corpus into a false
     [{ label: "f()", repo: "r", source_file: "a.mjs", source_location: "L3", file_type: "code" }],
     () => ["// ## Section title", "// body follows", "function f() {"]);
   assert.equal((out.match(/^## /gm) || []).length, 1);
-});
-
-test("@important a normal source path is kept", () => {
-  const out = buildDocCorpus(
-    [{ label: "entries()", repo: "r", source_file: "src/lib/stream.ts", source_location: "L2", file_type: "code" }],
-    () => ["// Return an iterable of key, value pairs.", "function entries() {"]);
-  assert.match(out, /entries\(\)/);
 });

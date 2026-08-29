@@ -7,17 +7,6 @@ import { isHeld, take, release, STALE_LOCK_MS } from "./state-lock.mjs";
 
 const fresh = () => join(mkdtempSync(join(tmpdir(), "lock-")), "a.lock");
 
-test("@important a lock that does not exist is not held", () => {
-  assert.equal(isHeld(fresh()), false);
-});
-
-test("@important a lock just taken is held", () => {
-  const p = fresh();
-  take(p);
-  assert.ok(existsSync(p));
-  assert.equal(isHeld(p), true);
-});
-
 // A crashed run must not wedge the sync forever, which is what the TTL is for.
 test("@important a lock older than the TTL is not held", () => {
   const p = fresh();

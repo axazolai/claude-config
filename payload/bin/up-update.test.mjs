@@ -32,12 +32,6 @@ function fakes({ tags = ["upstream/6.2.0"], latest = "v6.2.0" } = {}) {
   };
 }
 
-test("@important an unchanged upstream reads as up to date", async () => {
-  const r = await check([], fakes());
-  assert.equal(r.version.current, true);
-  assert.equal(r.version.behind, false);
-});
-
 test("@important a newer upstream release reads as behind, naming both versions", async () => {
   const r = await check([], fakes({ latest: "v6.3.0" }));
   assert.equal(r.version.behind, true);
