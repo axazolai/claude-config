@@ -31,9 +31,10 @@ paths:
   is written, never at prune time.
 - `@critical` — a failure destroys or exposes: data loss or corruption, a security bypass, a
   money error, a broken core workflow.
-- `@important` — a failure is silent and plausible: the code returns a wrong answer that looks
-  right and nothing downstream catches it. The tag is earned by non-obviousness — branching,
-  precedence, ordering, boundaries, an external format or contract.
+- `@important` — a test of delivered behaviour whose failure is silent and plausible: a wrong
+  answer that looks right and nothing downstream catches. The tag is earned by non-obviousness —
+  branching, precedence, ordering, boundaries, an external format or contract. A test of an
+  internal helper is never `@important`; see "What a test is about" above.
 - Neither tier: code whose correct result is obvious from reading it — a field-for-field mapping,
   a passthrough, a rename, a forwarding wrapper. When such code makes a decision (a default, a
   unit conversion, a dropped or renamed field, null handling), test the decision, not the copy.
@@ -81,6 +82,21 @@ Otherwise, run after every `git push`, in this order:
   dedicated unit test on themselves): pure wiring/config (DI providers/module registration,
   Dockerfile, docker-compose.yml), trivial DTO mappers, pure getters/passthroughs with no
   branching.
+
+## What a test is about — the logic, not the code
+- The subject of a test is the behaviour the code exists to deliver, not the function in front of
+  you. A module that renders a page is tested on its input and the rendered page; a module that
+  resolves config, on its input and the resolved config.
+- Tier follows the level. A test of delivered behaviour is `@important`. A test of an internal
+  helper is `@temp` and lives only while that code is being built or fixed. `@critical` is
+  decided by consequence, not by level, and outranks both.
+- A helper called from outside its own module is not internal: to its callers it IS delivered
+  behaviour, so it is tested as logic.
+- Assert the observable result, never intermediate structure: not which blocks were built, not
+  which helper ran, not the shape of a private return.
+- "Unit" in every budget below means a unit of delivered behaviour, not a function.
+- The check: rewrite the implementation without changing what it delivers, and every test still
+  passes untouched. A test that has to change was testing the code, not the logic.
 
 ## Choosing what to test — plan before code
 - Write the scenario list first: one line per behaviour, naming the input class and the expected

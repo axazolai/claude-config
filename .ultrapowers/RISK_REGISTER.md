@@ -79,6 +79,35 @@
 - [RISK-ULTRAPOWERS-003 — Blind replacement would break `superpowers:` skill resolution](#risk-ultrapowers-003-blind-replacement-would-break-superpowers-skill-resolution)
 
 ## Active
+### RISK-TESTLEVEL-001 — 128 helper tests hold logic no consumer-level test covers
+
+- **Status:** Active
+- **Context:** the tier rule sends tests of internal helpers to `@temp` and keeps `@important`
+  for delivered behaviour, so a helper's tests are meant to be replaced by a test one level up,
+  at its consumer. For 21 helper modules that consumer has no test file at all, so deleting the
+  helper tests would leave the logic with zero coverage rather than moving it. Largest:
+  `turbopack-gvs-lib` (10 tests, consumer `turbopack-gvs-check.mjs`), `project-scan` (9,
+  `graphify-sync-all.mjs`), `doc-corpus` (8, `graph-docs.mjs`), `global-index` (5,
+  `graph-find.mjs`), `supervise-lib` (5, `supervise-bg.mjs`). A further 58 sit under `setup.mjs`,
+  whose `setup-variants.e2e.test.mjs` covers install, prune and rollback but not the plugin
+  planner's forbidden/keepInstalled rules nor the PowerShell consent matrix.
+- **Mitigation:** the 128 are kept tagged `@important` and are exempt from the prune until a
+  consumer-level test exists. Order per module: write the consumer test on input and delivered
+  result, confirm it fails against the pre-change code, then delete that module's helper tests.
+- **Residual:** the suite carries tests at the wrong level until each is discharged, and the
+  count will not reach its floor before then.
+
+### RISK-TESTLEVEL-002 — `detect-stack-commands` now carries 15 tests' worth of logic on 2 tests
+
+- **Status:** Active
+- **Context:** `stack-rules-check` (12 tests) and `stack-commands` (3) were deleted as helper
+  modules whose consumer has its own tests. That consumer, `detect-stack-commands.mjs`, has two.
+  The condition was met literally; the coverage it implies is not there. Drift detection and the
+  stack→command table now rest on those two tests.
+- **Mitigation:** raise `detect-stack-commands.test.mjs` to cover the drift statuses and the
+  command table's decisions — the pnpm workspace form, native-beats-JS precedence, unknown stack.
+- **Residual:** until then a regression in drift reporting can pass the suite.
+
 ### RISK-BOOTSTRAP-001 — Remote code execution via `curl|bash` / `irm|iex` bootstrap
 
 - **Status:** Active

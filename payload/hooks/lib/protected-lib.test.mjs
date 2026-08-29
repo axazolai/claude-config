@@ -4,9 +4,8 @@ import assert from "node:assert/strict";
 import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
-import { parseRules, matchRules, collectRules, bashTargets, decide } from "./protected-lib.mjs";
+import { collectRules, decide } from "./protected-lib.mjs";
 
-const hit = (rules, p) => { const h = matchRules(rules, p); return h ? h.pattern : null; };
 const tree = (files) => {
   const root = mkdtempSync(join(tmpdir(), "prot-"));
   for (const [p, body] of Object.entries(files)) {
@@ -17,49 +16,9 @@ const tree = (files) => {
   return root;
 };
 
-test("@important a leading slash anchors to the declaring directory", () => {
-  const r = parseRules("/root-only.md\n");
-  assert.equal(hit(r, "root-only.md"), "/root-only.md");
-  assert.equal(hit(r, "sub/root-only.md"), null);
-});
-
-test("@important the last matching rule wins, so a later negation unprotects", () => {
-  const r = parseRules("docs/\n!docs/draft.md\n");
-  assert.equal(hit(r, "docs/draft.md"), null);
-  assert.equal(hit(r, "docs/final.md"), "docs/");
-});
-
-test("@important comments and blank lines are skipped, and rules keep their line numbers", () => {
-  const r = parseRules("# comment\n\n  \ndocs/spec.md\n");
-  assert.equal(r.length, 1);
-  assert.equal(r[0].line, 4);
-});
-
-test("@important a rule declared in a subdirectory does not escape it", () => {
-  const r = [...parseRules("a.md\n", ""), ...parseRules("b.md\n", "sub")];
-  assert.equal(hit(r, "sub/b.md"), "b.md");
-  assert.equal(hit(r, "b.md"), null);
-  assert.equal(hit(r, "a.md"), "a.md");
-});
-
-test("@important rules come from every .protected down the target's own chain", () => {
-  const root = tree({ ".protected": "a.md\n", "sub/.protected": "b.md\n", "other/.protected": "c.md\n" });
-  assert.deepEqual(collectRules(root, "sub/b.md").rules.map((r) => r.pattern), ["a.md", "b.md"]);
-});
-
 test("@critical a .protected hidden by .gitignore is reported", () => {
   const root = tree({ ".gitignore": ".protected\n", ".protected": "docs/\n" });
   assert.equal(collectRules(root, "docs/spec.md").hidden, ".protected");
-});
-
-test("@important rm, mv, git rm, sed -i, find -delete and redirection are destructive", () => {
-  for (const c of ["rm docs/a.md", "mv a b", "git rm x", "sed -i s/a/b/ f", "find . -delete", "echo x > f"])
-    assert.equal(bashTargets(c).destructive, true, c);
-});
-
-test("@important substitutions and globs make a command unparseable", () => {
-  assert.equal(bashTargets("cp $SRC docs/x.md").parseable, false);
-  assert.equal(bashTargets("rm docs/*.md").parseable, false);
 });
 
 test("@critical editing a protected path is denied and the message names the rule", () => {

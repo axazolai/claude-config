@@ -12,9 +12,16 @@
   full suite at review or on request only.
 - Report the scope you ran. "Tests pass" means the full suite passed. A failing targeted run
   blocks the commit: fix it, never widen the run.
+- Test the behaviour the code exists to deliver, not the function in front of you: a module that
+  renders a page is tested on its input and the rendered page, never on which blocks it built or
+  which helper ran. Tier follows the level — delivered behaviour is `@important`, an internal
+  helper is `@temp`, and a helper called from outside its module counts as delivered behaviour.
+  The check: rewrite the implementation without changing what it delivers and every test still
+  passes untouched.
 - Tag a test that must outlive the push with `@critical` or `@important` as the first token of
   its name. `@critical`: a failure destroys or exposes — data loss or corruption, a security
-  bypass, a money error, a broken core workflow. `@important`: a failure is silent and plausible
+  bypass, a money error, a broken core workflow; decided by consequence, it outranks the level.
+  `@important`: a failure is silent and plausible
   — a wrong answer that looks right and nothing downstream catches; the tag is earned by
   non-obviousness (branching, precedence, ordering, boundaries, an external contract). Neither
   tier: code whose correct result is obvious from reading it — a mapping, a passthrough, a
