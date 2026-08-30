@@ -15,6 +15,10 @@ export const COMPONENTS = [
   { name: "ui-ux-pro-max", scope: "project", kind: "version",      updateClass: "safe",   legacyEnv: null },
 ];
 
+// A component dropped from COMPONENTS leaves its last entry in component-updates.json forever:
+// nothing refreshes it, so an unknown name is never a real pending update.
+const KNOWN = new Set(COMPONENTS.map((c) => c.name));
+
 const envKey = (name) => name.toUpperCase().replace(/-/g, "_");
 
 export function autoUpdateEnabled(name, env = process.env) {
@@ -37,7 +41,7 @@ export function decide({ updateClass, updateAvailable, autoUpdateEnabled }) {
 export function pendingNames(state) {
   if (!state || typeof state !== "object") return [];
   return Object.entries(state)
-    .filter(([, e]) => e && e.updateAvailable === true)
+    .filter(([name, e]) => KNOWN.has(name) && e && e.updateAvailable === true)
     .map(([name]) => name)
     .sort();
 }
@@ -53,7 +57,7 @@ export function formatUpdateNotes(state) {
   if (!state || typeof state !== "object") return [];
   const out = [];
   for (const [name, e] of Object.entries(state)) {
-    if (!e || e.updateAvailable !== true) continue;
+    if (!KNOWN.has(name) || !e || e.updateAvailable !== true) continue;
     const ver = e.latest ? ` ${e.latest}` : "";
     if (e.class === "safe" && e.autoUpdated) {
       out.push(`${name}: updated ${e.installed}→${e.latest} (active next session — restart to apply now).`);

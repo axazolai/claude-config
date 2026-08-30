@@ -81,8 +81,8 @@ test("@important entry point: pending components are named first, in registry or
   write(join(claudeDir, "state", "component-updates.json"), JSON.stringify({
     graphify: { updateAvailable: true },
     "context-mode": { updateAvailable: true },
-    zzz: { updateAvailable: true },
-    quiet: { updateAvailable: false },
+    impeccable: { updateAvailable: true },
+    "claude-config": { updateAvailable: false },
   }));
   const out = runEntry(payload(dir("plain-pending")), { claudeDir });
   assert.equal(out.status, 0);

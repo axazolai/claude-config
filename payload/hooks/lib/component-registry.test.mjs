@@ -50,3 +50,13 @@ test("@important pendingNames lists exactly the components with an update availa
   assert.deepEqual(pendingNames(state), ["claude-config", "context-mode"]);
   assert.equal(pendingCount(state), 2);
 });
+
+test("@important a name no longer in COMPONENTS never renders, however stale its entry", () => {
+  const state = {
+    "claude-config": { updateAvailable: true, class: "reinit", installed: "abc", latest: "def" },
+    "claude-code-cli": { updateAvailable: true, class: "notify-restart", installed: "2.1.247", latest: "2.1.248" },
+  };
+  assert.deepEqual(pendingNames(state), ["claude-config"]);
+  assert.equal(pendingCount(state), 1);
+  assert.deepEqual(formatUpdateNotes(state).filter((n) => n.includes("claude-code-cli")), []);
+});
