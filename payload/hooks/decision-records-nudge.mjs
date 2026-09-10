@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // PreToolUse guard (matcher: Bash). Before a `git commit` that stages a decision record, run the
 // matching lint and print what is wrong and the command that fixes it. NON-BLOCKING by design:
-// this follows ci-watch-nudge and graphify-grep-nudge, not secrets-gate - an unnormalised
+// this follows ci-watch-nudge, not secrets-gate - an unnormalised
 // register is untidy, not dangerous. Fail-open: any error => exit 0, no output.
 //
 // It inspects the STAGED INDEX and never the commit message. db-live-access-gate already

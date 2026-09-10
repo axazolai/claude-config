@@ -60,7 +60,7 @@ test("@important registerDesignHook collapses duplicates an earlier run left, ke
   const rel = "node .claude/skills/impeccable/scripts/hook.mjs";
   const abs = 'node "$CLAUDE_PROJECT_DIR/.claude/skills/impeccable/scripts/hook.mjs"';
   const win = "node C:\\p\\.claude\\skills\\impeccable\\scripts\\hook.mjs";
-  const other = "node .claude/hooks/graphify-sync.mjs";
+  const other = "node .claude/hooks/unrelated-sync.mjs";
   writeFileSync(settingsFile, JSON.stringify({ hooks: {
     PostToolUse: [
       { matcher: "Edit|Write|MultiEdit", hooks: [{ type: "command", command: abs }, { type: "command", command: other }] },

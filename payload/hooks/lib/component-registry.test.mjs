@@ -16,12 +16,11 @@ test("@important autoUpdateEnabled: default on, global/per-name/legacy off", () 
   // legacy env still honored for a migrated tool (context-mode -> CONTEXT_MODE)
   assert.equal(autoUpdateEnabled("context-mode", { CLAUDE_TOOL_AUTOUPGRADE: "0" }), false);
   assert.equal(autoUpdateEnabled("context-mode", { CLAUDE_TOOL_AUTOUPGRADE_CONTEXT_MODE: "0" }), false);
-  assert.equal(autoUpdateEnabled("graphify", { CLAUDE_TOOL_AUTOUPGRADE_GRAPHIFY: "0" }), false);
 });
 
 const STATE = {
   "impeccable":    { installed: "4.0.2", latest: "4.1.0", updateAvailable: true,  class: "safe",   autoUpdated: true },
-  "graphify":      { installed: "1.0.0", latest: "1.0.0", updateAvailable: false, class: "safe",   autoUpdated: false },
+  "context-mode":  { installed: "1.0.0", latest: "1.0.0", updateAvailable: false, class: "safe",   autoUpdated: false },
   "claude-config": { installed: "abc123", latest: "def456", updateAvailable: true, class: "reinit", autoUpdated: false },
   "ui-ux-pro-max": { installed: "2.0.0", latest: "2.1.0", updateAvailable: true,  class: "safe",   autoUpdated: false },
 };
@@ -43,7 +42,7 @@ test("@important formatUpdateNotes: safe-applied says restart; reinit says the c
 
 test("@important pendingNames lists exactly the components with an update available", () => {
   const state = {
-    graphify: { updateAvailable: false },
+    impeccable: { updateAvailable: false },
     "context-mode": { updateAvailable: true },
     "claude-config": { updateAvailable: true },
   };

@@ -14,12 +14,6 @@
 //   - GSD-owned (unmarked) .planning/CLAUDE.md          -> add per-project claudeMdExcludes
 //     (every session, idempotent)
 //   - existing RISK_REGISTER.md                         -> append the GSD-clobber risk (every session)
-//   - graphify installed, root CLAUDE.md not curated    -> `graphify claude install` (one-time,
-//     runs before the auto-mark step above so it never touches an already-curated file;
-//     opt out: CLAUDE_GRAPHIFY_CLAUDE_INSTALL=0)
-//   - graphify installed                                -> register + keep this project synced
-//     in the cross-project global graph (one-time + native post-commit hook; opt out both:
-//     CLAUDE_GRAPHIFY_AUTOSYNC=0)
 // Hint (additionalContext, best-effort, re-checked EACH session until the MCP is wired):
 //   - a GitHub/GitLab remote or database usage, with no matching MCP wired -> suggest /init-mcp
 //     (git/DB can appear later, so this is not one-time; opt out: CLAUDE_MCP_SUGGEST=0).
@@ -38,7 +32,7 @@
 // on-disk check says the fix isn't applied yet, so a no-op re-check costs one file read). See
 // the root-CLAUDE.md auto-mark and the .planning/CLAUDE.md exclude below for the pattern -
 // neither uses `firstTime` anymore, on purpose.
-import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, chmodSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, resolve, dirname, relative } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -172,39 +166,6 @@ if (FULL && gsdProject && pendingRegisters(root).length) {
 }
 if (riskAdded > 0) actions.push(`ensured GSD-clobber risk in ${riskAdded} register(s)`);
 
-// graphify claude install: registers graphify's OWN "always consult the graph" mechanism for
-// THIS project - a CLAUDE.md section + a PreToolUse hook that fires before search-style tool
-// calls / one-by-one file reads and nudges toward `graphify query` instead. Independent
-// one-time flag (state[root].graphifyClaudeInstalled), like graphifySynced below, so it keeps
-// retrying cheaply (just `--version`) until graphify is installed, then fires once.
-// MUST run before the "root CLAUDE.md auto-mark" step just below: on a brand-new project's
-// first session the file is still unmarked here, so graphify gets one chance to write into it
-// before automark locks it in as curated a few lines down. On a RETROFIT session for an older
-// project (automark already ran in the past), the curated-check below correctly finds the file
-// already protected and skips - see the note it leaves for why.
-// Why the pre-check at all: graphify's installer writes via a plain CLI subprocess, outside
-// Claude's Edit/Write tool path, so `deny-curated-claude-md.mjs` (a PreToolUse hook gated on
-// the Edit|Write|MultiEdit tool matcher) structurally cannot intercept it - this check is the
-// only guard against it silently touching an already-curated file. Opt out just this piece
-// (keep global-graph registration/sync): CLAUDE_GRAPHIFY_CLAUDE_INSTALL=0.
-if (process.env.CLAUDE_GRAPHIFY_AUTOSYNC !== "0" && process.env.CLAUDE_GRAPHIFY_CLAUDE_INSTALL !== "0"
-    && !state[root].graphifyClaudeInstalled) {
-  const gv0 = safe(() => spawnSync("graphify", ["--version"], { encoding: "utf8" }));
-  if (gv0 && !gv0.error && gv0.status === 0) {
-    const rootClaudePre = join(root, "CLAUDE.md");
-    if (!existsSync(rootClaudePre) || !isMarked(rootClaudePre)) {
-      const ci = safe(() => spawnSync("graphify", ["claude", "install"], { cwd: root, encoding: "utf8", timeout: 15000 }));
-      if (ci && !ci.error && ci.status === 0)
-        actions.push("installed graphify's query-first CLAUDE.md section + PreToolUse hook");
-    } else {
-      notes.push(`Skipped 'graphify claude install': ${rootClaudePre} is already curated ` +
-        `(CURATED:NOEDIT) - its installer writes via a plain CLI process outside Claude's tool ` +
-        `path, so deny-curated-claude-md.mjs can't gate it. Run 'graphify claude install' by ` +
-        `hand if you want it there, after reviewing the diff yourself.`);
-    }
-    state[root].graphifyClaudeInstalled = true;
-  }
-}
 
 // EVERY session, idempotent - NOT `if (firstTime)`; this pair is the original victim of the
 // timing bug described in the header CONVENTION. Both checks are cheap (existsSync + one
@@ -252,71 +213,11 @@ if (existsSync(join(root, ".git"))) {
   }
 }
 
-// Graphify cross-project sync: an INDEPENDENT one-time flag, not gated by `firstTime` -
-// so a project that was already initialized before this feature existed still gets it
-// on its next session, instead of being permanently skipped.
-//   - registers this project in the global graph (~/.graphify/global-graph.json)
-//   - installs a native <repo>/.git/hooks/post-commit hook so EVERY commit keeps that
-//     entry fresh afterwards: manual/IDE commits and `--amend` included, not just
-//     commits Claude runs through its own Bash tool (hooks/graphify-global-sync.mjs is
-//     the Claude-Code-level fallback for that narrower case - see its header for why
-//     both exist).
-// No-op if graphify isn't installed. Toggle: CLAUDE_GRAPHIFY_AUTOSYNC=0.
-if (process.env.CLAUDE_GRAPHIFY_AUTOSYNC !== "0" && !state[root].graphifySynced) {
-  const gv = safe(() => spawnSync("graphify", ["--version"], { encoding: "utf8" }));
-  if (gv && !gv.error && gv.status === 0) {
-    // The whole point of the global graph is knowledge ACCUMULATION: a brand-new project
-    // should see, on its very first session, that other repos' patterns/decisions already
-    // exist and are queryable - instead of silently joining the pool while nobody ever
-    // reads from it. Surface a preview of `graphify global list` once, right here, before
-    // this project's own registration below. Best-effort: additionalContext can be dropped
-    // on a fresh session (see file header), but this is cheap (local JSON read, no LLM call)
-    // so there's no cost to trying every time this block fires.
-    const gl = safe(() => spawnSync("graphify", ["global", "list"], { encoding: "utf8", timeout: 5000 }));
-    if (gl && !gl.error && gl.status === 0 && (gl.stdout || "").trim()) {
-      const preview = gl.stdout.trim().split(/\r?\n/).slice(0, 12).join(" | ");
-      notes.push(`Global knowledge graph already has other repos registered - query it for ` +
-        `existing patterns/decisions before re-deriving them from scratch: ` +
-        `graphify query "<question>" --graph ~/.graphify/global-graph.json. Registered so far: ${preview}`);
-    }
-
-    const name = root.replace(/[\\/]+$/, "").split(/[\\/]/).pop() || "repo";
-    safe(() => spawn("graphify", ["extract", root, "--global", "--as", name],
-      { cwd: root, detached: true, stdio: "ignore" }).unref());
-    actions.push(`queued graphify global registration as '${name}'`);
-
-    const gitDir = join(root, ".git");
-    if (existsSync(gitDir)) {
-      const hooksDir = join(gitDir, "hooks");
-      const hookPath = join(hooksDir, "post-commit");
-      const marker = "# graphify-global-sync (added by ~/.claude/hooks/session-init.mjs)";
-      const libScript = join(dirname(fileURLToPath(import.meta.url)), "lib", "graphify-global-sync-run.mjs");
-      const invocation = `node "${libScript}" >/dev/null 2>&1 &\n`;
-      const existing = existsSync(hookPath) ? (safe(() => readFileSync(hookPath, "utf8")) || "") : "";
-      if (!existing.includes(marker)) {
-        safe(() => mkdirSync(hooksDir, { recursive: true }));
-        // Append to any pre-existing post-commit hook (husky, pre-commit, graphify's
-        // own local-graph hook, ...) rather than replacing it - the same courtesy
-        // graphify's own `hook install` extends to hooks that predate it.
-        const content = existing
-          ? existing.replace(/\n?$/, "\n") + `\n${marker}\n${invocation}`
-          : `#!/bin/sh\n${marker}\n${invocation}`;
-        if (writeFile(hookPath, content)) {
-          safe(() => chmodSync(hookPath, 0o755));
-          actions.push("installed native post-commit hook for graphify global sync");
-        }
-      }
-    }
-
-    state[root].graphifySynced = true;
-  }
-}
-
 // ---- centralized component-update checker (registry-driven; supersedes the old KNOWN_TOOLS
 // block). Detached + unref'd so it never blocks; the worker self-throttles per component (24h)
 // and is best-effort. Notes are emitted from the state a PRIOR run wrote, below. The legacy
 // CLAUDE_TOOL_AUTOUPGRADE[_<NAME>]=0 opt-out is still honored for the migrated tools
-// (context-mode/graphify) INSIDE the worker via autoUpdateEnabled - a legacy-only opt-out still
+// (context-mode) INSIDE the worker via autoUpdateEnabled - a legacy-only opt-out still
 // spawns the worker (cheap) but suppresses those upgrades there; the claude-config bundle check
 // still runs, which is intended. Master off-switch: CLAUDE_COMPONENT_AUTOUPDATE=0. ----
 if (process.env.CLAUDE_COMPONENT_AUTOUPDATE !== "0") {

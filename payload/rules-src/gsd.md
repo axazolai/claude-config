@@ -284,29 +284,11 @@ by the marker, never by the path:
   per-project and would hide a curated `.planning/CLAUDE.md`.
 - Treat any unexpected diff to a curated `CLAUDE.md` as an Open risk in `RISK_REGISTER.md`.
 
-## "graphify" is two tools sharing one CLI — don't confuse their graphs
+## `/gsd-graphify` is disabled by this bundle
 
-- GSD's `/gsd-graphify` is gated by TWO independent booleans in `.planning/config.json`:
-  `graphify.enabled` (unlocks the command; the skill refuses to run otherwise) and
-  `graphify.auto_update` (post-commit auto-rebuild; defaults `false`). Neither flag builds
-  anything — `.planning/graphs/` stays empty until `/gsd-graphify build` runs once. If
-  `graph.json` is missing despite `enabled: true`, check whether a build ever ran.
-- `build` is not a separate engine: it runs the standalone CLI as `graphify update .`
-  (refreshing the project's own `graphify-out/` in place if it exists), then copies
-  `graph.json`/`graph.html`/`GRAPH_REPORT.md` into `.planning/graphs/` plus GSD's own
-  snapshot/status files. `.planning/graphs/` = GSD's copy of current `graphify-out/`.
-- Auto-refresh (`hooks/gsd-graphify-update.sh`, PostToolUse on `Bash`) fires only after a
-  HEAD-advancing git op on the default branch, outside CI, with BOTH flags true — detaches
-  a PID-locked background rebuild (same update+copy). GSD's planning agents read
-  `.planning/graphs/graph.json` directly — it's load-bearing, not a side artifact.
-- GSD never touches the GLOBAL cross-project graph (`~/.graphify/global-graph.json`) — no
-  config key targets it. It's kept fresh solely by `hooks/graphify-global-sync.mjs` + the
-  native per-repo `post-commit` hook installed by `session-init.mjs`.
-- A project's local `graphify-out/` has no auto-refresh of its own, and no prescriptive
-  refresh-cadence rule is injected into the project's `CLAUDE.md` — run `graphify update .`
-  manually when you want it current (a standing "consult the graph" nudge here would
-  duplicate graphify's own `graphify claude install` CLAUDE.md section — see the note at
-  the top of this subsection).
+- `gsd-config-patch.mjs` writes `graphify.enabled: false` and `graphify.auto_update: false`
+  into `.planning/config.json`. The command stays locked and `.planning/graphs/` stays empty.
+  Re-enabling it needs the standalone `graphify` CLI, which this bundle no longer installs.
 
 ## `.planning/config.json` — default model_profile is auto-patched once per project
 

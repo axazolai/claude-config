@@ -8,7 +8,7 @@ import { spawnSync, spawn } from "node:child_process";
 
 const ROOT = dirname(fileURLToPath(import.meta.url));
 const run = (dir, args) => spawnSync(process.execPath, [join(ROOT, "setup.mjs"), ...args],
-  { encoding: "utf8", env: { ...process.env, CLAUDE_CONFIG_DIR: dir, CLAUDE_SETUP_SKIP_PLUGINS: "1" }, timeout: 120000 });
+  { encoding: "utf8", env: { ...process.env, CLAUDE_CONFIG_DIR: dir, CLAUDE_SETUP_SKIP_PLUGINS: "1", CLAUDE_SETUP_SKIP_PURGE: "1" }, timeout: 120000 });
 
 function walk(dir, rel = "") {
   const out = [];
@@ -19,7 +19,7 @@ function walk(dir, rel = "") {
   }
   return out;
 }
-const FOREIGN = ["settings.local.json", "projects/p/notes.md", "memory/MEMORY.md", "skills/graphify/SKILL.md"];
+const FOREIGN = ["settings.local.json", "projects/p/notes.md", "memory/MEMORY.md", "skills/other-tool/SKILL.md"];
 function plantForeign(dir) {
   for (const f of FOREIGN) { mkdirSync(join(dir, dirname(f)), { recursive: true }); writeFileSync(join(dir, f), `foreign:${f}`); }
 }
@@ -117,9 +117,7 @@ test("@critical --dry-run writes nothing for both variants", () => {
 /* ---------- foreign gsd-core detector (base/lite only) ----------
  * `run()` above is always non-TTY (spawnSync pipes stdin) and so can never reach an interactive
  * branch. runTty() launches setup.mjs through a driver that forces process.stdin.isTTY first, and
- * answers arrive on stdin. GRAPHIFY_PYTHON points at a file that exists so findGraphifyPython()
- * succeeds and its install prompt - the one prompt whose presence would otherwise depend on the
- * machine - never fires.
+ * answers arrive on stdin.
  * Answers are keyed by prompt text and written one at a time, only once the prompt has actually
  * been printed. Preloading them all on stdin does not work: the first readline buffers whatever is
  * available and discards the remainder on close(), so answer two would silently never arrive and
@@ -132,8 +130,8 @@ after(() => rmSync(TTY_DIR, { recursive: true, force: true }));
 function runTty(dir, args, answers = []) {
   return new Promise((resolve) => {
     const child = spawn(process.execPath, [TTY_DRIVER, ...args], {
-      env: { ...process.env, CLAUDE_CONFIG_DIR: dir, CLAUDE_SETUP_SKIP_PLUGINS: "1",
-        GRAPHIFY_PYTHON: process.execPath, SETUP_URL: pathToFileURL(join(ROOT, "setup.mjs")).href },
+      env: { ...process.env, CLAUDE_CONFIG_DIR: dir, CLAUDE_SETUP_SKIP_PLUGINS: "1", CLAUDE_SETUP_SKIP_PURGE: "1",
+        SETUP_URL: pathToFileURL(join(ROOT, "setup.mjs")).href },
     });
     const pending = answers.map((a) => [...a]);
     let stdout = "", stderr = "", lastAnswered = null;
@@ -200,7 +198,7 @@ const NOT_REPORTED = /is installed here and is not part of this bundle/;
 // env spread would otherwise inherit an ambient one and silently put the run back on the relocated
 // branch this exists to be the opposite of.
 function runAtHome(home, args) {
-  const env = { ...process.env, USERPROFILE: home, HOME: home, CLAUDE_SETUP_SKIP_PLUGINS: "1" };
+  const env = { ...process.env, USERPROFILE: home, HOME: home, CLAUDE_SETUP_SKIP_PLUGINS: "1", CLAUDE_SETUP_SKIP_PURGE: "1" };
   delete env.CLAUDE_CONFIG_DIR;
   return spawnSync(process.execPath, [join(ROOT, "setup.mjs"), ...args], { encoding: "utf8", env, timeout: 120000 });
 }
@@ -211,7 +209,7 @@ function runAtHome(home, args) {
 function copyRepoRoot() {
   const repo = mkdtempSync(join(tmpdir(), "cc-repo-"));
   const gitIsDir = existsSync(join(ROOT, ".git")) && statSync(join(ROOT, ".git")).isDirectory();
-  const skip = new Set(["docs", "graphify-out", "node_modules", ".ultrapowers", ".planning"]);
+  const skip = new Set(["docs", "node_modules", ".ultrapowers", ".planning"]);
   cpSync(ROOT, repo, {
     recursive: true,
     filter: (src) => {
@@ -314,7 +312,7 @@ test("@critical a malformed settings.hooks shape cannot throw after the files ha
     plantGsdCore(dir, { settings: false });
     writeFileSync(join(dir, "settings.json"), JSON.stringify({ hooks }, null, 2) + "\n");
     const r = spawnSync(process.execPath, [join(repo, "setup.mjs"), "--variant=base", "--uninstall-gsd", "--skip-all"],
-      { encoding: "utf8", env: { ...process.env, CLAUDE_CONFIG_DIR: dir, CLAUDE_SETUP_SKIP_PLUGINS: "1" }, timeout: 120000 });
+      { encoding: "utf8", env: { ...process.env, CLAUDE_CONFIG_DIR: dir, CLAUDE_SETUP_SKIP_PLUGINS: "1", CLAUDE_SETUP_SKIP_PURGE: "1" }, timeout: 120000 });
     assert.equal(r.status, 0, `${label}: ${r.stderr}`);
     assert.equal(batches(dir).length, 1, `${label}: the run never reached the removal`);
     assert.ok(!gsdPresent(dir), `${label}: gsd-core was not moved`);

@@ -18,8 +18,8 @@ visibility into whether gsd-core's /gsd-new-project and /gsd-settings commands w
 .planning/config.json directly via the Write/Edit tool, or shell out to a bundled script via
 Bash. Rather than guess and pick one, this checks filesystem STATE after the fact (does the
 file now exist and is it unpatched?) instead of trying to parse which tool/args produced it -
-same defensive pattern graphify-global-sync.mjs uses (checks git state after any Bash call
-rather than parsing the exact git subcommand). Cheap no-op (a couple of existsSync calls) on
+the same defensive pattern used elsewhere for git state (check it after any Bash call rather
+than parsing the exact git subcommand). Cheap no-op (a couple of existsSync calls) on
 every other tool call, so safe to leave on the broad matcher.
 
 ## Tier 1 — model keys
@@ -60,14 +60,13 @@ CLAUDE.md's own advice says to set "deliberately per project"):
   quality-of-decision upgrades with no stack dependency and no downside for solo work),
   `learnings.max_inject: 10` (pins gsd-core's own default so it survives an upstream
   default change), `intel.enabled` (queryable codebase index for `/gsd-map-codebase
-  --query` - same knowledge-graph instinct already applied via graphify elsewhere in this
-  config), `plan_review.source_grounding`/`source_grounding_authority` (pins gsd-core's own
+  --query` - a queryable index of the project's own code), `plan_review.source_grounding`/`source_grounding_authority` (pins gsd-core's own
   already-true default - plan-checker verifies plans against real code, not just docs),
   `statusline.show_last_command`/`context_position: "front"` (personal statusline taste),
   `claude_md_assembly.mode: "link"` (matches this repo's own curated/generated CLAUDE.md
   separation pattern - see the CLAUDE.md quarantine section of rules-src/gsd.md - by having
   gsd-core write `@path` references for generated profile sections instead of embedding
-  them inline), and `graphify.enabled`.
+  them inline).
 - `code_quality.fallow.enabled` is NOT a flat `true` - it's computed as
   `existsSync(join(root, "package.json"))`. fallow is an npm/cargo-installable external
   binary (structural dead-code/duplication/circular-dependency pre-pass folded into code
@@ -105,11 +104,9 @@ defaults have no reason to change universally), `search_gitignored`/`response_la
 left permissive - gsd-core's own consent gate already covers external installs;
 `auto_update` is currently unwired/no-op in gsd-core; `trusted_global_roots` is
 project-specific), and `security.injection_blocking` (unwired/no-op in this gsd-core
-version). `graphify.auto_update` stays `false` even though `enabled` is `true`: gsd-core's
-own auto-rebuild fires on every commit to the default branch, which is the "refresh on
-every edit" cadence `rules-src/templates/graphify.PROJECT.md` explicitly argues against -
-Claude driving `graphify update .` at the right checkpoints (review/verify pass) is
-preferred over gsd-core's blunter per-commit trigger. `plan_chunked` is computed from
+version). `graphify.enabled` and `graphify.auto_update` are both written as `false`: the
+standalone CLI they drive is no longer installed by this bundle, so `/gsd-graphify` stays
+locked and `.planning/graphs/` stays empty. `plan_chunked` is computed from
 `process.platform` rather than hardcoded: it's a workaround for long-lived planner Tasks
 hanging on stdio, which gsd-core's own docs (references/planning-config.md) call out as a
 Windows-specific issue - `true` only when the hook actually runs on win32, so a config

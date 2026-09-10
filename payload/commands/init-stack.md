@@ -120,11 +120,7 @@ Skip entirely for non-frontend stacks.
 After settings are written, remind me: `enabledPlugins` resolves at STARTUP - I must RESTART Claude
 Code (or `/reload-plugins` if available). Do NOT claim plugins are active in the current session.
 
-## 7. Mark completion + graphify freshness (always, no gate)
+## 7. Mark completion (always, no gate)
 Run `node ~/.claude/hooks/lib/mark-initstack-done.mjs` (silent, idempotent). Lets leanmode's
 project dial default to `full` for this project instead of staying `off` (rationale:
 `.ultrapowers/archive/specs/2026-07-10-leanmode-design.md`).
-
-Check graphify freshness (best-effort, non-blocking): run
-`node ~/.claude/bin/graphify-freshness.mjs`. If it prints an update line, tell me the upgrade
-command; never upgrade automatically.

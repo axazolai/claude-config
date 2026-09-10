@@ -9,7 +9,6 @@
 //        "project"     -> per-project skill (probe arrives in Phase 3: impeccable, ui-ux-pro-max)
 export const COMPONENTS = [
   { name: "context-mode",  scope: "global",  kind: "upgrade-only", updateClass: "safe",   legacyEnv: "CONTEXT_MODE" },
-  { name: "graphify",      scope: "global",  kind: "upgrade-only", updateClass: "safe",   legacyEnv: "GRAPHIFY" },
   { name: "claude-config", scope: "global",  kind: "version",      updateClass: "reinit", legacyEnv: null },
   { name: "impeccable",    scope: "project", kind: "version",      updateClass: "safe",   legacyEnv: null, afterUpdate: "promax-graft" },
   { name: "ui-ux-pro-max", scope: "project", kind: "version",      updateClass: "safe",   legacyEnv: null },

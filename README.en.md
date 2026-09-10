@@ -41,13 +41,9 @@ After installing — **restart Claude Code** (hooks and settings are only read a
 - [Required tools and fallback](#required-tools-and-fallback)
 - [PowerShell tool on Windows (optional, one-time opt-in in setup.mjs)](#powershell-tool-on-windows-optional-one-time-opt-in-in-setupmjs)
 - [Post-install check](#post-install-check)
-- [Codebase knowledge graph (graphify) + a shared graph across all projects](#codebase-knowledge-graph-graphify-a-shared-graph-across-all-projects)
   - [Install / check (+ extra components, + uv auto-setup)](#install-check-extra-components-uv-auto-setup)
-  - [The whole codebase at once, not project by project](#the-whole-codebase-at-once-not-project-by-project)
   - [Where the result is stored and how it's available in any project](#where-the-result-is-stored-and-how-its-available-in-any-project)
-  - [Auto-registering a new project + auto-refresh on commit](#auto-registering-a-new-project-auto-refresh-on-commit)
-  - [`graphify claude install` — the official "always consult the graph" hook mechanism](#graphify-claude-install-the-official-always-consult-the-graph-hook-mechanism)
-  - [Auto-updating components (context-mode, graphify, the bundle itself, the design stack)](#auto-updating-components-context-mode-graphify-the-bundle-itself-the-design-stack)
+- [Auto-updating components (context-mode, the bundle itself, the design stack)](#auto-updating-components-context-mode-the-bundle-itself-the-design-stack)
 - [Other / limitations](#other-limitations)
 - [Diagnostics: `PreToolUse hook error` / `cannot find module` on every Edit](#diagnostics-pretooluse-hook-error-cannot-find-module-on-every-edit)
 - [Cyrillic console: character errors (checkmark/dash) and where RISK_REGISTER lives](#cyrillic-console-character-errors-checkmarkdash-and-where-risk_register-lives)
@@ -138,8 +134,7 @@ changes).
      (Impeccable + the grafted Pro Max subset, see "Additional subsystems" below);
    - **6. finish** — the reminder to restart Claude Code;
    - **7. mark completion** — `hooks/lib/mark-initstack-done.mjs` (this is what lets the
-     project's leanmode dial default to `full`) plus a best-effort graphify freshness check
-     (`bin/graphify-freshness.mjs`, which only prints the upgrade command, never runs it).
+     project's leanmode dial default to `full`).
 
    The GSD-specific proposals the pre-rewrite command carried are gone from here for good:
    `fallow` now reaches every profile through the plugin instead (delta `001-fallow-graft` in
@@ -189,11 +184,11 @@ inherits `base` through `extends`; `exclude` wins over `include`).
   - exactly one plugin, `context-mode`. `ultrapowers` **ships to disk but is not enabled**
     (`variants.json → keepInstalled`), so bringing it back is one command rather than a
     reinstall from the marketplace;
-  - exactly 10 hooks: `secrets-gate`, `deny-curated-claude-md`, `protected-guard`,
-    `decision-records-nudge`, `graphify-global-sync`, `graphify-grep-nudge`, `inject-axes`,
+  - exactly 8 hooks: `secrets-gate`, `deny-curated-claude-md`, `protected-guard`,
+    `decision-records-nudge`, `inject-axes`,
     `precompact-observe`, `token-usage-log`, `session-init` (the last one still runs, but skips
     every GSD-specific step — see the callout in "Project auto-init" below);
-  - `graphify`; `leanmode`; three "lazy" skills
+  - `leanmode`; three "lazy" skills
     (`model-selection-policy`, `token-usage`, `update-changelog`);
   - its own `/init-stack` — stack detection + assembling `.claude/stack-rules.md` only, no
     Python/plugin machinery (see the callout in "Initial setup" above);
@@ -404,7 +399,6 @@ installed.
   apply-gsd-agent-patches.mjs            # applies agent+workflow content patches (called by /init-session)
   gsd-defaults-sync.mjs                  # CLI: ~/.gsd/defaults.json + the project's .planning/config.json
   sync-gsd-context-mode-tool.mjs         # CLI wrapper for the tool-grant sync (called by setup.mjs / init-stack.mjs)
-  graphify-sync-all.mjs                  # bulk registration of repos into the shared graph
   hooks/
     deny-curated-claude-md.mjs           # blocks edits to a curated CLAUDE.md (any location)
     protected-guard.mjs                  # refuses to edit/delete/move paths listed in `.protected`
@@ -414,15 +408,12 @@ installed.
     worktree-executor-discipline-advisor.mjs # advisory: worktree discipline + large-Read backstop
     bg-supervision-nudge.mjs             # PreToolUse: nudge to wrap run_in_background in supervise-bg
     schedulewakeup-loop-only-nudge.mjs   # PreToolUse: ScheduleWakeup is for /loop pacing only
-    graphify-grep-nudge.mjs              # PreToolUse (Grep|Glob): ask the graph first
-    graphify-global-sync.mjs             # after a Claude `git commit` — bg. refresh of global-graph.json
     gsd-config-patch.mjs                 # PostToolUse: one-time .planning/config.json patches (model+workflow)
     ci-watch-nudge.mjs                   # PostToolUse: after `git push` — nudge to `gh run watch`
     prune-tests-nudge.mjs                 # PostToolUse: after `git push` — nudge to prune untagged tests
     pnpm-phantom-fix-hook.mjs            # PostToolUse: phantom-dependency scan after an install
     inject-axes.mjs                      # SessionStart + SubagentStart: rule-axis injector (see below)
-    session-init.mjs                     # SessionStart: project bootstrap (+ registration in graphify,
-                                          #   + installing the native post-commit hook in the project)
+    session-init.mjs                     # SessionStart: project bootstrap
     token-usage-log.mjs                  # SubagentStop + Stop — token/$ spend log in JSONL
     precompact-observe.mjs               # PreCompact — records where automatic compaction fired
     statusline.mjs                       # statusLine.command — the status line renderer
@@ -432,7 +423,6 @@ installed.
       leanmode-{lite,full,ultra}-rule.md # rule texts for the leanmode axis
       verbosity-rules.mjs                # verbosity-axis resolver (.claude/verbosity.json)
       verbosity-{lite,full,ultra}-rule.md # rule texts for the verbosity axis
-      graphify-global-sync-run.mjs       # shared worker (called by the hook above and the native post-commit)
       context-mode-gsd-agents.mjs        # silent per-session tool-grant sync into gsd-*.md
       gsd-agent-patches.mjs              # review-gated content patches to 30+ gsd-*.md (check/apply)
       gsd-hook-patches.mjs               # review-gated line patch to hooks/gsd-*.js + its alarm
@@ -452,8 +442,6 @@ installed.
     init-stack.mjs                       # stack detection + the plugin checklist (the /init-stack engine)
     install-design-stack.mjs             # Impeccable + the grafted Pro Max subset (step 5 of /init-stack)
     detect-stack-commands.mjs            # the "Detected commands" block for the stack-rules snapshot
-    graphify-setup.mjs, graphify-freshness.mjs # graphify install, and the stale-version nudge
-    graph-find.mjs, graph-semantic.mjs, graph-docs.mjs # lookup by name / by meaning / the doc corpus
     claude-cleanup.mjs                   # the /claude-cleanup engine (allowlist + restorable trash)
     supervise-bg.mjs                     # background-command wrapper: timeout + staleness watchdog
     pnpm-phantom-scan.mjs, pnpm-phantom-fix-install.mjs, turbopack-gvs-check.mjs # pnpm/Turbopack
@@ -472,7 +460,6 @@ installed.
     leanmode.md                          # /leanmode — interactive/--flag, sets the project-level dial
     aidev.md                             # /aidev — the verbosity dial (comment/whitespace terseness)
     claude-cleanup.md                    # /claude-cleanup — ~/.claude cleanup with restorable trash
-    graphify-build-docs.md               # /graphify-build-docs — doc corpus + vectors for meaning search
     pnpm-phantom-fix.md                  # /pnpm-phantom-fix — pnpm phantom dependencies
     up-update.md                         # /up-update — update the ultrapowers fork
   skills/
@@ -575,7 +562,7 @@ The repo is split into two zones:
 
 - **`payload/`** — everything that actually gets installed into `~/.claude` (`hooks/`,
   `skills/`, `rules-src/`, `commands/`, `setting-templates/`, `bin/`, `add-risk.mjs`,
-  `graphify-sync-all.mjs`, `CLAUDE.md`). The installer **mirrors the whole `payload/` tree**
+  `CLAUDE.md`). The installer **mirrors the whole `payload/` tree**
   into `~/.claude`, preserving structure relative to `payload/` (i.e. `payload/hooks/foo.mjs`
   → `~/.claude/hooks/foo.mjs`).
 - **Repo root** — the installer's own meta, never copied: `setup.mjs`,
@@ -678,7 +665,7 @@ see "Bundle variants" above:
 - **auto-marks** an unmarked root `CLAUDE.md` as curated — unless it looks GSD-generated.
   **Re-checked every session, idempotently** (used to be one-time on a project's first session
   — that turned out to be a bug: if the root `CLAUDE.md` didn't exist yet on the first session
-  and appeared later, e.g. from `graphify claude install`, it stayed unmarked forever, because
+  and appeared later from an outside tool, it stayed unmarked forever, because
   the one-time flag was already spent). Toggle: `CLAUDE_CURATED_AUTOMARK_ROOT=0`.
 - **adds a per-project `claudeMdExcludes`** for an unmarked (GSD-owned) `.planning/CLAUDE.md`
   in that project's `.claude/settings.json` (this exclude is not set globally: a union-exclude
@@ -767,9 +754,7 @@ How rules reach a session now:
   such a snapshot comparable from then on.
 - **Templates** (`rules-src/templates/`) are no longer auto-loaded — they're applied during
   the snapshot build: `next.AGENTS.md` → `AGENTS.md` at the project root when a Next stack is
-  detected and the file doesn't exist yet; `graphify.PROJECT.md` → the root `CLAUDE.md` when
-  the project has a `graphify-out/` (if the root file is curated or missing, the suggestion is
-  surfaced to you instead of writing).
+  detected and the file doesn't exist yet.
 
 **Migration on install**: `setup.mjs` cleans the old `~/.claude/rules/` — it removes the
 files whose relative path exists in the bundle's `rules-src/` (old bundle-owned copies: leave
@@ -797,7 +782,7 @@ the layers resolve are in `rules-src/README.md`):
   derived from the same markers: `bin/detect-stack-commands.mjs` prints ready markdown and the
   compiler includes it. A stack with no confident default says so plainly instead — an invented
   command is worse than a missing one.
-- **Templates** (`rules-src/templates/`): `next.AGENTS.md`, `graphify.PROJECT.md` — see above.
+- **Templates** (`rules-src/templates/`): `next.AGENTS.md` — see above.
 
 Each file is self-documenting; this is only a coverage map, so the 30+ files aren't duplicated in
 the README (source of truth: the `rules-src/*.md` themselves and their `README.md`).
@@ -860,17 +845,6 @@ distribution); risks — `RISK-STACKRULES-001/002` in `.ultrapowers/RISK_REGISTE
   own one-shot nudge fires at most once per session then goes quiet; this backstop re-fires on
   every large Read, covering what the one-shot missed. Heuristic, not exhaustive: false negatives
   are expected and fine (a nudge, not a gate), any parse failure → silent passthrough.
-- **graphify-global-sync.mjs** (PostToolUse: `Bash`) + **hooks/lib/graphify-global-sync-run.mjs**
-  (shared worker). After a `git commit` made by Claude via the Bash tool, in the background
-  (detached, doesn't block the session), refreshes this project's entry in the cross-project
-  `~/.graphify/global-graph.json` (`graphify extract . --code-only --global --as <name>` — local
-  AST, no LLM key and no cost). No-op if
-  `graphify` isn't installed, if it's not a `git commit`, or if the commit didn't succeed. A
-  PID/mtime lock at `~/.claude/state/graphify-sync-<name>.lock` keeps concurrent triggers from
-  spawning parallel extractions; the lock is considered stale after 10 minutes.
-  **Limitation:** Claude Code hooks only see tool calls Claude itself makes — a manual
-  `git commit`/`--amend` from a terminal or IDE is invisible to this hook in principle. That's
-  what the native git hook below closes. Disable both: `CLAUDE_GRAPHIFY_AUTOSYNC=0`.
 - **gsd-config-patch.mjs** (PostToolUse: `Write|Edit|MultiEdit|Bash`). When a project has a
   `.planning/config.json`, applies my personal defaults once: **tier 1** — overwrites ONLY
   `model_profile`/`models`/`model_overrides`; **tier 2** — `DEFAULT_WORKFLOW_CONFIG` (nested keys
@@ -883,14 +857,7 @@ distribution); risks — `RISK-STACKRULES-001/002` in `.ultrapowers/RISK_REGISTE
   `docs/gsd-config-defaults.md`. Toggles: `CLAUDE_GSD_CONFIG_AUTOPATCH=0` (both tiers),
   `CLAUDE_GSD_CONFIG_AUTOPATCH_WORKFLOW=0` (tier 2 only).
 - **session-init.mjs** (SessionStart). Project bootstrap (see above — most steps are now
-  every-session, idempotent) +
-  an **independent** (not tied to the shared `firstTime`, so it also fires on projects
-  initialized in the past) one-time step: registers the project in graphify's global graph AND
-  installs a native `<repo>/.git/hooks/post-commit` that calls the same
-  `graphify-global-sync-run.mjs` — git itself invokes this hook, on ANY commit (manual, from an
-  IDE, `--amend`), independent of Claude Code. If a `post-commit` already exists (husky,
-  pre-commit, graphify's own local hook) — it's appended to, not overwritten. Same toggle:
-  `CLAUDE_GRAPHIFY_AUTOSYNC=0`.
+  every-session, idempotent).
   One more every-session idempotent step: inside a git repository it appends `.scratchpad/` to
   `.claude/.gitignore` (creating the file when absent), so the temp files the rules keep in
   `<project>/.claude/.scratchpad` cannot reach a commit. Additive — existing lines are kept and
@@ -1014,7 +981,7 @@ from this bundle, driving your Claude Code" principle — here for findability:
   between wrapping gsd-core's `gsd-statusline.js` and base/lite's own renderer; the deleted
   `gsd-context-meter.mjs` was that wrapper). The line renders itself, with no subprocess at all —
   six segments left to right, joined by a dim `│`:
-  1. **pending component updates**, by **name** (`⬆ context-mode graphify`), leftmost — not a
+  1. **pending component updates**, by **name** (`⬆ context-mode impeccable`), leftmost — not a
      count, and not on the right the way the deleted wrapper appended it;
   2. **model** — `data.model.display_name` from the statusLine payload;
   3. **context** — tokens and percent, e.g. `165.6K/1M 17%`, coloured and iconed by two separate
@@ -1195,152 +1162,7 @@ the top level — `setup.mjs` does not touch that. Details:
 
 ---
 
-## Codebase knowledge graph (graphify) + a shared graph across all projects
-
-[graphify](https://github.com/safishamsi/graphify) builds a queryable knowledge graph over
-code/docs. The PyPI package is **`graphifyy`** (double `y`), the CLI is `graphify`.
-
-### Install / check (+ extra components, + uv auto-setup)
-
-A cross-platform installer (ASCII output - doesn't crash under cp1251). **If `uv` is missing -
-it first tries any already-installed `pipx`/`pip` (without installing anything), and only asks
-for your consent** (`[y/N]`) before installing `uv` itself: Windows - `winget` (id
-`astral-sh.uv`) -> `scoop`/`choco` -> the official PowerShell installer; macOS - `brew`/`curl`;
-Linux - `curl`/`wget` -> `pipx`/`pip`. On a decline with no alternatives it asks once more, on a
-second decline it skips the install. `--yes` - auto-consent (for CI). After installing, it
-**verifies the tool is actually callable** (a common issue - PATH): if `uv` got installed but
-isn't yet on the current session's PATH - open a new terminal.
-
-```
-node ~/.claude/bin/graphify-setup.mjs             # uv (if needed) + graphifyy[pdf,office,sql,mcp] + the /graphify skill
-node ~/.claude/bin/graphify-setup.mjs --all       # ALL tools: uv tool install "graphifyy[all]"
-node ~/.claude/bin/graphify-setup.mjs --extras=pdf,office,sql,postgres,mcp
-node ~/.claude/bin/graphify-setup.mjs --doctor    # python, uv, winget/scoop/choco/brew/curl, graphify, global graph
-node ~/.claude/bin/graphify-setup.mjs --bootstrap-uv   # just install uv
-node ~/.claude/bin/graphify-setup.mjs --no-bootstrap   # don't install uv, use pipx/pip if present
-node ~/.claude/bin/graphify-setup.mjs --dry-run   # show the commands, run nothing
-```
-
-`--doctor` shows upfront what's available (e.g.: `uv: on PATH`, `winget: available`,
-`curl/wget: curl`), to see whether bootstrapping is needed. Useful extras: `pdf, office, sql,
-postgres, terraform, mcp, video, all` (Delphi `.pas/.dpr` and SQL are supported out of the box).
-
-### The whole codebase at once, not project by project
-
-Uses graphify's **global graph** - a single cross-project file where every repo's graph gets
-registered:
-
-```
-node ~/.claude/bin/graphify-setup.mjs --build-global /path/repoA /path/repoB /path/repoC
-```
-
-Under the hood, per repository: `graphify extract <repo> --global --as <name>`. Management -
-`graphify global list | remove <name> | path`.
-
-**Search by meaning** - `node ~/.claude/bin/graph-semantic.mjs "<question>"`, ~1 s. Answers "have
-I written something like this before?" when the name cannot be guessed: "a lock that stops two
-processes" finds the mutex, where full-text search returned an app's PIN lock screen. Vectors are
-built by `/graphify-build-docs` (~2 min, 24 MB): `bin/graph-docs.mjs --build` harvests the
-comment above every symbol in the global graph into a single markdown corpus, and the embeddings
-are built over that. The environment is created once in `~/.graphify/embed-venv` and graphify's
-own is left alone.
-
-**The mass sync** skips nested archive copies with `--skip-nested-archives` (off by default): only
-the pair "nested in another project" AND "archival name" counts - nesting alone catches monorepo
-packages, the name alone catches a legitimate project called `backup`.
-
-**Cross-repository symbol lookup** - `node ~/.claude/bin/graph-find.mjs "<symbol>"`. Answers in
-~200 ms from the flat index at `~/.graphify/global-index.tsv`; the same question through
-`graphify explain --graph ~/.graphify/global-graph.json` takes ~4.5 s, because it re-parses the
-whole graph. The index rebuilds in the tail of each commit's sync; `--build` forces it. The same
-symbol in the same file across repositories (worktree copies) collapses into one hit that names
-them all.
-
-### Where the result is stored and how it's available in any project
-
-- **File:** `~/.graphify/global-graph.json` (cross-project, outside any specific repo).
-- **Query from ANY project** (even a new one), without wiring up individually:
-```
-  graphify query "where is auth validated?" --graph ~/.graphify/global-graph.json
-  graphify path "UserService" "DatabasePool" --graph ~/.graphify/global-graph.json
-```
-- **Claude knows about this in every project:** the curated `~/.claude/CLAUDE.md` has a
-  "CODEBASE KNOWLEDGE GRAPH" section added, which tells it to query the global graph first for
-  architecture/cross-repo questions instead of grepping files. User memory loads in any
-  project.
-- **(Optional) a user-level MCP** - structured access (`query_graph`, `get_node`,
-  `shortest_path`, ...) across all Claude Code projects:
-```
-  node ~/.claude/bin/graphify-setup.mjs --mcp
-```
-  Registers a user-scope `graphify-global` MCP server on top of `~/.graphify/global-graph.json`
-  (needs the `claude` CLI; if `uv` is present, it runs through an isolated environment).
-
-You can still graph a project locally as before (`/graphify .` - result in `graphify-out/`):
-for "just this repo" questions its own graph is more convenient, for cross-repo questions - the
-global one.
-
-### Auto-registering a new project + auto-refresh on commit
-
-`global-graph.json` used to be filled in entirely by hand (`--build-global` /
-`graphify-sync-all.mjs`). Now it happens on its own, if `graphify` is installed (toggle for
-both steps — `CLAUDE_GRAPHIFY_AUTOSYNC=0`):
-
-- **New project** — on Claude's first session in the project, `session-init.mjs` queues a
-  one-time background `graphify extract . --global --as <name>`, adding the project to the
-  shared graph. Part of the one-time bootstrap, like `CLAUDE.md` auto-marking.
-- **Accumulated knowledge is visible right away, not just on query** — at that same one-time
-  moment, BEFORE queuing its own registration, `session-init.mjs` synchronously (cheap: a local
-  JSON read, no LLM call) calls `graphify global list` and drops a preview of the already
-  accumulated repos into the session's `additionalContext`. The point: a new project should
-  learn, on its very first session, that work/patterns already exist elsewhere that can be
-  reused via `graphify query ... --graph ~/.graphify/global-graph.json`, rather than relying
-  solely on Claude remembering to read the CODEBASE KNOWLEDGE GRAPH section in CLAUDE.md.
-  Best-effort (see the warning in the file header about `additionalContext`), so this
-  supplements, not replaces, the static instruction in CLAUDE.md.
-- **Every commit** — via two paths, both calling the same
-  `hooks/lib/graphify-global-sync-run.mjs`:
-  1. `hooks/graphify-global-sync.mjs` (PostToolUse on `Bash`) — catches commits Claude makes
-     via the Bash tool. Needs no per-project install, works from the first session.
-  2. A native `<repo>/.git/hooks/post-commit`, which `session-init.mjs` installs once per
-     project — git itself invokes it on ANY commit: manual, from an IDE, `--amend`. This is the
-     only path that sees commits not made by Claude.
-  Both are detached, don't block the session/commit; a per-project lock file keeps concurrent
-  triggers from spawning parallel extractions.
-
-The manual path (`--build-global`, `node graphify-sync-all.mjs --install-hooks`) still exists —
-useful for a one-off bulk import of existing repos or a forced full re-sync.
-`graphify-sync-all.mjs` — Node-based (cross-platform, Windows/Linux/macOS): walks projects
-under `--root` (defaults to the current folder) up to `--max-depth`, registers each one in the
-shared graph, with `--install-hooks` it installs the per-repo hook. Doesn't install anything
-itself — if `graphify` isn't on PATH, it prints how to get it and exits.
-
-### `graphify claude install` — the official "always consult the graph" hook mechanism
-
-Separately from the global registration, `session-init.mjs` once (its own independent flag
-`graphifyClaudeInstalled`, same pattern as `graphifySynced`) calls `graphify claude install`
-for the CURRENT project — this is graphify's official mechanism: a section in the project's
-`CLAUDE.md` + a PreToolUse hook that itself nudges Claude toward `graphify query` before a
-grep/Read scan of files, instead of relying on Claude remembering to read the prose in
-CLAUDE.md.
-
-**An important security nuance:** `graphify claude install` writes into the project's
-`CLAUDE.md` via a plain CLI process — bypassing Claude's Edit/Write tools, and therefore
-bypassing `deny-curated-claude-md.mjs` (which only matches on the tools themselves). So this
-step:
-
-- runs STRICTLY before the root `CLAUDE.md` auto-mark step (see above) — on a new project's
-  first session the file isn't curated yet, graphify gets one chance to append its section,
-  AFTER which auto-marking immediately locks the file in as curated;
-- on a retrofit of an older project (auto-marking already ran in the past) — before calling it,
-  `CURATED:NOEDIT` is always checked; if the file is already curated, the step is skipped and
-  leaves a note in `additionalContext` recommending you run the command by hand and review the
-  diff yourself.
-
-Optionally disable just this step (global-graph registration keeps working):
-`CLAUDE_GRAPHIFY_CLAUDE_INSTALL=0`.
-
-### Auto-updating components (context-mode, graphify, the bundle itself, the design stack)
+## Auto-updating components (context-mode, the bundle itself, the design stack)
 
 Every session `session-init.mjs` spawns the detached worker
 `hooks/lib/component-update-check-run.mjs` (doesn't block the session, 24h throttle per
@@ -1351,21 +1173,19 @@ list inside `session-init.mjs` — a new component is one registry entry:
 | component | scope | how it updates |
 |---|---|---|
 | `context-mode` | machine | `context-mode upgrade` — its own subcommand (pulls the latest from GitHub, rebuilds, reinstalls hooks) |
-| `graphify` | machine | `uv tool upgrade graphifyy` — it has no update command of its own; this is the path from its own README, and only with `uv` on PATH |
 | `claude-config` | machine | the bundle itself: the manifest's SHA against master on GitHub. Updating means you running `setup.mjs`; nothing installs itself |
 | `impeccable` | project | skill version; after an update the Pro Max graft is re-applied (`impeccable-promax-graft.mjs`) |
 | `ui-ux-pro-max` | project | skill version |
 
 Components classed `safe` update themselves in the background; class `reinit` (the bundle) only
 reports, because a reinstall is a human decision. What is waiting shows at the left of the
-status line, by name (`⬆ context-mode graphify`) rather than as a count.
+status line, by name (`⬆ context-mode impeccable`) rather than as a count.
 
 Toggles: `CLAUDE_COMPONENT_AUTOUPDATE=0` (all of it), `CLAUDE_COMPONENT_AUTOUPDATE_<NAME>=0`
 (per-component, dashes → underscores, e.g. `CLAUDE_COMPONENT_AUTOUPDATE_CONTEXT_MODE=0`). The
-older `CLAUDE_TOOL_AUTOUPGRADE[_<NAME>]=0` still works for `context-mode` and `graphify` — those
-registry entries remember their legacy variable. Accepted risk: an update might still be writing
-in the background while the same session's first tool calls already use the tool — the same
-trade-off already accepted for the background `graphify extract` above.
+older `CLAUDE_TOOL_AUTOUPGRADE[_<NAME>]=0` still works for `context-mode` — that registry entry
+remembers its legacy variable. Accepted risk: an update might still be writing in the background
+while the same session's first tool calls already use the tool.
 
 ---
 
@@ -1473,5 +1293,5 @@ The risk register updates itself on every startup — you don't need to delete s
 Root `CLAUDE.md` auto-marking and the per-project exclude also don't remember anything in
 state either — it's a plain check of the file's current content on every session, so you don't
 need to delete state for those either. The entry in `~/.claude/state/project-init.json` is
-only needed for truly one-time steps (`graphify claude install`, global-graph registration,
-the model_profile patch) — delete it if you need to re-run exactly those.
+only needed for truly one-time steps (the model_profile patch) — delete it if you need to
+re-run exactly those.

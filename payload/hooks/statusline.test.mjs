@@ -12,7 +12,7 @@ const strip = (s) => s.replace(/\x1b\[[0-9;]*m/g, "");
 
 test("@important up to two components are named, the rest collapse", () => {
   assert.equal(strip(renderUpdates(["context-mode"])), "⬆ context-mode");
-  assert.equal(strip(renderUpdates(["context-mode", "graphify"])), "⬆ context-mode graphify");
+  assert.equal(strip(renderUpdates(["context-mode", "impeccable"])), "⬆ context-mode impeccable");
   assert.equal(strip(renderUpdates(["a", "b", "c", "d"])), "⬆ a b +2");
 });
 
@@ -79,14 +79,14 @@ test("@important entry point: malformed JSON on stdin yields a clean line and a 
 test("@important entry point: pending components are named first, in registry order", () => {
   const claudeDir = dir("claude-pending");
   write(join(claudeDir, "state", "component-updates.json"), JSON.stringify({
-    graphify: { updateAvailable: true },
+    "ui-ux-pro-max": { updateAvailable: true },
     "context-mode": { updateAvailable: true },
     impeccable: { updateAvailable: true },
     "claude-config": { updateAvailable: false },
   }));
   const out = runEntry(payload(dir("plain-pending")), { claudeDir });
   assert.equal(out.status, 0);
-  assert.ok(strip(out.stdout).startsWith("⬆ context-mode graphify +1 │ "), `got: ${JSON.stringify(out.stdout)}`);
+  assert.ok(strip(out.stdout).startsWith("⬆ context-mode impeccable +1 │ "), `got: ${JSON.stringify(out.stdout)}`);
 });
 
 test("@important entry point: the context segment shows the real current_usage sum", () => {

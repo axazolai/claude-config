@@ -5,7 +5,7 @@ import { readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 
 export const DEFAULT_EXCLUDE = [
-  "node_modules", "graphify-out", "bin", "obj", ".venv", "venv", "dist", "build",
+  "node_modules", "bin", "obj", ".venv", "venv", "dist", "build",
   "__pycache__", ".git", "vendor", ".gradle", ".idea", "target", ".next",
   ".vscode", ".vs", ".vite-inspect", "out", "coverage", ".turbo", ".cache", ".nuxt",
   "site-packages", "_vendored",

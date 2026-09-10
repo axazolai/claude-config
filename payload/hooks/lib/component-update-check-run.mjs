@@ -26,7 +26,6 @@ const toolPresent = (cmd) => { const r = safe(() => spawnSync(cmd, ["--version"]
 // throttle (cheap no-op when current), same behavior as the old session-init KNOWN_TOOLS block.
 const PROBES = {
   "context-mode": { present: () => toolPresent("context-mode"), upgrade: () => detached("context-mode", ["upgrade"]) },
-  "graphify":     { present: () => toolPresent("graphify") && toolPresent("uv"), upgrade: () => detached("uv", ["tool", "upgrade", "graphifyy"]) },
   "claude-config":{ present: () => true, check: () => checkBundleUpdate(CLAUDE_DIR) },
 };
 

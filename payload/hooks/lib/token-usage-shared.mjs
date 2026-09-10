@@ -1,7 +1,6 @@
 // Shared helpers for the token-usage-log hook family (token-usage-log.mjs,
 // token-usage-prune.mjs). Not used by token-usage-pricing-refresh.mjs, which is spawned
-// detached via `node <path>` and stays fully self-contained on purpose - same split as
-// hooks/graphify-global-sync.mjs vs hooks/lib/graphify-global-sync-run.mjs.
+// detached via `node <path>` and stays fully self-contained on purpose.
 import { readFileSync, writeFileSync, existsSync, mkdirSync, appendFileSync } from "node:fs";
 import { join, resolve, dirname } from "node:path";
 
@@ -26,7 +25,7 @@ export function findRoot(start) {
   return resolve(start);
 }
 
-// Same basename extraction session-init.mjs already uses for the graphify project name.
+// Same basename extraction session-init.mjs already uses for the project name.
 export function projectNameOf(root) {
   return root.replace(/[\\/]+$/, "").split(/[\\/]/).pop() || "repo";
 }

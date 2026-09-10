@@ -3,7 +3,7 @@
 // machine without it never gets the tool prescribed into agent files that would then reference a
 // nonexistent MCP server. gsd-* agents are owned by the separate gsd-core tool (npx gsd-core), not
 // by this bundle: this is best-effort cross-tool maintenance, the same pattern session-init.mjs
-// already applies to graphify's CLAUDE.md section. Idempotent and self-healing: safe to re-run
+// already applies to a tool-owned CLAUDE.md section. Idempotent and self-healing: safe to re-run
 // every session, including after gsd-core's own updater rewrites an agent file and drops the tool
 // again.
 // Consumed by: sync-gsd-context-mode-tool.mjs (CLI wrapper, spawned best-effort by init-stack.mjs

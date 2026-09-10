@@ -64,7 +64,7 @@
       "gsd-task-verifier": "low"
     }
   },
-  "graphify": { "enabled": true, "auto_update": true },
+  "graphify": { "enabled": false, "auto_update": false },
   "git": { "create_tag": true, "branching_strategy": "phase", "quick_branch_template": null },
   "hooks": { "context_warnings": true }
 }

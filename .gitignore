@@ -4,7 +4,6 @@
 .claude/*
 !.claude/CLAUDE.md
 .vscode/
-graphify-out/
 node_modules/
 .env
 .env.*
@@ -18,5 +17,3 @@ node_modules/
 .planning/
 /.idea/
 
-# stray output from the graphify global-sync PostToolUse hook
-graphify-sync.log

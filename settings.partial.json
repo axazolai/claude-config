@@ -49,21 +49,9 @@
         "hooks": [
           { "type": "command", "command": "node", "args": ["<HOME>/.claude/hooks/schedulewakeup-loop-only-nudge.mjs"] }
         ]
-      },
-      {
-        "matcher": "Grep|Glob",
-        "hooks": [
-          { "type": "command", "command": "node", "args": ["<HOME>/.claude/hooks/graphify-grep-nudge.mjs"] }
-        ]
       }
     ],
     "PostToolUse": [
-      {
-        "matcher": "Bash",
-        "hooks": [
-          { "type": "command", "command": "node", "args": ["<HOME>/.claude/hooks/graphify-global-sync.mjs"] }
-        ]
-      },
       {
         "matcher": "Write|Edit|MultiEdit|Bash",
         "hooks": [

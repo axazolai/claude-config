@@ -12,7 +12,6 @@ const SIG = /deny-curated-claude-md\.mjs/g;
 // Every other step of the hook is switched off, so the RISK_REGISTER step is the only one left
 // that can write into the project tree - an assertion below therefore can't pass by accident.
 const QUIET = {
-  CLAUDE_GRAPHIFY_AUTOSYNC: "0", CLAUDE_GRAPHIFY_CLAUDE_INSTALL: "0",
   CLAUDE_COMPONENT_AUTOUPDATE: "0", CLAUDE_MCP_SUGGEST: "0", CLAUDE_GSD_INITSTACK_SUGGEST: "0",
   CLAUDE_STACK_RULES: "0", CLAUDE_LEANMODE: "0", CLAUDE_TOKEN_USAGE_LOG: "0",
   CLAUDE_CURATED_AUTOMARK_ROOT: "0", CLAUDE_GSD_CONTEXTMODE_SYNC: "0",

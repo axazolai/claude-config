@@ -59,20 +59,18 @@ the target provider's setup below. This is what makes the choice reversible on r
 - Only if I ask. Confirm, then: `claude mcp add postgres -e DATABASE_URI="postgresql://user:pass@host:port/db" -- uvx postgres-mcp --access-mode=restricted`
 - `--access-mode=restricted` = read-only-ish (safe default); mention `unrestricted` exists but
   don't use it unless I explicitly ask. This mirrors the repo's db-live-access-gate posture.
-- Needs `uv`/`uvx` present (see `graphify-setup.mjs --bootstrap-uv` if missing - with consent).
+- Needs `uv`/`uvx` present (install from https://astral.sh/uv if missing - with consent).
 - Verify: `claude mcp list` shows `postgres`; then have it read the schema.
 
 ## 2b. Neo4j (opt-in, Cypher access to an existing database)
 - Only if I ask. This bundle does not write to Neo4j; it is a plain database connection.
-  For code questions use `graphify query` (current repo) and `graphify explain --graph
-  ~/.graphify/global-graph.json` (cross-repo).
 - Scope it where the database is used: `--scope user` for a machine-wide database,
   `--scope project` for one this repo owns.
 - Verify the current Cypher MCP package via WebSearch before adding (package names drift);
   the common one is `mcp-neo4j-cypher`. Confirm, then:
   `claude mcp add neo4j --scope user -e NEO4J_URI="bolt://<host>:7687" -e NEO4J_USERNAME="neo4j" -e NEO4J_PASSWORD="<pw>" -- uvx mcp-neo4j-cypher`
 - Never echo the password back.
-- Needs `uv`/`uvx` (see `graphify-setup.mjs --bootstrap-uv` if missing - with consent).
+- Needs `uv`/`uvx` (install from https://astral.sh/uv if missing - with consent).
 - Verify: `claude mcp list` shows `neo4j` connected; then run `MATCH (n) RETURN count(n)`.
 
 ## 3. Web search (opt-in). Default: the built-in WebSearch tool - add nothing.

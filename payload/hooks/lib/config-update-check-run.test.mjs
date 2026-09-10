@@ -15,7 +15,7 @@ test("@important bundleUpdateAvailable: true only when both SHAs present and dif
 });
 
 const stale = (over = {}) => ({
-  graphify: { class: "safe", updateAvailable: false, lastCheckedAt: "2026-08-02T15:10:54.914Z" },
+  "context-mode": { class: "safe", updateAvailable: false, lastCheckedAt: "2026-08-02T15:10:54.914Z" },
   "claude-config": { class: "reinit", installed: "old", latest: "remote",
     updateAvailable: true, lastCheckedAt: "2026-08-02T15:10:54.916Z", ...over },
 });

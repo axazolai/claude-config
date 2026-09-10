@@ -41,13 +41,15 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { spawnSync } from "./payload/hooks/lib/spawn-hidden.mjs";
 import { createInterface } from "node:readline";
 import { validateConfigDir } from "./payload/bin/lib/config-dir-validate.mjs";
-import { findGraphifyPython } from "./payload/bin/lib/graphify-python.mjs";
 import { assembleClaudeMd } from "./payload/bin/lib/assemble-claude-md.mjs";
 import { migrateSettingsModel } from "./payload/bin/lib/model-migration.mjs";
 import { gsdCorePresent, buildGsdInventory, filterGsdHooks, gsdCoreInstallPlan, gsdCoreUpdatePlan, gsdLookingRels } from "./payload/bin/lib/gsd-core-detect.mjs";
 import { applyPlan, purgeRetention, trashRoot } from "./payload/bin/lib/claude-cleanup-lib.mjs";
 import { resolveVariant, filterPartialHooks, loadVariants, profilesOf, globToRe } from "./variants.mjs";
 import { buildPluginPlan, formatPlan, selectActions, describeAction } from "./plugin-reconcile.mjs";
+import { BUNDLE_RELS as GRAPHIFY_BUNDLE_RELS, PROJECT_RELS as GRAPHIFY_PROJECT_RELS, discoverRoots,
+  companionMcpNames, findStashedGraphify, stripGraphifySettings, stripGraphifyMcp,
+  stripProjectInitGraphify, stripPostCommit, stripGraphifyClaudeSection, formatPurge } from "./graphify-purge.mjs";
 import { parsePwshMajor, powerShellToolPlan, MIN_PWSH_MAJOR, ENV_KEY as PWSH_ENV_KEY } from "./powershell-tool.mjs";
 import { knownMarketplaces } from "./payload/bin/init-stack.mjs";
 import { reconcileBundleInstall } from "./payload/hooks/lib/config-update-check-run.mjs";
@@ -55,8 +57,8 @@ import { reconcileBundleInstall } from "./payload/hooks/lib/config-update-check-
 // REPO_ROOT = where setup.mjs itself lives (installer meta: setup.mjs, README.md,
 // settings.partial.json, RISK_REGISTER*.md, bootstrap.sh/ps1, .gitignore - never mirrored).
 // SRC = REPO_ROOT/payload - everything that actually gets installed into ~/.claude
-// (hooks/, skills/, rules-src/, commands/, setting-templates/, bin/, add-risk.mjs,
-// graphify-sync-all.mjs). Kept as two separate constants (not one) because
+// (hooks/, skills/, rules-src/, commands/, setting-templates/, bin/, add-risk.mjs).
+// Kept as two separate constants (not one) because
 // settings.partial.json below is read from REPO_ROOT, not SRC - it configures the installer,
 // it isn't itself installed. NOTE: payload/claude-md/ is a build input, not a copied rel -
 // ~/.claude/CLAUDE.md is assembled per-profile from those fragments (assemble-claude-md.mjs),
@@ -74,8 +76,8 @@ const SETTINGS = join(CDIR, "settings.json");
 const MANIFEST = join(CDIR, "state", "bundle-manifest.json");
 // Files that OLDER bundles shipped and this one no longer does - seeded so a user upgrading from a
 // pre-manifest bundle still gets them pruned. ONLY list files this package exclusively owns (never
-// a path another tool manages, e.g. graphify's own skills/graphify/).
-const SEED_REMOVED = ["graphify-sync-all.ps1"];
+// a path another tool manages).
+const SEED_REMOVED = GRAPHIFY_BUNDLE_RELS;
 const sha = (s) => createHash("sha256").update(String(s)).digest("hex");
 
 const argv = new Set(process.argv.slice(2));
@@ -879,7 +881,7 @@ async function main() {
 
   /* ---------- gsd-* agents: add the context-mode MCP tool, only if that plugin is active ----------
    * gsd-* agents (~/.claude/agents/gsd-*.md) belong to the separate gsd-core tool, not this
-   * bundle - this is best-effort cross-tool maintenance, same idea as the graphify CLAUDE.md
+   * bundle - this is best-effort cross-tool maintenance, same idea as the tool-owned CLAUDE.md
    * step in session-init.mjs. Imports the just-installed copy of the lib (not the repo's own
    * payload/ copy) so behavior always matches what actually landed in ~/.claude this run. */
   if (VARIANT === "full" && !DRY) {
@@ -987,6 +989,141 @@ async function main() {
           else if (diverged) summary.push(`skipped  gsd-core ${label} patch (${diverged} file(s) diverge from the known ${manifest.targetVersion} baseline - not touching)`);
         }
       }
+    }
+  }
+
+  /* ---------- graphify: remove every trace ---------- */
+  // Unconditional, not profile-gated: no profile ships graphify any more, so a machine still
+  // carrying it carries an orphan. Runs before the settings merge and before pruneStale() so both
+  // see an already-clean machine. Two sides wrote this state and both are covered: this bundle
+  // (bin/graph-*, the sync hooks, the native post-commit hook, ~/.graphify) and graphify's own
+  // `graphify claude install` (a CLAUDE.md section, hook-guard entries in a project's
+  // .claude/settings.json). Evidence is collected before anything is deleted: the state that proves
+  // which MCP server was graphify's backend is state this same pass removes.
+  //
+  // CLAUDE_SETUP_SKIP_PURGE=1 is the test escape hatch, and it is not optional there: the removals
+  // below are the only ones in this installer anchored to HOME rather than CDIR, so a harness that
+  // sandboxes CLAUDE_CONFIG_DIR alone would purge the real machine.
+  if (process.env.CLAUDE_SETUP_SKIP_PURGE !== "1") {
+    const purged = [];
+    const rmPath = (target, label = target) => {
+      if (!existsSync(target)) return;
+      if (DRY) { purged.push(`would remove ${label}`); return; }
+      safe(() => rmSync(target, { recursive: true, force: true }));
+      purged.push(existsSync(target) ? `FAILED to remove ${label}` : `removed ${label}`);
+    };
+    const rewriteJson = (target, next, what) => {
+      if (DRY) { purged.push(`would clean ${target} (${what})`); return; }
+      if (write(target, JSON.stringify(next, null, 2) + "\n")) purged.push(`cleaned ${target} (${what})`);
+    };
+
+    const graphifyHome = join(HOME, ".graphify");
+    const stateDir = join(CDIR, "state");
+    const projectInitPath = join(stateDir, "project-init.json");
+    const claudeJsonPath = [join(CDIR, ".claude.json"), join(HOME, ".claude.json")].find((x) => existsSync(x));
+
+    // --- evidence, gathered while it still exists ---
+    const gm = safe(() => JSON.parse(readFileSync(join(graphifyHome, "global-manifest.json"), "utf8")));
+    const projectInit = safe(() => JSON.parse(readFileSync(projectInitPath, "utf8")));
+    const claudeJson = claudeJsonPath && safe(() => JSON.parse(readFileSync(claudeJsonPath, "utf8")));
+    const userSettings = safe(() => JSON.parse(readFileSync(SETTINGS, "utf8")));
+    const stateNames = safe(() => readdirSync(stateDir)) || [];
+    const listDirs = (at) => (safe(() => readdirSync(at, { withFileTypes: true })) || [])
+      .filter((e) => e.isDirectory()).map((e) => e.name);
+    const stashes = findStashedGraphify(CDIR, listDirs);
+    const graphifyFiles = [graphifyHome, ...stashes].flatMap((d) => safe(() => readdirSync(d)) || []);
+    const companions = companionMcpNames({ settings: userSettings, stateNames, graphifyFiles, claudeJson });
+
+    const roots = discoverRoots({ manifest: gm, projectInit, claudeJson });
+    const here = REPO_ROOT.replace(/\\/g, "/");
+    if (!roots.includes(here)) roots.push(here);
+
+    for (const rel of GRAPHIFY_BUNDLE_RELS) rmPath(join(CDIR, ...rel.split("/")));
+    rmPath(join(CDIR, "settings.json.graphify-bak"));
+    for (const name of stateNames) if (/^graphify-/.test(name)) rmPath(join(stateDir, name));
+    for (const stash of stashes) rmPath(stash, `${stash} (stashed copy)`);
+
+    for (const root of roots) {
+      // A recorded path that no longer names a repo is a path this installer has no business
+      // walking: these lists outlive the directories they were written for.
+      if (!existsSync(join(root, ".git")) && !existsSync(join(root, "graphify-out"))) continue;
+      for (const rel of GRAPHIFY_PROJECT_RELS) rmPath(join(root, ...rel.split("/")));
+
+      const postCommit = join(root, ".git", "hooks", "post-commit");
+      const pcText = read(postCommit);
+      if (pcText !== undefined && /graphify/i.test(pcText)) {
+        const next = stripPostCommit(pcText);
+        if (next === null) rmPath(postCommit, `${postCommit} (graphify-only hook)`);
+        else if (DRY) purged.push(`would clean ${postCommit}`);
+        else if (write(postCommit, next)) purged.push(`cleaned ${postCommit}`);
+      }
+
+      const rootClaudeMd = join(root, "CLAUDE.md");
+      const mdText = read(rootClaudeMd);
+      const mdNext = mdText === undefined ? null : stripGraphifyClaudeSection(mdText);
+      if (mdNext !== null) {
+        if (DRY) purged.push(`would clean ${rootClaudeMd}`);
+        else if (write(rootClaudeMd, mdNext)) purged.push(`cleaned ${rootClaudeMd} (graphify's own section)`);
+      }
+
+      const projSettings = join(root, ".claude", "settings.json");
+      const projJson = safe(() => JSON.parse(readFileSync(projSettings, "utf8")));
+      if (projJson) {
+        const { settings: cleaned, removed } = stripGraphifySettings(projJson);
+        if (removed.length) rewriteJson(projSettings, cleaned, removed.join(", "));
+      }
+    }
+
+    rmPath(graphifyHome, `${graphifyHome} (global graph)`);
+
+    if (userSettings) {
+      const { settings: cleaned, removed } = stripGraphifySettings(userSettings);
+      if (removed.length) rewriteJson(SETTINGS, cleaned, removed.join(", "));
+    }
+
+    const componentState = join(stateDir, "component-updates.json");
+    const components = safe(() => JSON.parse(readFileSync(componentState, "utf8")));
+    if (components && components.graphify) {
+      delete components.graphify;
+      rewriteJson(componentState, components, "graphify entry");
+    }
+
+    if (projectInit) {
+      const { state: cleaned, touched } = stripProjectInitGraphify(projectInit);
+      if (touched) rewriteJson(projectInitPath, cleaned, `${touched} graphify flag(s)/note(s)`);
+    }
+
+    if (claudeJson) {
+      const { claudeJson: cleaned, removed } = stripGraphifyMcp(claudeJson, companions);
+      if (removed.length) rewriteJson(claudeJsonPath, cleaned, `MCP ${removed.join(", ")}`);
+    }
+
+    const uvTools = safe(() => spawnSync("uv", ["tool", "list"], { encoding: "utf8" }));
+    const uvReady = uvTools && !uvTools.error;
+    if (uvReady && /graphifyy/.test(uvTools.stdout || "")) {
+      if (DRY) purged.push("would run: uv tool uninstall graphifyy");
+      else {
+        const r = safe(() => spawnSync("uv", ["tool", "uninstall", "graphifyy"], { encoding: "utf8" }));
+        purged.push(r && r.status === 0 ? "uninstalled the graphifyy uv tool"
+          : "uv tool uninstall graphifyy FAILED - run it by hand");
+      }
+    }
+    // uvx never installs the companion, it runs it from the cache - so the cache entry is the
+    // install. Scoped to the package: `uv cache prune` would evict every unrelated tool too.
+    for (const name of companions) {
+      const pkg = ((claudeJson.mcpServers || {})[name].args || [])
+        .map(String).find((a) => /^mcp-.*(neo4j|cypher)/i.test(a));
+      if (!uvReady || !pkg) continue;
+      const bare = pkg.split("@")[0];
+      if (DRY) { purged.push(`would run: uv cache clean ${bare}`); continue; }
+      const r = safe(() => spawnSync("uv", ["cache", "clean", bare], { encoding: "utf8" }));
+      purged.push(r && r.status === 0 ? `cleared the uv cache for ${bare}`
+        : `uv cache clean ${bare} FAILED - run it by hand`);
+    }
+
+    if (purged.length) {
+      log(formatPurge(purged));
+      summary.push(`graphify ${DRY ? "purge (dry run)" : "purged"}: ${purged.length} item(s) - listed above`);
     }
   }
 
@@ -1304,27 +1441,6 @@ async function main() {
     }
   }
 
-  /* ---------- ensure graphify is installed (underpins the global graph) ---------- */
-  // graphify itself is a PyPI tool, not bundle content. If it is missing, offer to install it now via
-  // the bundled graphify-setup.mjs. Already installed -> skip silently (the freshness nudge near the end
-  // handles upgrades). Interactive + non-DRY only: the &&-short-circuit means CI / e2e (non-TTY) runs
-  // never even probe for graphify, let alone shell out to uv/pip.
-  if (!DRY && INTERACTIVE && !findGraphifyPython()) {
-    const a = await ask("\ngraphify (code knowledge graph) is not installed - it powers the global graph. " +
-      "Install it now? [Y/n] > ");
-    if (a[0] !== "n") {
-      const gsetup = join(CDIR, "bin", "graphify-setup.mjs");
-      if (existsSync(gsetup)) {
-        log("  installing graphify (this can take a minute) ...");
-        const r = spawnSync(process.execPath, [gsetup, "--yes"], { stdio: "inherit" });
-        if (r.status === 0 && findGraphifyPython()) summary.push("installed graphify (code knowledge graph)");
-        else log("  graphify install did not finish - open a NEW shell and run 'node ~/.claude/bin/graphify-setup.mjs'.");
-      } else {
-        log("  (graphify-setup.mjs is not part of this profile - skipping)");
-      }
-    }
-  }
-
   /* ---------- Claude Code auto-update ---------- */
   // The state file moves into CLAUDE_CONFIG_DIR when that var is set, so probe both and take
   // whichever exists; writing a fresh one would create a file Claude Code never reads.
@@ -1422,12 +1538,6 @@ async function main() {
     : "see settings.partial.json";
   log(`Verify with /hooks (expect: ${hookCounts}).`);
 
-  // Best-effort graphify staleness nudge (never blocks; exits 0 on any error/offline).
-  if (!DRY) {
-    const fresh = join(CDIR, "bin", "graphify-freshness.mjs");
-    if (existsSync(fresh)) spawnSync(process.execPath, [fresh], { stdio: "inherit" });
-  }
-
   log("\n=== Project setup: what to run, and when ===");
   log("");
   log("Step 1 - RESTART Claude Code now. Machine-level setup (hooks, rules, skills,");
@@ -1442,9 +1552,6 @@ async function main() {
     log("           - appends the GSD-clobber risk to an existing RISK_REGISTER.md (every");
     log("             session, not just the first)");
   }
-  log("           - if graphify is installed: registers the project in the global graph,");
-  log("             installs a native post-commit hook, and (once) runs");
-  log("             'graphify claude install' for its own CLAUDE.md section");
   log("           - checks whether the compiled rules snapshot (.claude/stack-rules.md)");
   log("             exists; if not, suggests running /init-stack to generate it (no");
   log("             automatic staleness check - opt out: CLAUDE_STACK_RULES=0)");
@@ -1457,8 +1564,7 @@ async function main() {
     log("             but not installed) every session");
   }
   log("         Toggles: CLAUDE_CURATED_AUTOINIT=0 (disables all of the above),");
-  log("         CLAUDE_CURATED_AUTOMARK_ROOT=0, CLAUDE_MCP_SUGGEST=0,");
-  log("         CLAUDE_GRAPHIFY_AUTOSYNC=0.");
+  log("         CLAUDE_CURATED_AUTOMARK_ROOT=0, CLAUDE_MCP_SUGGEST=0.");
   log("");
   if (VARIANT === "full") {
     log("Step 3 - ONLY if the project needs stack-specific plugins (React, FastAPI, ...) -");

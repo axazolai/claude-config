@@ -201,7 +201,7 @@ const DEFAULT_WORKFLOW_CONFIG = {
     mode: "link",
   },
   graphify: {
-    enabled: true,
+    enabled: false,
     auto_update: false,
   },
 };

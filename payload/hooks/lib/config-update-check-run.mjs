@@ -5,7 +5,7 @@
 // Best-effort only: EVERY failure mode (offline, GitHub API down/rate-limited, a corporate proxy
 // blocking the request) is swallowed silently. This must never surface as "couldn't download" or
 // "command blocked" to the user - same policy as every other background check in this bundle
-// (context-mode/graphify self-upgrade, graphify-global-sync). It only ever reports GOOD news (a
+// (context-mode self-upgrade). It only ever reports GOOD news (a
 // real update is available); failures just mean "try again next throttle window".
 //
 // Reads ~/.claude/state/bundle-manifest.json for the SHA setup.mjs last installed, compares it to

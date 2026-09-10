@@ -26,7 +26,7 @@
 // Known lag caveat (documented by Claude Code itself): the transcript file may not yet include
 // the very last message at Stop time - occasionally the last API call of a turn is picked up on
 // the NEXT Stop instead of this one. Not lost, just attributed one turn late. Accepted, same risk
-// class as the lock-staleness assumption already accepted for graphify-global-sync.mjs.
+// class as the lock-staleness assumption already accepted for the detached update worker.
 //
 // `model` is written via lib/token-usage-shared.mjs's normalizeModel() - strips a trailing
 // dated-snapshot suffix ("-YYYYMMDD") so e.g. "claude-haiku-4-5-20251001" is recorded as
