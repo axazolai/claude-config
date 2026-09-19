@@ -18,12 +18,12 @@ phases:
   - { phase: "13", slug: graphify-neo4j-autosync, status: complete, delivery: merged }
   - { phase: "14", slug: gsd-surface-dial, status: planned, delivery: none }
   - { phase: "15", slug: claude-code-changelog-tracking, status: complete, delivery: merged }
-  - { phase: "16", slug: scratch-prune, status: complete, delivery: merged }
+  - { phase: "16", slug: scratch-prune, status: complete, delivery: branch }
 ---
 
 # Roadmap
 
-Nothing is running. Phase 16 (`scratch-prune`) opened and merged on 2026-09-20: a user-invoked
+Nothing is running. Phase 16 (`scratch-prune`) opened on 2026-09-20 and is complete on its branch, pending merge: a user-invoked
 skill that prunes the disposable tier of a project scratchpad (`.claude/.scratchpad/tmp/`) into
 the shared `claude-cleanup` trash — the option-B step of the scratchpad-hygiene brief, whose
 two-tier rule landed in `CLAUDE.md` on 2026-09-19 (`cba3614`). Spec and plan in
@@ -79,7 +79,7 @@ where it gets fixed — it is not a reason to leave a stale `current` in place.
 | 13 graphify-neo4j-autosync | running | specified, on `feat/graphify-neo4j-autosync` |
 | 14 gsd-surface-dial | planned | `phases/14-gsd-surface-dial/14-PLAN.md`, no branch |
 | 15 claude-code-changelog-tracking | complete | merged into `master`, branch deleted; not yet deployed |
-| 16 scratch-prune | complete | merged into `master`, branch deleted |
+| 16 scratch-prune | complete | `feat/scratch-prune`, pending merge |
 
 Phase 03's row is the reason `status` and `integration` are separate fields: its probe
 commits and its rollback are both in `master`, and the phase still did not ship. It reads
