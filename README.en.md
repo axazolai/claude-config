@@ -356,6 +356,12 @@ tests `*.test.mjs`, run via `node --test`):
   the running session are out of scope by construction. A dry-run report comes first, then an
   explicit confirmation; nothing is deleted — everything moves into
   `~/.claude/.cleanup-trash/<batch>/` and stays restorable for 7 days.
+- **Pruning a project scratchpad** — the `/scratch-prune` skill + `bin/scratch-prune.mjs`. Scope is
+  the disposable tier only, `<project>/.claude/.scratchpad/tmp/`: one table of entries (a directory
+  is one entry, aged by its newest file), an `AskUserQuestion` over the 7-day-old set, indices for
+  the rest, a yes/no, then the chosen names move to the same `~/.claude/.cleanup-trash/<batch>/`
+  and stay restorable for 7 days. The scratchpad root is one summary line and is never proposed.
+  User-invoked only (`disable-model-invocation`).
 
 Permissions in `settings.partial.json` are normalized on merge: `Write(x)`/`MultiEdit(x)` →
 `Edit(x)` (+ dedup), since Claude Code now matches all file tools via `Edit(path)`, and
@@ -443,6 +449,7 @@ installed.
     install-design-stack.mjs             # Impeccable + the grafted Pro Max subset (step 5 of /init-stack)
     detect-stack-commands.mjs            # the "Detected commands" block for the stack-rules snapshot
     claude-cleanup.mjs                   # the /claude-cleanup engine (allowlist + restorable trash)
+    scratch-prune.mjs                    # the /scratch-prune engine (project scratchpad tmp/ → shared trash)
     supervise-bg.mjs                     # background-command wrapper: timeout + staleness watchdog
     pnpm-phantom-scan.mjs, pnpm-phantom-fix-install.mjs, turbopack-gvs-check.mjs # pnpm/Turbopack
     risks.mjs, adr.mjs, glossary.mjs     # decision-record CLIs (behind decision-records-nudge)
@@ -468,6 +475,7 @@ installed.
     token-usage/SKILL.md                 # /token-usage — token spend log summary
     update-changelog/SKILL.md            # /update-changelog — git history → changelog.json (RU entries)
     model-selection-policy/SKILL.md      # model routing + the effort ladder, split out of CLAUDE.md
+    scratch-prune/SKILL.md               # /scratch-prune — prune <project>/.claude/.scratchpad/tmp/ (user-invoked)
   rules-src/                             # stack rule sources — NOT auto-loaded by Claude Code;
                                           #   compiled into <project>/.claude/stack-rules.md (see below)
   setting-templates/                     # per-direction plugin sets, applied by /init-stack

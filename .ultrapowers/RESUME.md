@@ -20,6 +20,8 @@ migration shipped as phase 10's first task.
 
 ## Open
 
+- **Restart Claude Code after the 2026-09-20 deploy.** Phase 16's `/scratch-prune` skill and the
+  two-tier scratchpad rule of 2026-09-19 are on disk; skills and `CLAUDE.md` load at startup.
 - **Restart Claude Code.** The deploy ran on 2026-07-31 and everything is on disk, but hooks
   load at startup: `protected-guard`, `decision-records-nudge` and the `PreCompact` observer are
   installed and inert until a restart. `/hooks` should then show `PreToolUse` x9, `PreCompact` x1.
