@@ -38,10 +38,12 @@ Follow these steps:
    <size>, …` — then `totals` (entries, bytes, aged entries and bytes). State that nothing has
    moved.
 
-4. **Selection.** Ask one `AskUserQuestion` about the aged set: *remove all N (X MB)* / *pick by
-   number* / *keep all*. Then, in plain text, invite indices for anything else: "номера через
-   запятую, или «нет»". Take the chosen rows from `items` exactly as scanned — `absPath`, `size`,
-   `category`, `reason`, `mtimeMs` unmodified.
+4. **Selection.** When `totals.aged.entries` is 0, skip the question and go straight to the
+   indices prompt below. Otherwise ask one `AskUserQuestion` about the aged set: *remove all N
+   (X MB)* / *pick by number* / *keep all*. Then, in plain text, invite indices for anything
+   else: "номера через запятую, или «нет»". Take the chosen rows from `items` whole and exactly
+   as scanned — every field, `name` included; `absPath`, `size`, `category`, `reason`, `mtimeMs`
+   unmodified.
 
 5. **Confirm.** Show the final set — count, bytes, every name — and ask yes/no. On no, stop:
    nothing is written.
@@ -57,6 +59,7 @@ Follow these steps:
    ```
 
    Apply re-checks each entry's live mtime against the scanned `mtimeMs` and skips it on drift.
+   A plan that names anything outside `<scratchpad>/tmp/` is refused before any move (exit code 2).
    It prints `Moved N items (B bytes) to <batchDir>; skipped S.` and, when `S > 0`, a second
    line `skipped: <names>`. Report the bytes moved, every skipped name, the batch `<ts>` (the
    last path segment of `<batchDir>`), the restore command

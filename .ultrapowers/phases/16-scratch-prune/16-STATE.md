@@ -10,4 +10,5 @@
 - **Verification:** `node --test` full suite green on the merged tree; smoke round trip
   scan → apply → restore on a fixture in this repo's `.claude/.scratchpad/tmp/` (Task 2).
 - **Touches:** `RISK-CLAUDEMD-002` — the skill and the rule name `tmp/`, which nothing creates or
-  verifies mechanically.
+  verifies mechanically; `RISK-CLEANUP-001` — the cross-device move fallback becomes the routine
+  path (project on `D:`, trash on `C:`), residual accepted, hardening owed (see the register).

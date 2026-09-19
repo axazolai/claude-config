@@ -1,6 +1,6 @@
 import { fileURLToPath } from "node:url";
 import { realpathSync, readFileSync } from "node:fs";
-import { resolve, join } from "node:path";
+import { resolve, join, basename, dirname } from "node:path";
 import { claudeDir, applyPlan, purgeRetention, restoreBatch } from "./lib/claude-cleanup-lib.mjs";
 import { scanScratchpad } from "./lib/scratch-prune-lib.mjs";
 
@@ -25,6 +25,15 @@ function isMain() {
 
 function stamp(nowMs) { return new Date(nowMs).toISOString().replace(/[:.]/g, "").replace(/-/g, ""); }
 
+export function outsideTmp(items) {
+  if (!Array.isArray(items)) return "items is not an array";
+  for (const i of items) {
+    const p = typeof i?.absPath === "string" ? i.absPath : "";
+    if (basename(dirname(p)) !== "tmp" || basename(dirname(dirname(p))) !== ".scratchpad") return p || "(missing absPath)";
+  }
+  return null;
+}
+
 export function main(argv = process.argv.slice(2), nowMs = Date.now()) {
   const dir = claudeDir();
   const { cmd, opts } = parseArgs(argv);
@@ -36,6 +45,8 @@ export function main(argv = process.argv.slice(2), nowMs = Date.now()) {
   } else if (cmd === "apply") {
     if (!opts.plan) { process.stderr.write("apply requires --plan <file>\n"); process.exitCode = 1; return; }
     const finalized = JSON.parse(readFileSync(opts.plan, "utf8"));
+    const bad = outsideTmp(finalized.items);
+    if (bad) { process.stderr.write(`plan lists a path outside <scratchpad>/tmp/: ${bad}\n`); process.exitCode = 2; return; }
     const res = applyPlan({ dir, items: finalized.items, nowMs, ts: finalized.ts || stamp(nowMs) });
     process.stdout.write(`Moved ${res.moved} items (${res.bytes} bytes) to ${res.batchDir}; skipped ${res.skipped}.\n`);
     if (res.skipped) {
@@ -49,7 +60,7 @@ export function main(argv = process.argv.slice(2), nowMs = Date.now()) {
     if (!opts.ts) { process.stderr.write("restore requires --ts <ts>\n"); process.exitCode = 1; return; }
     const res = restoreBatch({ dir, ts: opts.ts });
     process.stdout.write(`Restored ${res.restored}; skipped ${res.skipped}.\n`);
-  }
+  } else { process.stderr.write(`unknown command: ${cmd}\n`); process.exitCode = 1; }
 }
 
 if (isMain()) main();
