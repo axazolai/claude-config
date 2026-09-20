@@ -1120,6 +1120,15 @@
   `--keep-under`, and `--older-than` CLI flags were REMOVED — YAGNI, they were parsed but
   never wired into `buildPlan`; the running session stays protected by
   `--exclude-session <uuid>` plus the age-based KEEP window.)
+- **Update 2026-09-20 (phase 16, `/scratch-prune`):** the cross-device fallback in `moveInto`
+  (`claude-cleanup-lib.mjs`, `EXDEV` → child-by-child copy-then-remove) is now the routine path,
+  not an edge case: a project scratchpad on `D:` moves into the trash on `C:` on every apply. A
+  failure at child *k* of a directory entry leaves children `0..k-1` in `<batch>/<slot>/`
+  unrecorded (the entry counts as `skipped`, no manifest line), and a later `restore --ts` of
+  that batch, seeing `skipped === 0`, removes the batch directory and the strays with it.
+  Residual accepted for phase 16; hardening owed: `cpSync(src, dest, { recursive: true })` first,
+  then remove the source, and record the entry once the copy completed — as an exported helper
+  with its own `@critical` test.
 
 ### RISK-DESIGNSTACK-001 — Impeccable installer footgun writes into all harnesses + settings.local.json
 

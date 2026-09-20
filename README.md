@@ -345,6 +345,12 @@ Claude Code. Живёт в [`axazolai/ultrapowers`](https://github.com/axazolai/
   plugin-кэша), поэтому `memory/`, живой конфиг, venv'ы и текущая сессия вне области по
   построению. Сначала dry-run-отчёт, затем явное подтверждение; ничего не удаляется —
   всё переезжает в `~/.claude/.cleanup-trash/<партия>/` и восстановимо 7 дней.
+- **Чистка scratchpad проекта** — skill `/scratch-prune` + `bin/scratch-prune.mjs`. Область — только
+  одноразовый ярус `<project>/.claude/.scratchpad/tmp/`: одна таблица записей (каталог — одна
+  запись, возраст по самому свежему файлу), `AskUserQuestion` по набору старше 7 дней, номера для
+  остального, да/нет — и выбранные имена переезжают в ту же `~/.claude/.cleanup-trash/<партия>/`,
+  восстановимо 7 дней. Корень scratchpad — одна строка сводки, никогда не предлагается. Только по
+  вызову пользователя (`disable-model-invocation`).
 
 Права в `settings.partial.json` нормализуются при мёрже: `Write(x)`/`MultiEdit(x)` → `Edit(x)`
 (+ dedup), т.к. Claude Code теперь матчит все file-tools через `Edit(path)`, а `MultiEdit` —
@@ -430,6 +436,7 @@ Claude Code. Живёт в [`axazolai/ultrapowers`](https://github.com/axazolai/
     install-design-stack.mjs             # Impeccable + привитое подмножество Pro Max (шаг 5 /init-stack)
     detect-stack-commands.mjs            # блок «Detected commands» для снапшота stack-rules
     claude-cleanup.mjs                   # движок /claude-cleanup (allowlist + обратимая корзина)
+    scratch-prune.mjs                    # движок /scratch-prune (tmp/ scratchpad проекта → общая корзина)
     supervise-bg.mjs                     # обёртка фоновой команды: timeout + staleness-watchdog
     pnpm-phantom-scan.mjs, pnpm-phantom-fix-install.mjs, turbopack-gvs-check.mjs # pnpm/Turbopack
     risks.mjs, adr.mjs, glossary.mjs     # CLI решенческих записей (за ними — decision-records-nudge)
@@ -455,6 +462,7 @@ Claude Code. Живёт в [`axazolai/ultrapowers`](https://github.com/axazolai/
     token-usage/SKILL.md                 # /token-usage — сводка по логу расхода токенов
     update-changelog/SKILL.md            # /update-changelog — git-история → changelog.json (RU-записи)
     model-selection-policy/SKILL.md      # routing моделей + effort-лестница, вынесен из CLAUDE.md
+    scratch-prune/SKILL.md               # /scratch-prune — чистка <проект>/.claude/.scratchpad/tmp/ (по вызову)
   rules-src/                             # источник правил стека — НЕ автозагружается Claude Code;
                                           #   компилируется в <проект>/.claude/stack-rules.md (см. ниже)
   setting-templates/                     # наборы плагинов по направлениям, применяет /init-stack
