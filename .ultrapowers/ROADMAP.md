@@ -1,7 +1,7 @@
 ---
 updated: 2026-09-20
 current: null
-deployed_through: "13"
+deployed_through: "16"
 phases:
   - { phase: "01", slug: graphify-neo4j, status: complete, delivery: merged }
   - { phase: "02", slug: ai-development-mode, status: complete, delivery: merged }
@@ -18,16 +18,16 @@ phases:
   - { phase: "13", slug: graphify-neo4j-autosync, status: complete, delivery: merged }
   - { phase: "14", slug: gsd-surface-dial, status: planned, delivery: none }
   - { phase: "15", slug: claude-code-changelog-tracking, status: complete, delivery: merged }
-  - { phase: "16", slug: scratch-prune, status: complete, delivery: branch }
+  - { phase: "16", slug: scratch-prune, status: complete, delivery: merged }
 ---
 
 # Roadmap
 
-Nothing is running. Phase 16 (`scratch-prune`) opened on 2026-09-20 and is complete on its branch, pending merge: a user-invoked
+Nothing is running. Phase 16 (`scratch-prune`) opened, merged and deployed on 2026-09-20: a user-invoked
 skill that prunes the disposable tier of a project scratchpad (`.claude/.scratchpad/tmp/`) into
 the shared `claude-cleanup` trash — the option-B step of the scratchpad-hygiene brief, whose
 two-tier rule landed in `CLAUDE.md` on 2026-09-19 (`cba3614`). Spec and plan in
-`phases/16-scratch-prune/`. The paragraphs below record the 2026-08-02 state.
+`phases/16-scratch-prune/`. The waterline moves to 16: the deploys of 2026-09-19 (`ad3e922`, everything through phase 15 plus the graphify drop) and 2026-09-20 (`896f355`) carried all of `master`. The paragraphs below record the 2026-08-02 state.
 
 Nothing is running. Fourteen phases are complete and one is superseded by phase 04; phase 15 is
 merged into `master` but not yet deployed, so the waterline stays at 13 on 2026-08-02.
@@ -79,7 +79,7 @@ where it gets fixed — it is not a reason to leave a stale `current` in place.
 | 13 graphify-neo4j-autosync | running | specified, on `feat/graphify-neo4j-autosync` |
 | 14 gsd-surface-dial | planned | `phases/14-gsd-surface-dial/14-PLAN.md`, no branch |
 | 15 claude-code-changelog-tracking | complete | merged into `master`, branch deleted; not yet deployed |
-| 16 scratch-prune | complete | `feat/scratch-prune`, pending merge |
+| 16 scratch-prune | complete | merged into `master` at `896f355`, branch deleted; deployed 2026-09-20 |
 
 Phase 03's row is the reason `status` and `integration` are separate fields: its probe
 commits and its rollback are both in `master`, and the phase still did not ship. It reads
