@@ -70,12 +70,16 @@ takes the report's expected behaviour as its spec: one test, after the fix.
 - `skills/systematic-debugging/SKILL.md`: logged-not-blocking entry point; Phase 4 step 1
   reproduces by a one-off command/script, the permanent test follows § 1.
 - `skills/brainstorming/SKILL.md`: "(TDD applies)" → "(tests after the code, before review)".
+- `skills/subagent-driven-development/SKILL.md`: a bug-log drain step before the final review;
+  the pre-flight scan compares a task's Acceptance list, not its test code, against its code.
+- `skills/verification-before-completion/SKILL.md` (the plugin's; still reachable as
+  `ultrapowers:verification-before-completion` beside the user-scope shadow): "Regression tests
+  (TDD Red-Green)" → a regression test only for stated behaviour, checked by mutation.
 - `transform/config.json`: `version.revision` 5 → 6. Plugin README (`fork-owned`) lists delta
   014; repo README count "thirteen" → "fourteen".
 
 Out of scope: `writing-skills` (its RED/GREEN is pressure-testing skill text, a separate
-discipline), the plugin's `verification-before-completion` (shadowed at user scope), GSD agent
-definitions (governed by `tdd_mode`).
+discipline), GSD agent definitions (governed by `tdd_mode`).
 
 ## 3. Machine-side
 
@@ -90,7 +94,7 @@ that file. A project's `.planning/config.json` takes the new value on its next
   the fork pass.
 - `grep -rniE "TDD|test-first|failing test first|as the work goes" payload/claude-md
   payload/rules-src/testing.md` prints nothing.
-- The built fork tree: `grep -rn "TDD\|failing test" plugins/ultrapowers/skills` finds only
-  `writing-skills`, the plugin's `verification-before-completion`, and `systematic-debugging`'s
-  CREATION-LOG.
+- The built fork tree: `grep -rliE "TDD|failing test" plugins/ultrapowers/skills` finds only
+  `writing-skills/*`, `systematic-debugging/CREATION-LOG.md`, and the example task text in
+  `dispatching-parallel-agents`.
 - `node setup.mjs --dry-run` lists the changed payload files.
