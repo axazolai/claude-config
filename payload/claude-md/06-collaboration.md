@@ -9,6 +9,8 @@ profiles: [full, base]
   quality, and load-bearing code examples (<100 lines).
 - Log risks to `RISK_REGISTER.md` with stable IDs, not inline. Its location is the project's
   to state — read the project `CLAUDE.md`. Flag when a decision touches an Open risk.
+- Log deferred bugs to `BUGS.md` (see CONVENTIONS → bug log). Its location is the project's to
+  state — read the project `CLAUDE.md`; none stated: the project root.
 - Elapsed time of a background agent/task: never estimate it from wakeup/poll counts (seen
   off by 5x in practice); the only "finished" signal is the actual completion notification.
   If elapsed time must be reported, read real timestamps before and after.

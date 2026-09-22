@@ -26,3 +26,7 @@ plainly that the change is machine-local and nothing in the project carries it.
 This tree's risk register is `.ultrapowers/RISK_REGISTER.md`, and `add-risk.mjs` is pointed
 there. The user-scope `~/.claude/CLAUDE.md` names `.planning/` or the project root; project
 scope outranks user scope on conflict.
+
+## Bug log location
+
+This tree's bug log is `.ultrapowers/BUGS.md`.
