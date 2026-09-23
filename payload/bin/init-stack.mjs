@@ -507,7 +507,7 @@ export function apply(enableIds, removeIds, stacks, opts = {}) {
 }
 
 // ---------- §6.3 project model-config re-migration (Phase 5 Part B) ----------
-// Surgically bring a GSD project's .planning/config.json model_overrides up to the current Opus 5
+// Surgically bring a GSD project's .planning/config.json model_overrides up to the current
 // defaults (five roles haiku->sonnet, gsd-verifier sonnet->opus). Guarded on the file existing,
 // so a non-GSD project (or a base/lite user) is a silent no-op. Non-clobber: only a value still
 // holding the known-old default moves; a user-chosen value is left alone (see model-migration.mjs).

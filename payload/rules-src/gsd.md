@@ -91,7 +91,7 @@ now actively harmful — the correction runs the opposite direction.
   briefing it and merging its result back costs real tokens and latency. If you can finish the
   job in a handful of your own tool calls, do that instead of spawning.
 - **Never delegate review or verification.** Checking your own work is not a reason to spawn a
-  subagent — Opus 5 verifies itself (see the `model-selection-policy` skill). A separate
+  subagent — Opus 5.5 verifies itself (see the `model-selection-policy` skill). A separate
   *reviewer* owned by CI/GSD is a different thing and stays.
 - **Don't split one modest job across parallel agents.** If a single subagent can do it, use one,
   not several; keep spawn counts low.
