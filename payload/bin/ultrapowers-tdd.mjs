@@ -19,7 +19,9 @@ export function main(argv = process.argv.slice(2), cwd = process.cwd()) {
     console.error(`usage: ultrapowers-tdd [enable|disable] [--root <dir>] (got "${cmd}")`);
     return 2;
   }
-  const r = setTddMode(root, cmd === "enable");
+  let r;
+  try { r = setTddMode(root, cmd === "enable"); }
+  catch (e) { console.error(`ultrapowers-tdd: ${e.message}`); return 1; }
   console.log(`Testing mode: ${r.mode} (${r.file})${r.gsdSynced ? "; .planning/config.json workflow.tdd_mode synced" : ""}`);
   return 0;
 }

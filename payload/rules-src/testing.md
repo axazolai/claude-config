@@ -108,6 +108,8 @@ Otherwise, run after every `git push`, in this order:
 - A decision that changed behaviour, scope or an interface goes into the spec/plan before the
   tests that cover it; the bug log applies (`CONVENTIONS` → bug log).
 - Any failure a run shows, including one you did not cause, is reported by name.
+- A reviewer finding about behaviour the spec is silent on goes to the user, who puts it into the
+  spec (then it gets a test) or rejects it.
 - Exceptions (covered by the e2e/integration test of the behavior they enable, not a
   dedicated unit test on themselves): pure wiring/config (DI providers/module registration,
   Dockerfile, docker-compose.yml), trivial DTO mappers, pure getters/passthroughs with no

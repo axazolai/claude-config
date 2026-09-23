@@ -440,6 +440,7 @@ installed.
       statusline-lib.mjs, phase-segment.mjs, context-severity.mjs, autocompact.mjs # status-line segments
       state-lock.mjs, atomic-json.mjs    # concurrency-safe state-file writes
       jsonl-io.mjs                       # JSONL/JSON helpers for precompact-observe
+      tdd-mode.mjs                       # the project's testing mode (tdd | test-after), write + GSD sync
       mark-initstack-done.mjs            # called from /init-stack; sets initStackRun in project-init.json
   bin/
     init-stack.mjs                       # stack detection + the plugin checklist (the /init-stack engine)
@@ -451,6 +452,7 @@ installed.
     pnpm-phantom-scan.mjs, pnpm-phantom-fix-install.mjs, turbopack-gvs-check.mjs # pnpm/Turbopack
     risks.mjs, adr.mjs, glossary.mjs     # decision-record CLIs (behind decision-records-nudge)
     up-update.mjs                        # checks/rebuilds the ultrapowers fork (the /up-update engine)
+    ultrapowers-tdd.mjs                  # CLI behind /ultrapowers-tdd: show/switch the testing mode
     lib/                                 # libraries for the above (stack-markers, design-stack,
                                           #   assemble-claude-md, claude-cleanup-lib, …)
   agents/
@@ -462,6 +464,7 @@ installed.
     init-session.md                      # /init-session — apply pending gsd-*.md agent patches
     init-mcp.md                          # /init-mcp — wire up the project's MCP servers
     leanmode.md                          # /leanmode — interactive/--flag, sets the project-level dial
+    ultrapowers-tdd.md                   # /ultrapowers-tdd enable|disable — the project's testing mode
     aidev.md                             # /aidev — the verbosity dial (comment/whitespace terseness)
     claude-cleanup.md                    # /claude-cleanup — ~/.claude cleanup with restorable trash
     pnpm-phantom-fix.md                  # /pnpm-phantom-fix — pnpm phantom dependencies

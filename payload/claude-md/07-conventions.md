@@ -13,7 +13,8 @@
     plan task under per-task review, otherwise the whole change) stands as a working whole,
     before its review, and only to confirm behaviour the spec or plan states.
   - Both modes: a decision made during the work that changed behaviour, scope or an interface
-    goes into the spec/plan first; the tests follow the updated text.
+    goes into the spec/plan first; the tests follow the updated text. A reviewer finding about
+    behaviour the spec is silent on goes to the user: into the spec, or rejected.
 - Bug log: a bug found during the work that does not block the next step goes to the bug log
   and the work continues; a blocking bug is fixed at once. Entry: `BUG-NNN`, date, where,
   symptom, reproduction, unit of work, status `Open`/`Fixed`. Before a unit's review, fix its

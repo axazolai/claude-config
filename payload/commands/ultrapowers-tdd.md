@@ -19,4 +19,4 @@ follow that mode for the rest of the session:
   whole, before its review, only for what the spec/plan states; ultrapowers skills take their
   test-after branch.
 
-A usage error (exit 2) changes nothing: show it and stop.
+An error (exit 1 or 2) changes nothing: show it and stop.

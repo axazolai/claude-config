@@ -33,7 +33,7 @@
  * writes `.new` or `.bak` side files anywhere under ~/.claude - a diff is either shown for you
  * to act on, or the change is applied directly with no backup.
  */
-import { readFileSync, writeFileSync, mkdirSync, existsSync, chmodSync, readdirSync, rmSync, realpathSync, copyFileSync, mkdtempSync, renameSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdirSync, existsSync, chmodSync, readdirSync, rmSync, realpathSync, copyFileSync, mkdtempSync, renameSync, rmdirSync } from "node:fs";
 import { homedir, platform, tmpdir } from "node:os";
 import { createHash } from "node:crypto";
 import { join, dirname } from "node:path";
@@ -75,6 +75,15 @@ const SKILL = join(CDIR, "skills", "using-git-worktrees");
 const SETTINGS = join(CDIR, "settings.json");
 const MANIFEST = join(CDIR, "state", "bundle-manifest.json");
 const RETIRED_HOOK_FILES = ["token-usage-log.mjs"];
+// Removed on purpose: pruned even when their basename still appears elsewhere in the bundle.
+const RETIRED_RELS = new Set([
+  "hooks/token-usage-log.mjs",
+  "hooks/lib/token-usage-prune.mjs",
+  "hooks/lib/token-usage-pricing-refresh.mjs",
+  "hooks/lib/token-usage-shared.mjs",
+  "skills/token-usage/SKILL.md",
+  "skills/token-usage/scripts/report.mjs",
+]);
 // Files that OLDER bundles shipped and this one no longer does - seeded so a user upgrading from a
 // pre-manifest bundle still gets them pruned. ONLY list files this package exclusively owns (never
 // a path another tool manages).
@@ -488,6 +497,7 @@ async function pruneStale() {
   const candidates = new Set();
   for (const rel of oldByRel.keys()) if (!currentRels.has(rel)) candidates.add(rel);
   for (const rel of SEED_REMOVED) if (!currentRels.has(rel)) candidates.add(rel);
+  for (const rel of RETIRED_RELS) if (!currentRels.has(rel)) candidates.add(rel);
   if (VARIANT !== "full") candidates.add("gsd-defaults.partial.json"); // full-only mirror, never manifest-tracked
   if (!candidates.size) return [];
 
@@ -499,7 +509,7 @@ async function pruneStale() {
     const cur = read(dst);
     if (typeof cur === "string" && isCurated(cur)) { kept.push([rel, "curated"]); continue; }
     const variantExcluded = V.excludedSet.has(rel) || (rel === "gsd-defaults.partial.json" && VARIANT !== "full");
-    if (!variantExcluded && allText.includes(rel.split("/").pop())) { kept.push([rel, "still referenced in bundle"]); continue; }
+    if (!variantExcluded && !RETIRED_RELS.has(rel) && allText.includes(rel.split("/").pop())) { kept.push([rel, "still referenced in bundle"]); continue; }
     const oldHash = oldByRel.get(rel);
     if (oldHash && cur !== undefined && sha(cur) !== oldHash) { kept.push([rel, "modified since install"]); continue; }
     del.push({ rel, dst });
@@ -522,6 +532,12 @@ async function pruneStale() {
   if (go) for (const d of del) {
     try { rmSync(d.dst, { recursive: true, force: true }); summary.push(`pruned   ${d.dst}`); }
     catch { summary.push(`prune-failed ${d.dst}`); }
+  }
+  if (go) for (const d of del) {
+    if (!RETIRED_RELS.has(d.rel)) continue;
+    for (let dir = dirname(d.dst); dir.length > CDIR.length; dir = dirname(dir)) {
+      try { rmdirSync(dir); } catch { break; }
+    }
   }
   return considered;
 }

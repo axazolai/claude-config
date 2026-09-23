@@ -427,6 +427,7 @@ Claude Code. Живёт в [`axazolai/ultrapowers`](https://github.com/axazolai/
       statusline-lib.mjs, phase-segment.mjs, context-severity.mjs, autocompact.mjs # сегменты строки статуса
       state-lock.mjs, atomic-json.mjs    # конкурентно-безопасная запись state-файлов
       jsonl-io.mjs                       # JSONL/JSON-хелперы для precompact-observe
+      tdd-mode.mjs                       # режим тестирования проекта (tdd | test-after), запись + синк GSD
       mark-initstack-done.mjs            # зовётся из /init-stack; ставит initStackRun в project-init.json
   bin/
     init-stack.mjs                       # детект стека + плагиновый чек-лист (движок /init-stack)
@@ -438,6 +439,7 @@ Claude Code. Живёт в [`axazolai/ultrapowers`](https://github.com/axazolai/
     pnpm-phantom-scan.mjs, pnpm-phantom-fix-install.mjs, turbopack-gvs-check.mjs # pnpm/Turbopack
     risks.mjs, adr.mjs, glossary.mjs     # CLI решенческих записей (за ними — decision-records-nudge)
     up-update.mjs                        # проверка/пересборка форка ultrapowers (движок /up-update)
+    ultrapowers-tdd.mjs                  # CLI для /ultrapowers-tdd: показать/переключить режим тестирования
     lib/                                 # библиотеки перечисленного выше (stack-markers, design-stack,
                                           #   assemble-claude-md, claude-cleanup-lib, …)
   agents/
@@ -449,6 +451,7 @@ Claude Code. Живёт в [`axazolai/ultrapowers`](https://github.com/axazolai/
     init-session.md                      # /init-session — применить отложенные патчи gsd-*.md агентов
     init-mcp.md                          # /init-mcp — подключение MCP-серверов проекта
     leanmode.md                          # /leanmode — интерактив/--флаг, ставит project-level dial
+    ultrapowers-tdd.md                   # /ultrapowers-tdd enable|disable — режим тестирования проекта
     aidev.md                             # /aidev — диал verbosity (терсность комментариев/пустот)
     claude-cleanup.md                    # /claude-cleanup — уборка ~/.claude с обратимой корзиной
     pnpm-phantom-fix.md                  # /pnpm-phantom-fix — фантомные зависимости pnpm

@@ -63,6 +63,16 @@ test("@important an unknown argument changes nothing", () => {
   rmSync(root, { recursive: true, force: true });
 });
 
+test("@important a malformed file stops the switch before anything is written", () => {
+  const root = project({ switchText: '{ "tdd": false }', planning: { workflow: { tdd_mode: false } } });
+  writeFileSync(join(root, ".planning", "config.json"), "{ broken");
+  const err = console.error; console.error = () => {};
+  try { assert.equal(main(["enable", "--root", root]), 1); } finally { console.error = err; }
+  assert.equal(resolveTddMode(root), "test-after");
+  assert.equal(readFileSync(join(root, ".planning", "config.json"), "utf8"), "{ broken");
+  rmSync(root, { recursive: true, force: true });
+});
+
 test("@important GSD defaults sync takes tdd_mode from the project switch, not the partial", () => {
   const root = project({ switchText: '{ "tdd": true }', planning: { workflow: { tdd_mode: false } } });
   syncProjectConfig({ projectRoot: root, partial: { workflow: { tdd_mode: false, code_review: true } } });
