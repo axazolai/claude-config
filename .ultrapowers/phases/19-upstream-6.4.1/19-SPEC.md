@@ -60,15 +60,15 @@ ignored. `version.revision` is bumped, as the previous rebase to 6.3.0 left it r
 Upstream touched 18 tracked files (35%). The diff has been read by hand (this spec); the
 threshold is overridden for this rebase only, on the partner's word.
 
-## 4. Open questions
+## 4. Decided questions
 
-- **Q1 — how the workspace is deleted.** Upstream: `rm -rf <workspace>`, forbidden by
-  `CONVENTIONS`. (a) delete by name: the ledger, briefs, reports and review packages are listed
-  and removed one by one, then the empty directory; (b) move into the shared restorable trash —
-  needs a trash CLI that takes a path, which the bundle does not ship today.
-- **Q2 — tightly coupled tasks.** 009's "one agent for the whole chain" vs upstream's "manual
-  execution or brainstorm first": keep ours as a row in SDD's "when to use", or drop it.
-- **Q3 — merge 012→008 and 013→009.** Removes two delta files; numbering keeps gaps.
+- **Q1 — workspace deletion: by name.** Upstream's `rm -rf <workspace>` is replaced in SDD and
+  `executing-plans`: list the workspace's files (ledger, briefs, reports, review packages,
+  owner marker), delete each by name, then the empty directory.
+- **Q2 — tightly coupled tasks: keep.** SDD's "when to use" gets one row: tightly coupled tasks
+  → one agent given the whole chain.
+- **Q3 — merge: yes.** 012 folds into 008, 013 into 009; their files are removed. Numbering
+  keeps the gaps.
 
 ## 5. Verification
 
