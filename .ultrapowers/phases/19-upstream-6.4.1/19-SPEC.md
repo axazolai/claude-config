@@ -123,3 +123,19 @@ a run shows is reported by name; test cadence, scope and tiers from `CONVENTIONS
   prose; no `~/.superpowers/` path.
 - Installer: tests for the mode resolution (absent → test-after), the command's write and GSD
   sync, the session note; full suite green.
+
+## 7. Removal of token-usage collection
+
+Added 2026-09-23 on the partner's request. The bundle stops recording token/cost usage.
+
+- Removed: `payload/hooks/token-usage-log.mjs` (SubagentStop + Stop), `payload/hooks/lib/token-usage-prune.mjs`,
+  `payload/hooks/lib/token-usage-pricing-refresh.mjs`, `payload/skills/token-usage/`, both hook
+  entries in `settings.partial.json`, the pruning block and import in `session-init.mjs`, README
+  sections and env toggles (`CLAUDE_TOKEN_USAGE_*`), the "token logs" mention in `07-conventions.md`.
+- Kept, renamed: the four helpers `precompact-observe.mjs` uses (`safe`, `readJSON`, `writeFile`,
+  `readJSONLRecords`) move from `token-usage-shared.mjs` to `payload/hooks/lib/jsonl-io.mjs`.
+- `setup.mjs` keeps a retired-hook list (`token-usage-log.mjs`) so the live `settings.json` loses
+  the stale entries on the next deploy; the payload files themselves leave through the manifest
+  prune.
+- Machine data (`~/.claude/state/token-usage*.json*`, per-project `.claude/token-usage.jsonl`) is
+  not deleted by the installer; the partner decides.

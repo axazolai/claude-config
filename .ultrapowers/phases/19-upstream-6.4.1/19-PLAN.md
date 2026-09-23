@@ -272,3 +272,14 @@ export function resolveTddMode(root) {
 - ROADMAP gains phase 19; merge `--no-ff` on the partner's word.
 - Ask before: pushing the fork (`patch`, `main`, `+original`, tag `upstream/6.4.1`),
   `claude plugin update`, deploy.
+
+### Task 9c: Installer — remove token-usage collection (spec § 7)
+
+**Acceptance:**
+- A deploy over a `settings.json` holding `token-usage-log.mjs` entries removes them and keeps
+  every other hook entry.
+- `precompact-observe.mjs` behaves as before, importing from `jsonl-io.mjs`.
+- `grep -rn "token-usage" payload settings.partial.json setup.mjs` finds only the retired-hook
+  list.
+
+- [ ] Step 1 implement · Step 2 reconcile · Step 3 bug log · Step 4 tests · Step 5 run · Step 6 commit.
