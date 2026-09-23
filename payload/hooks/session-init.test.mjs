@@ -91,3 +91,13 @@ test("@important a second session does not re-append the scratchpad line", () =>
   assert.equal(gitignoreAt(root).match(/^\.scratchpad\/$/gm).length, 1);
   rmSync(base, { recursive: true, force: true });
 });
+
+test("@important the session context names the project's testing mode", () => {
+  const { base, root } = withProject([]);
+  const ctx = (out) => JSON.parse(out).hookSpecificOutput.additionalContext;
+  assert.match(ctx(run(base, root)), /Testing mode: test-after /);
+  mkdirSync(join(root, ".claude"), { recursive: true });
+  writeFileSync(join(root, ".claude", "ultrapowers.json"), '{ "tdd": true }');
+  assert.match(ctx(run(base, root)), /Testing mode: tdd /);
+  rmSync(base, { recursive: true, force: true });
+});

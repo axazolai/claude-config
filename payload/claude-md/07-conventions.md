@@ -4,15 +4,20 @@
   alternative was rejected, what was tried first, or why something is absent. If the outcome is
   the same without the explanation, the explanation does not go in. This binds every file an AI
   reads as instruction — `CLAUDE.md`, `rules-src/`, skills, agent definitions, config comments.
-- Test timing: code first. Tests are written when a unit of work (what one review covers — a
-  plan task under per-task review, otherwise the whole change) stands as a working whole, before
-  its review, and only to confirm behaviour the spec or plan states. A decision made during the
-  work that changed behaviour, scope or an interface goes into the spec/plan first; the tests
-  follow the updated text.
+- Testing mode: each project is `tdd` or `test-after` — `.claude/ultrapowers.json` `"tdd": true`
+  means `tdd`; no file or any other value means `test-after`. `/ultrapowers-tdd enable|disable`
+  switches it; the user decides, never you. The session-start note names the current mode.
+  - `tdd`: write the failing test first, watch it fail, then the code (RED → GREEN → REFACTOR);
+    the scenario list is written before the code.
+  - `test-after`: code first. Tests are written when a unit of work (what one review covers — a
+    plan task under per-task review, otherwise the whole change) stands as a working whole,
+    before its review, and only to confirm behaviour the spec or plan states.
+  - Both modes: a decision made during the work that changed behaviour, scope or an interface
+    goes into the spec/plan first; the tests follow the updated text.
 - Bug log: a bug found during the work that does not block the next step goes to the bug log
   and the work continues; a blocking bug is fixed at once. Entry: `BUG-NNN`, date, where,
-  symptom, reproduction, unit of work, status `Open`/`Fixed`. Before writing a unit's tests, fix
-  its open entries; at the end of the work, before the final review, fix the rest. An entry
+  symptom, reproduction, unit of work, status `Open`/`Fixed`. Before a unit's review, fix its
+  open entries; at the end of the work, before the final review, fix the rest. An entry
   outside the work's scope is listed to the user instead of fixed. Fixed entries stay,
   compressed to a line.
 - Test cadence: never run tests per edit. Run them only at a completion boundary (the change

@@ -38,6 +38,7 @@ import { join, resolve, dirname, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawnSync, spawn } from "./lib/spawn-hidden.mjs";
 import { resolveDial } from "./lib/leanmode-rules.mjs";
+import { resolveTddMode } from "./lib/tdd-mode.mjs";
 import { updateJsonFile } from "./lib/atomic-json.mjs";
 import { formatUpdateNotes } from "./lib/component-registry.mjs";
 const CLAUDE_DIR = process.env.CLAUDE_CONFIG_DIR || join(homedir(), ".claude");
@@ -289,6 +290,8 @@ if (process.env.CLAUDE_LEANMODE !== "0" && resolveDial(root) !== "off") {
     "already narrates that dispatch; a standalone one-line announcement only when nothing " +
     "else narrates the launch. Skip entirely when the resolved level is off.");
 }
+
+notes.push(`Testing mode: ${resolveTddMode(root)} (.claude/ultrapowers.json; /ultrapowers-tdd enable|disable).`);
 
 // ---- GSD /init-stack settings gap check -> suggest /init-stack ----
 // A HINT only - never installs/edits anything itself. The interactive

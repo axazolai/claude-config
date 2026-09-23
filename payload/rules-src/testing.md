@@ -72,7 +72,19 @@ Otherwise, run after every `git push`, in this order:
 5. Re-run the surviving suite — a deletion can take a shared fixture with it.
 6. Commit the prune on its own.
 
-## When tests are written — after the code, before review
+## When tests are written — the project's testing mode
+- The mode is `tdd` when `.claude/ultrapowers.json` has `"tdd": true`, `test-after` otherwise
+  (`CONVENTIONS` → testing mode). Follow the section for the current mode.
+
+### tdd mode
+- TDD is the default for code with real behavior: services, guards/pipes, business logic,
+  API contracts. Write the test first, then the code — tagged or not, it earns its keep before
+  the push.
+- RED confirmation batches with the boundary run: a test never observed failing is checked
+  against the pre-change code before the work is called done.
+- A bug fix needs a regression test that fails before the fix and passes after.
+
+### test-after mode
 - Code first. Tests are written once a unit of work stands as a working whole and before it goes
   to review. A unit of work is what one review covers: a plan task under per-task review,
   otherwise the whole change.
@@ -91,6 +103,11 @@ Otherwise, run after every `git push`, in this order:
 - A fixed bug gets a test only when it broke behaviour the spec states; that behaviour's test is
   the regression test. A standalone bug fix with no spec takes the report's expected behaviour as
   its spec: one test, after the fix.
+
+### Both modes
+- A decision that changed behaviour, scope or an interface goes into the spec/plan before the
+  tests that cover it; the bug log applies (`CONVENTIONS` → bug log).
+- Any failure a run shows, including one you did not cause, is reported by name.
 - Exceptions (covered by the e2e/integration test of the behavior they enable, not a
   dedicated unit test on themselves): pure wiring/config (DI providers/module registration,
   Dockerfile, docker-compose.yml), trivial DTO mappers, pure getters/passthroughs with no
@@ -111,9 +128,13 @@ Otherwise, run after every `git push`, in this order:
 - The check: rewrite the implementation without changing what it delivers, and every test still
   passes untouched. A test that has to change was testing the code, not the logic.
 
-## Choosing what to test — the spec's list
-- The scenario list is the spec's or plan's acceptance list: one line per behaviour, naming the
-  input class and the expected result. The plan carries it; no test is designed before the code.
+## Choosing what to test
+- `tdd`: write the scenario list first — one line per behaviour, naming the input class and the
+  expected result. Trim it, then implement it. State the plan in the reply; wait for approval
+  only when it runs past a dozen lines.
+- `test-after`: the scenario list is the spec's or plan's acceptance list, one line per
+  behaviour; no test is designed before the code.
+- Both: a plan's Review Focus lines belong to the owning task's list.
 - Pick inputs by equivalence partitioning: split the input domain into classes the code treats
   identically, take ONE representative per class. A second example from a covered class is a
   duplicate, not a test.
@@ -148,7 +169,8 @@ Otherwise, run after every `git push`, in this order:
   and it fails on a machine nobody changed. Pass the clock in from the test. When a suite
   already has such fixtures, the fix is the injection point, not a fresher date.
 - Prefer real objects/fixtures over mocks when cheap; mock only true external boundaries.
-- Cover the failure paths and edge cases the spec states, not just the happy path.
+- Cover failure paths and edge cases, not just the happy path — in test-after mode, the ones the
+  spec states.
 - Snapshot tests are for stable rendering/serialization output, never for business-logic
   assertions — a snapshot that always auto-updates is not a test.
 - Coverage % is a smell detector, not a goal — 100% coverage of untested behavior is worse
