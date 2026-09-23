@@ -1,7 +1,7 @@
 ---
 updated: 2026-09-23
-current: "19"
-deployed_through: "18"
+current: null
+deployed_through: "19"
 phases:
   - { phase: "01", slug: graphify-neo4j, status: complete, delivery: merged }
   - { phase: "02", slug: ai-development-mode, status: complete, delivery: merged }
@@ -20,16 +20,17 @@ phases:
   - { phase: "15", slug: claude-code-changelog-tracking, status: complete, delivery: merged }
   - { phase: "16", slug: scratch-prune, status: complete, delivery: merged }
   - { phase: "18", slug: test-after-coverage, status: complete, delivery: merged }
-  - { phase: "19", slug: upstream-6.4.1, status: running, delivery: branch }
+  - { phase: "19", slug: upstream-6.4.1, status: complete, delivery: merged }
 ---
 
 # Roadmap
 
-Phase 19 (`upstream-6.4.1`) is running on `feat/upstream-6.4.1` (2026-09-23): the fork rebased
-onto upstream 6.4.1 (`6.4.1-up.1`, 13 deltas, built locally, not pushed); a per-project testing
+Phase 19 (`upstream-6.4.1`) — complete: merged (`7282b58`, together with the Opus 5.5 model
+policy from `feat/opus-5-5-policy`) and deployed 2026-09-23. The fork rebased onto upstream 6.4.1
+(`6.4.1-up.1`, 13 deltas); a per-project testing
 mode `/ultrapowers-tdd enable|disable` (tdd | test-after, default test-after) in the installer and
 in every fork skill; token-usage collection removed; `up-update` resets the revision on a new
-base and force-pushes only `original` (BUG-001). Final review pending. Spec and plan in
+base and force-pushes only `original` (BUG-001). Final review: 3 Important + 12 Minor, all fixed. Spec and plan in
 `phases/19-upstream-6.4.1/`.
 
 Phase 18 (`test-after-coverage`) — closed: merged (`8aaf5db`) and deployed 2026-09-23, fork
