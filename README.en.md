@@ -184,12 +184,12 @@ inherits `base` through `extends`; `exclude` wins over `include`).
   - exactly one plugin, `context-mode`. `ultrapowers` **ships to disk but is not enabled**
     (`variants.json → keepInstalled`), so bringing it back is one command rather than a
     reinstall from the marketplace;
-  - exactly 8 hooks: `secrets-gate`, `deny-curated-claude-md`, `protected-guard`,
+  - exactly 7 hooks: `secrets-gate`, `deny-curated-claude-md`, `protected-guard`,
     `decision-records-nudge`, `inject-axes`,
-    `precompact-observe`, `token-usage-log`, `session-init` (the last one still runs, but skips
+    `precompact-observe`, `session-init` (the last one still runs, but skips
     every GSD-specific step — see the callout in "Project auto-init" below);
-  - `leanmode`; three "lazy" skills
-    (`model-selection-policy`, `token-usage`, `update-changelog`);
+  - `leanmode`; two "lazy" skills
+    (`model-selection-policy`, `update-changelog`);
   - its own `/init-stack` — stack detection + assembling `.claude/stack-rules.md` only, no
     Python/plugin machinery (see the callout in "Initial setup" above);
   - its own `rules-src/README.md` (no GSD specifics) and its own `model-selection-policy`, both
@@ -420,7 +420,6 @@ installed.
     pnpm-phantom-fix-hook.mjs            # PostToolUse: phantom-dependency scan after an install
     inject-axes.mjs                      # SessionStart + SubagentStart: rule-axis injector (see below)
     session-init.mjs                     # SessionStart: project bootstrap
-    token-usage-log.mjs                  # SubagentStop + Stop — token/$ spend log in JSONL
     precompact-observe.mjs               # PreCompact — records where automatic compaction fired
     statusline.mjs                       # statusLine.command — the status line renderer
     lib/
@@ -440,9 +439,8 @@ installed.
       stack-rules-check.mjs              # compares the stack-rules snapshot's markers vs the tree (+ CLI)
       statusline-lib.mjs, phase-segment.mjs, context-severity.mjs, autocompact.mjs # status-line segments
       state-lock.mjs, atomic-json.mjs    # concurrency-safe state-file writes
-      token-usage-shared.mjs             # shared helpers (findRoot, JSONL read/append, cursor)
-      token-usage-prune.mjs              # global log retention (3mo / last-but-one day / min 10)
-      token-usage-pricing-refresh.mjs    # bg. scrape of the pricing table once a day
+      jsonl-io.mjs                       # JSONL/JSON helpers for precompact-observe
+      tdd-mode.mjs                       # the project's testing mode (tdd | test-after), write + GSD sync
       mark-initstack-done.mjs            # called from /init-stack; sets initStackRun in project-init.json
   bin/
     init-stack.mjs                       # stack detection + the plugin checklist (the /init-stack engine)
@@ -454,6 +452,7 @@ installed.
     pnpm-phantom-scan.mjs, pnpm-phantom-fix-install.mjs, turbopack-gvs-check.mjs # pnpm/Turbopack
     risks.mjs, adr.mjs, glossary.mjs     # decision-record CLIs (behind decision-records-nudge)
     up-update.mjs                        # checks/rebuilds the ultrapowers fork (the /up-update engine)
+    ultrapowers-tdd.mjs                  # CLI behind /ultrapowers-tdd: show/switch the testing mode
     lib/                                 # libraries for the above (stack-markers, design-stack,
                                           #   assemble-claude-md, claude-cleanup-lib, …)
   agents/
@@ -465,6 +464,7 @@ installed.
     init-session.md                      # /init-session — apply pending gsd-*.md agent patches
     init-mcp.md                          # /init-mcp — wire up the project's MCP servers
     leanmode.md                          # /leanmode — interactive/--flag, sets the project-level dial
+    ultrapowers-tdd.md                   # /ultrapowers-tdd enable|disable — the project's testing mode
     aidev.md                             # /aidev — the verbosity dial (comment/whitespace terseness)
     claude-cleanup.md                    # /claude-cleanup — ~/.claude cleanup with restorable trash
     pnpm-phantom-fix.md                  # /pnpm-phantom-fix — pnpm phantom dependencies
@@ -472,7 +472,6 @@ installed.
   skills/
     using-git-worktrees/SKILL.md         # no-op stub for Ultrapowers' worktree skill
     verification-before-completion/SKILL.md # no-op shadow: Opus 5 verifies its own work
-    token-usage/SKILL.md                 # /token-usage — token spend log summary
     update-changelog/SKILL.md            # /update-changelog — git history → changelog.json (RU entries)
     model-selection-policy/SKILL.md      # model routing + the effort ladder, split out of CLAUDE.md
     scratch-prune/SKILL.md               # /scratch-prune — prune <project>/.claude/.scratchpad/tmp/ (user-invoked)
@@ -482,7 +481,6 @@ installed.
   references/gsd-claude-orchestration-pilot.md # reference material (not shipped in base/lite)
   state/project-init.json                # created at runtime; list of already-initialized projects
                                           #   (+ initStackRun per project root — set by /init-stack)
-  state/token-usage.jsonl                # created at runtime; global token spend log
   state/model-pricing.json               # created at runtime; pricing table (refreshed once a day)
   state/component-updates.json           # created at runtime; component update verdicts
 ```
@@ -697,12 +695,6 @@ see "Bundle variants" above:
   suggestion to run `/init-stack` to `additionalContext` — generating the snapshot is now one
   of that command's own steps. Mechanism details — the "Stack rules (stack-rules)" section
   below. Toggle: `CLAUDE_STACK_RULES=0`.
-- **prunes the global token-usage log** (`~/.claude/state/token-usage.jsonl`) — calls
-  `pruneGlobalLogIfDue()` from `hooks/lib/token-usage-prune.mjs`. The function throttles itself
-  to once/24h (its own state file), so an actual sweep doesn't happen every session. Moved here
-  2026-07-13: it used to run from `token-usage-log.mjs` on `SubagentStop`/`Stop` — retention is
-  a session-start concern, not a per-log-write one. Toggle: `CLAUDE_TOKEN_USAGE_PRUNE=0`
-  (checked inside the function itself).
 
 Toggles (environment variables the hook reads):
 
@@ -711,7 +703,6 @@ CLAUDE_CURATED_AUTOMARK_ROOT=0   # don't auto-mark the root (show a hint instead
 CLAUDE_CURATED_AUTOINIT=0        # disable auto-init entirely
 CLAUDE_MCP_SUGGEST=0             # don't suggest /init-mcp on a git/DB signal
 CLAUDE_STACK_RULES=0             # don't check for the stack-rules snapshot (see the section below)
-CLAUDE_TOKEN_USAGE_PRUNE=0       # don't prune the global token-usage log
 ```
 
 Reset a specific project's state (to re-run it) — delete its entry from
@@ -886,31 +877,6 @@ distribution); risks — `RISK-STACKRULES-001/002` in `.ultrapowers/RISK_REGISTE
   snapshot existence check — a plain `existsSync`; `hooks/lib/stack-rules-check.mjs` is not
   called here (it runs inside `/init-stack`). See the "Stack rules (stack-rules)" section
   above. Toggle: `CLAUDE_STACK_RULES=0`.
-- **token-usage-log.mjs** (`SubagentStop` + `Stop`) + **hooks/lib/token-usage-shared.mjs**,
-  **hooks/lib/token-usage-pricing-refresh.mjs**. After every sub-agent completion and after
-  every main-agent turn, appends a line (JSONL) with task/agent/model/tokens/date/cost estimate
-  to **both** logs — `<project>/.claude/token-usage.jsonl` (kept forever, never pruned) and
-  `~/.claude/state/token-usage.jsonl` (cross-project). This hook only appends — retention for
-  the global log (**hooks/lib/token-usage-prune.mjs**: a union of no older than 3 calendar
-  months from the last entry / the last-but-one day of activity / a minimum of 10 entries) runs
-  FROM SessionStart (see above), not from here — moved 2026-07-13. Sub-agent logging originally
-  relied on a second `PostToolUse:Agent` call with
-  `status:"completed"` — a 2026-07-10 investigation found that event never arrives (every Agent
-  call, backgrounded or not, reports `"async_launched"` and `PostToolUse:Agent` never fires
-  again for it), so no `kind:"subagent"` record was ever written. Replaced with `SubagentStop`:
-  data comes from `agent_transcript_path` (a transcript file dedicated to that one sub-agent)
-  via a saved byte cursor keyed **per agent_id** (not per session — the same agent can
-  `SubagentStop` more than once if resumed via `SendMessage`); for the main turn — from
-  `transcript_path` via a saved byte cursor keyed per session (a known caveat: the transcript
-  can lag slightly on write, so in rare cases the turn's last API call is only counted on the
-  next `Stop`). The `cost_usd` estimate is best-effort, from the
-  `~/.claude/state/model-pricing.json` pricing table, which refreshes itself once a day by
-  scraping the public pricing page (there's no official pricing API — see
-  `RISK-TOKENLOG-001`). To view aggregates — the `/token-usage` skill (`--global` for the
-  cross-project log, `--week`/`--month`/`--all` for the period; defaults to the current project
-  over the last 24h). Toggles: `CLAUDE_TOKEN_USAGE_LOG=0` (disable entirely),
-  `CLAUDE_TOKEN_USAGE_COST=0` (no cost estimate and no background price refresh),
-  `CLAUDE_TOKEN_USAGE_PRUNE=0` (don't prune the global log).
 - **inject-axes.mjs** (`SessionStart` + `SubagentStart`) + **hooks/lib/inject-axes.mjs** — the
   universal rule injector. There is no matcher in `settings.json`: the hook receives the whole
   event and resolves every **axis** in the `AXES` registry independently, and only the blocks

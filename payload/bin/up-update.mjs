@@ -102,6 +102,16 @@ function trackedChangedPct(dir, oldTree, newTree, manifest) {
   return { changedPct: Math.round((hits.length / tracked.size) * 100), trackedChanged: hits };
 }
 
+// `original` is re-created as a parentless commit per upstream release, so its push is forced;
+// `patch` and `main` only ever move forward.
+export const PUBLISH_REFS = ["patch", "main", "+original"];
+
+export function rebaseConfig(cfg, newTag, newTree) {
+  const next = { ...cfg, originalTag: newTag, originalTree: newTree };
+  if (cfg.originalTag !== newTag && next.version) next.version = { ...next.version, revision: 1 };
+  return next;
+}
+
 export async function update(argv = [], fetchers = realFetchers) {
   const repo = resolveRepo(argv);
   const publish = argv.includes("--publish");
@@ -148,9 +158,7 @@ export async function update(argv = [], fetchers = realFetchers) {
     const cfgPath = join(temp, "transform", "config.json");
     const cfg = JSON.parse(readFileSync(cfgPath, "utf8"));
     const oldTree = cfg.originalTree;
-    cfg.originalTag = newTag;
-    cfg.originalTree = newTree;
-    writeFileSync(cfgPath, JSON.stringify(cfg, null, 2) + "\n", "utf8");
+    writeFileSync(cfgPath, JSON.stringify(rebaseConfig(cfg, newTag, newTree), null, 2) + "\n", "utf8");
 
     const after = facts(temp);
     const upstreamDiff = trackedChangedPct(temp, oldTree, newTree, JSON.parse(readFileSync(join(temp, "transform", "inventory.json"), "utf8")).manifest);
@@ -176,7 +184,7 @@ export async function update(argv = [], fetchers = realFetchers) {
       console.log(`  Working clone kept for inspection: ${temp}`);
       return 0;
     }
-    run("git", ["-C", temp, "push", "--quiet", "origin", "patch", "main", "original"]);
+    run("git", ["-C", temp, "push", "--quiet", "origin", ...PUBLISH_REFS]);
     run("git", ["-C", temp, "push", "--quiet", "origin", newTag]);
     console.log(`\n  published. The plugin is NOT deployed by this - run /plugin update on each machine.`);
     return 0;

@@ -6,7 +6,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
-import { safe, readJSON, writeFile, readJSONLRecords } from "./lib/token-usage-shared.mjs";
+import { safe, readJSON, writeFile, readJSONLRecords } from "./lib/jsonl-io.mjs";
 import { observationFrom } from "./lib/autocompact.mjs";
 
 const CLAUDE_DIR = process.env.CLAUDE_CONFIG_DIR || join(homedir(), ".claude");

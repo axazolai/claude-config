@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { join, dirname, relative } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { spawnSync, spawn } from "node:child_process";
+import { createHash } from "node:crypto";
 
 const ROOT = dirname(fileURLToPath(import.meta.url));
 const run = (dir, args) => spawnSync(process.execPath, [join(ROOT, "setup.mjs"), ...args],
@@ -91,6 +92,38 @@ test("@critical a hand-set statusLine survives a base install", () => {
     JSON.stringify({ statusLine: { type: "command", command: "echo mine" } }, null, 2) + "\n");
   assert.equal(run(dir, ["--variant=base", "--merge-all"]).status, 0);
   assert.equal(JSON.parse(readFileSync(join(dir, "settings.json"), "utf8")).statusLine.command, "echo mine");
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test("@critical retired token-usage files are pruned even though their basenames recur in the bundle", () => {
+  const dir = mkdtempSync(join(tmpdir(), "cc-retired-files-"));
+  assert.equal(run(dir, ["--variant=base", "--merge-all"]).status, 0);
+  const planted = ["skills/token-usage/SKILL.md", "skills/token-usage/scripts/report.mjs", "hooks/token-usage-log.mjs"];
+  const manifest = readManifest(dir);
+  for (const rel of planted) {
+    const text = `// ${rel}\n`;
+    mkdirSync(dirname(join(dir, rel)), { recursive: true });
+    writeFileSync(join(dir, rel), text);
+    manifest.files.push({ rel, hash: createHash("sha256").update(text).digest("hex") });
+  }
+  writeFileSync(join(dir, "state/bundle-manifest.json"), JSON.stringify(manifest, null, 2));
+  assert.equal(run(dir, ["--variant=base", "--merge-all"]).status, 0);
+  for (const rel of planted) assert.equal(existsSync(join(dir, rel)), false, rel);
+  assert.equal(existsSync(join(dir, "skills/token-usage")), false);
+  assert.equal(existsSync(join(dir, "skills")), true);
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test("@critical a retired hook's entries leave settings.json while the user's own hooks stay", () => {
+  const dir = mkdtempSync(join(tmpdir(), "cc-retired-hook-"));
+  const retired = { hooks: [{ type: "command", command: "node", args: [join(dir, "hooks", "token-usage-log.mjs")] }] };
+  const mine = { hooks: [{ type: "command", command: "echo mine-stop" }] };
+  writeFileSync(join(dir, "settings.json"),
+    JSON.stringify({ hooks: { Stop: [retired, mine], SubagentStop: [retired] } }, null, 2) + "\n");
+  assert.equal(run(dir, ["--variant=base", "--merge-all"]).status, 0);
+  const hooks = JSON.parse(readFileSync(join(dir, "settings.json"), "utf8")).hooks;
+  assert.doesNotMatch(JSON.stringify(hooks), /token-usage-log/);
+  assert.deepEqual(hooks.Stop, [mine]);
   rmSync(dir, { recursive: true, force: true });
 });
 

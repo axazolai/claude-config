@@ -177,12 +177,12 @@ notepad bootstrap.ps1; .\bootstrap.ps1
   - плагин ровно один — `context-mode`. `ultrapowers` в lite **ставится на диск, но не
     включается** (`variants.json → keepInstalled`), поэтому вернуть его — одна команда, а не
     переустановка из маркетплейса;
-  - ровно 8 хуков: `secrets-gate`, `deny-curated-claude-md`, `protected-guard`,
+  - ровно 7 хуков: `secrets-gate`, `deny-curated-claude-md`, `protected-guard`,
     `decision-records-nudge`, `inject-axes`,
-    `precompact-observe`, `token-usage-log`, `session-init` (последний работает, но пропускает все
+    `precompact-observe`, `session-init` (последний работает, но пропускает все
     GSD-специфичные шаги — см. врезку в «Авто-инициализация проектов» ниже);
-  - `leanmode`; три «ленивых» скилла
-    (`model-selection-policy`, `token-usage`, `update-changelog`);
+  - `leanmode`; два «ленивых» скилла
+    (`model-selection-policy`, `update-changelog`);
   - свой `/init-stack` — только детект стека + сборка `.claude/stack-rules.md`, без
     python/plugin-machinery (см. врезку в «Первичная настройка» выше);
   - своя версия `rules-src/README.md` (без GSD-специфики) и свой `model-selection-policy` —
@@ -407,7 +407,6 @@ Claude Code. Живёт в [`axazolai/ultrapowers`](https://github.com/axazolai/
     pnpm-phantom-fix-hook.mjs            # PostToolUse: скан фантомных зависимостей после install
     inject-axes.mjs                      # SessionStart + SubagentStart: инжектор осей правил (см. ниже)
     session-init.mjs                     # SessionStart: бутстрап проекта
-    token-usage-log.mjs                  # SubagentStop + Stop — лог расхода токенов/$ в JSONL
     precompact-observe.mjs               # PreCompact — записывает, где реально сработала автокомпакция
     statusline.mjs                       # statusLine.command — рендерер строки статуса
     lib/
@@ -427,9 +426,8 @@ Claude Code. Живёт в [`axazolai/ultrapowers`](https://github.com/axazolai/
       stack-rules-check.mjs              # сверка markers снапшота stack-rules с деревом (+ CLI)
       statusline-lib.mjs, phase-segment.mjs, context-severity.mjs, autocompact.mjs # сегменты строки статуса
       state-lock.mjs, atomic-json.mjs    # конкурентно-безопасная запись state-файлов
-      token-usage-shared.mjs             # общие хелперы (findRoot, JSONL read/append, cursor)
-      token-usage-prune.mjs              # ретеншен глобального лога (3мес / предпоследние сутки / min 10)
-      token-usage-pricing-refresh.mjs    # фон. скрейпинг таблицы цен раз в сутки
+      jsonl-io.mjs                       # JSONL/JSON-хелперы для precompact-observe
+      tdd-mode.mjs                       # режим тестирования проекта (tdd | test-after), запись + синк GSD
       mark-initstack-done.mjs            # зовётся из /init-stack; ставит initStackRun в project-init.json
   bin/
     init-stack.mjs                       # детект стека + плагиновый чек-лист (движок /init-stack)
@@ -441,6 +439,7 @@ Claude Code. Живёт в [`axazolai/ultrapowers`](https://github.com/axazolai/
     pnpm-phantom-scan.mjs, pnpm-phantom-fix-install.mjs, turbopack-gvs-check.mjs # pnpm/Turbopack
     risks.mjs, adr.mjs, glossary.mjs     # CLI решенческих записей (за ними — decision-records-nudge)
     up-update.mjs                        # проверка/пересборка форка ultrapowers (движок /up-update)
+    ultrapowers-tdd.mjs                  # CLI для /ultrapowers-tdd: показать/переключить режим тестирования
     lib/                                 # библиотеки перечисленного выше (stack-markers, design-stack,
                                           #   assemble-claude-md, claude-cleanup-lib, …)
   agents/
@@ -452,6 +451,7 @@ Claude Code. Живёт в [`axazolai/ultrapowers`](https://github.com/axazolai/
     init-session.md                      # /init-session — применить отложенные патчи gsd-*.md агентов
     init-mcp.md                          # /init-mcp — подключение MCP-серверов проекта
     leanmode.md                          # /leanmode — интерактив/--флаг, ставит project-level dial
+    ultrapowers-tdd.md                   # /ultrapowers-tdd enable|disable — режим тестирования проекта
     aidev.md                             # /aidev — диал verbosity (терсность комментариев/пустот)
     claude-cleanup.md                    # /claude-cleanup — уборка ~/.claude с обратимой корзиной
     pnpm-phantom-fix.md                  # /pnpm-phantom-fix — фантомные зависимости pnpm
@@ -459,7 +459,6 @@ Claude Code. Живёт в [`axazolai/ultrapowers`](https://github.com/axazolai/
   skills/
     using-git-worktrees/SKILL.md         # no-op заглушка worktree-скилла Ultrapowers
     verification-before-completion/SKILL.md # no-op тень: Opus 5 проверяет себя сам
-    token-usage/SKILL.md                 # /token-usage — сводка по логу расхода токенов
     update-changelog/SKILL.md            # /update-changelog — git-история → changelog.json (RU-записи)
     model-selection-policy/SKILL.md      # routing моделей + effort-лестница, вынесен из CLAUDE.md
     scratch-prune/SKILL.md               # /scratch-prune — чистка <проект>/.claude/.scratchpad/tmp/ (по вызову)
@@ -469,7 +468,6 @@ Claude Code. Живёт в [`axazolai/ultrapowers`](https://github.com/axazolai/
   references/gsd-claude-orchestration-pilot.md # справочный материал (не ставится в base/lite)
   state/project-init.json                # создаётся в рантайме; список уже инициализированных проектов
                                           #   (+ initStackRun на project root — ставит /init-stack)
-  state/token-usage.jsonl                # создаётся в рантайме; глобальный лог расхода токенов
   state/model-pricing.json               # создаётся в рантайме; таблица цен (обновляется раз в сутки)
   state/component-updates.json           # создаётся в рантайме; вердикты проверки обновлений
 ```
@@ -687,12 +685,6 @@ node setup.mjs --uninstall-gsd # base/lite: убрать чужой gsd-core в 
   `additionalContext` предложение запустить `/init-stack`; генерация снапшота теперь входит в
   шаги самой этой команды. Подробности механизма — раздел «Правила стека (stack-rules)» ниже.
   Тумблер: `CLAUDE_STACK_RULES=0`.
-- **чистит глобальный лог token-usage** (`~/.claude/state/token-usage.jsonl`) — вызывает
-  `pruneGlobalLogIfDue()` из `hooks/lib/token-usage-prune.mjs`. Функция сама тротлит себя раз в
-  24 часа (свой state-файл), так что реальный проход по логу происходит не на каждой сессии.
-  Перенесено сюда 2026-07-13: раньше вызывалась из `token-usage-log.mjs` на `SubagentStop`/
-  `Stop` — ретеншен это забота старта сессии, а не каждого события записи лога. Тумблер:
-  `CLAUDE_TOKEN_USAGE_PRUNE=0` (проверяется внутри самой функции).
 
 Переключатели (переменные окружения, читает хук):
 
@@ -701,7 +693,6 @@ CLAUDE_CURATED_AUTOMARK_ROOT=0   # не авто-маркировать рут (
 CLAUDE_CURATED_AUTOINIT=0        # выключить авто-инициализацию целиком
 CLAUDE_MCP_SUGGEST=0             # не предлагать /init-mcp при детекте git/БД
 CLAUDE_STACK_RULES=0             # не проверять наличие снапшота stack-rules (см. раздел ниже)
-CLAUDE_TOKEN_USAGE_PRUNE=0       # не чистить глобальный лог token-usage
 ```
 
 Сбросить состояние конкретного проекта (чтобы прогнать заново) — удалить его запись из
@@ -878,34 +869,6 @@ README (источник истины — сами `rules-src/*.md` и их `REA
   снапшота stack-rules — только `existsSync`, `hooks/lib/stack-rules-check.mjs` тут не
   вызывается (он работает в `/init-stack`). См. раздел «Правила стека (stack-rules)» выше.
   Тумблер `CLAUDE_STACK_RULES=0`.
-- **token-usage-log.mjs** (`SubagentStop` + `Stop`) + **hooks/lib/token-usage-shared.mjs**,
-  **hooks/lib/token-usage-pricing-refresh.mjs**. После каждого завершения суб-агента и после
-  каждого хода основного агента дописывает строку (JSONL) с задачей/агентом/моделью/токенами/
-  датой/оценкой стоимости в **оба** лога — `<проект>/.claude/token-usage.jsonl` (хранится
-  вечно, не чистится) и `~/.claude/state/token-usage.jsonl` (кросс-проектный). Этот хук только
-  дописывает — ретеншен глобального лога (**hooks/lib/token-usage-prune.mjs**: union из не
-  старше 3 календарных месяцев от последней записи / предпоследние сутки активности / минимум
-  10 записей) запускается ИЗ SessionStart (см. выше), не отсюда — перенесено 2026-07-13.
-  Изначально суб-агент пытались логировать вторым `PostToolUse:Agent`-вызовом со
-  статусом `"completed"` — расследование 2026-07-10 показало, что это событие никогда не
-  приходит (каждый вызов Agent, фоновый или нет, репортит `"async_launched"` и больше
-  `PostToolUse:Agent` не срабатывает), из-за чего ни одной записи `kind:"subagent"` не писалось
-  вообще. Заменено на `SubagentStop`: данные берутся из `agent_transcript_path` (отдельный
-  транскрипт именно этого суб-агента) по сохранённому byte-курсору **на agent_id** (не на
-  сессию — один и тот же агент может дать `SubagentStop` больше одного раза, если его
-  резюмировали через `SendMessage`); для основного хода — из `transcript_path` по сохранённому
-  byte-курсору на сессию (известная оговорка: транскрипт может чуть отставать по записи, в
-  редком случае последний API-вызов хода досчитывается на следующем `Stop`). Оценка `cost_usd` — best-effort, по таблице цен
-  `~/.claude/state/model-pricing.json`, которая сама обновляется раз в сутки скрейпингом
-  публичной страницы цен (нет официального pricing API — см. `RISK-TOKENLOG-001`). Смотреть
-  агрегаты — скилл `/token-usage` (`--global` для кросс-проектного лога, `--5h`/`--week`/`--month`/`--all`
-  для периода; по умолчанию — текущий проект за последние 24ч). Каждая запись несёт маркер
-  `project` (basename корня проекта) — при `--global` после общего отчёта печатается тот же
-  отчёт (TOTAL + по дням/моделям/агентам + топ-5 задач) отдельно на каждый проект, по убыванию
-  токенов (старые записи без этого поля группируются как `non-project`). Тумблеры:
-  `CLAUDE_TOKEN_USAGE_LOG=0` (выключить целиком), `CLAUDE_TOKEN_USAGE_COST=0` (без оценки
-  стоимости и без фонового обновления цен), `CLAUDE_TOKEN_USAGE_PRUNE=0` (не чистить глобальный
-  лог).
 - **inject-axes.mjs** (`SessionStart` + `SubagentStart`) + **hooks/lib/inject-axes.mjs** —
   универсальный инжектор правил. В `settings.json` матчера нет: хук получает всё событие и сам
   резолвит каждую **ось** из реестра `AXES` независимо, а в `additionalContext` уходят только

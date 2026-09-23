@@ -5,12 +5,20 @@ import { migrateSettingsModel, migrateProjectModelConfig } from "./model-migrati
 
 // ---- migrateSettingsModel: tier-preserving, non-clobber ----
 
-test("@important superseded opus ids migrate to claude-opus-5", () => {
-  for (const id of ["claude-opus-4-8", "claude-opus-4-1", "claude-3-opus-20240229"]) {
+test("@important superseded opus ids migrate to claude-opus-5-5", () => {
+  for (const id of ["claude-opus-5", "claude-opus-5[1m]", "opus[1m]", "claude-opus-4-8", "claude-opus-4-1", "claude-3-opus-20240229"]) {
     const r = migrateSettingsModel(id);
     assert.equal(r.changed, true, `${id} should be flagged`);
-    assert.equal(r.value, "claude-opus-5");
+    assert.equal(r.value, "claude-opus-5-5");
     assert.equal(r.from, id);
+  }
+});
+
+test("@important current and later opus 5.x ids are not flagged by the claude-opus-5 entry", () => {
+  for (const id of ["claude-opus-5-5", "claude-opus-5-5[1m]", "claude-opus-5-6"]) {
+    const r = migrateSettingsModel(id);
+    assert.equal(r.changed, false, `${id} must not change`);
+    assert.equal(r.value, id);
   }
 });
 

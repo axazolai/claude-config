@@ -4,15 +4,21 @@
   alternative was rejected, what was tried first, or why something is absent. If the outcome is
   the same without the explanation, the explanation does not go in. This binds every file an AI
   reads as instruction — `CLAUDE.md`, `rules-src/`, skills, agent definitions, config comments.
-- Test timing: code first. Tests are written when a unit of work (what one review covers — a
-  plan task under per-task review, otherwise the whole change) stands as a working whole, before
-  its review, and only to confirm behaviour the spec or plan states. A decision made during the
-  work that changed behaviour, scope or an interface goes into the spec/plan first; the tests
-  follow the updated text.
+- Testing mode: each project is `tdd` or `test-after` — `.claude/ultrapowers.json` `"tdd": true`
+  means `tdd`; no file or any other value means `test-after`. `/ultrapowers-tdd enable|disable`
+  switches it; the user decides, never you. The session-start note names the current mode.
+  - `tdd`: write the failing test first, watch it fail, then the code (RED → GREEN → REFACTOR);
+    the scenario list is written before the code.
+  - `test-after`: code first. Tests are written when a unit of work (what one review covers — a
+    plan task under per-task review, otherwise the whole change) stands as a working whole,
+    before its review, and only to confirm behaviour the spec or plan states.
+  - Both modes: a decision made during the work that changed behaviour, scope or an interface
+    goes into the spec/plan first; the tests follow the updated text. A reviewer finding about
+    behaviour the spec is silent on goes to the user: into the spec, or rejected.
 - Bug log: a bug found during the work that does not block the next step goes to the bug log
   and the work continues; a blocking bug is fixed at once. Entry: `BUG-NNN`, date, where,
-  symptom, reproduction, unit of work, status `Open`/`Fixed`. Before writing a unit's tests, fix
-  its open entries; at the end of the work, before the final review, fix the rest. An entry
+  symptom, reproduction, unit of work, status `Open`/`Fixed`. Before a unit's review, fix its
+  open entries; at the end of the work, before the final review, fix the rest. An entry
   outside the work's scope is listed to the user instead of fixed. Fixed entries stay,
   compressed to a line.
 - Test cadence: never run tests per edit. Run them only at a completion boundary (the change
@@ -53,7 +59,7 @@
   goes to `<project>/.claude/.scratchpad/` outside `tmp/` and is deleted only by the per-path
   rule below. Never the home directory, `~/.claude`, or a system temp dir. Create or extend
   `.claude/.gitignore` before the first write. Durable user-scope state is out of scope and
-  does not move — the memory directory, `~/.claude/state/`, token logs, the bundle manifest.
+  does not move — the memory directory, `~/.claude/state/`, the bundle manifest.
 - At a completion boundary, delete the files this session wrote to `.claude/.scratchpad/tmp/`
   that the finished work no longer needs — name each; never touch the durable tier.
 - Never `rm -rf`. Delete by naming each path, after looking at what it holds; a glob, a mask or

@@ -798,7 +798,8 @@
 
 ### RISK-TOKENLOG-001 — Scraped model pricing can silently break
 
-- **Status:** Active
+- **Status:** Closed (2026-09-23) — token-usage collection and the pricing scraper removed in
+  phase 19; nothing reads or refreshes the pricing table any more.
 - **Context:** `hooks/lib/token-usage-pricing-refresh.mjs` estimates `cost_usd` in the
   token-usage log by scraping `docs.claude.com/en/docs/about-claude/pricing`'s HTML pricing
   table. There is no official Anthropic pricing API — this is regex-based HTML parsing against a

@@ -5,6 +5,7 @@
 // gsd-config-patch.mjs itself already uses for findRoot().
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
 import { join, dirname, resolve } from "node:path";
+import { resolveTddMode } from "./tdd-mode.mjs";
 
 const isObj = (x) => x && typeof x === "object" && !Array.isArray(x);
 
@@ -84,7 +85,9 @@ export function syncProjectConfig({ projectRoot, partial }) {
   if (cur === undefined || typeof cur !== "object" || cur === null)
     return { skipped: true, reason: "config.json unreadable or invalid JSON" };
   const before = JSON.stringify(cur, null, 2);
-  mergeReferenceWins(cur, partial);
+  const ref = JSON.parse(JSON.stringify(partial));
+  if (ref.workflow && "tdd_mode" in ref.workflow) ref.workflow.tdd_mode = resolveTddMode(projectRoot) === "tdd";
+  mergeReferenceWins(cur, ref);
   const after = JSON.stringify(cur, null, 2);
   if (before === after) return { path, changed: false };
   writeFileSync(path, after + "\n");

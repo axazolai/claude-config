@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { check, legalEntries } from "./up-update.mjs";
+import { check, legalEntries, rebaseConfig, PUBLISH_REFS } from "./up-update.mjs";
 
 const CONFIG = {
   attribution: {
@@ -74,4 +74,16 @@ test("@important legal entries carry both the verbatim rules and the asserted at
   const legal = legalEntries(CONFIG, INVENTORY);
   assert.deepEqual(legal.map((e) => e.path), ["LICENSE", "plugins/ultrapowers/README.md"]);
   for (const e of legal) assert.ok(e.reason && e.reason.length > 10);
+});
+
+test("@important a rebase onto a new upstream tag resets the revision to 1; the same tag keeps it", () => {
+  const cfg = { originalTag: "upstream/6.3.0", originalTree: "aaa", version: { revision: 6, $why: "w" }, protect: ["x"] };
+  const moved = rebaseConfig(cfg, "upstream/6.4.1", "bbb");
+  assert.deepEqual(moved, { originalTag: "upstream/6.4.1", originalTree: "bbb", version: { revision: 1, $why: "w" }, protect: ["x"] });
+  assert.equal(rebaseConfig(cfg, "upstream/6.3.0", "aaa").version.revision, 6);
+});
+
+test("@critical publishing force-pushes only original, never patch or main", () => {
+  assert.deepEqual(PUBLISH_REFS.filter((r) => r.startsWith("+")), ["+original"]);
+  assert.ok(PUBLISH_REFS.includes("patch") && PUBLISH_REFS.includes("main"));
 });

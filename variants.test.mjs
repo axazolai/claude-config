@@ -61,8 +61,7 @@ test("@important globToRe: * does not cross /, ** does", () => {
 // mentions "GSD" (it's the changelog-writer's own instruction to STRIP any mention of GSD from
 // user-facing release notes, e.g. SKILL.md's "of every trace of AI tooling, GSD, ..." and
 // "GSD scope/decision identifiers" sections), so a blanket skills/ scan would false-positive on
-// it forever. `skills/token-usage/**` has zero "gsd" occurrences (verified) and would pass either
-// way, but only `skills/model-selection-policy/**` is the one this test is actually guarding
+// it forever. Only `skills/model-selection-policy/**` is the one this test is actually guarding
 // (Fix 4: the lite overlay must not regress back to citing /gsd-execute-phase / /gsd-debug).
 const FIXTURE = { profiles: {
   full: { plugins: [] },
