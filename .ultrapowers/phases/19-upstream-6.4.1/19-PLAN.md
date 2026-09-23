@@ -167,22 +167,24 @@ directories belong to other plans; leave them alone.
 
 - [ ] Steps as Task 3.
 
-### Task 6: Rewrite and extend 014 (tests after the code)
+### Task 6: Rewrite 014 as two-mode (spec § 5)
 
 **Acceptance:**
-- Everything 014 carried on 6.3.0, re-applied over 6.4.1.
-- TDD skill: adds "any failure a run shows, including one you did not cause, goes in the
-  report by name"; test scope stays per the project's conventions.
-- writing-plans: "Review Focus" lines become `Acceptance:` lines of the owning task; check 4
-  reads accordingly.
-- code-reviewer: the "vision document" paragraph becomes — behaviour the spec is silent on is
-  reported under "Declined to judge / out of spec"; the executor lists those to the partner,
-  who puts each into the spec (then a test) or rejects it.
-- `executing-plans`: TDD load and RED→GREEN removed; per task — implement → reconcile → drain
-  this task's bug-log entries → acceptance tests → `task-done` runs them; final-review fixes —
-  reproduce → fix → a test only for stated behaviour → covering tests; bug-log drain before the
-  final review; the rationalization rows about watching tests fail replaced.
-- Built tree grep of spec § 5 clean.
+- Every skill 014 touches opens its testing instructions with the mode lookup: `.claude/ultrapowers.json`
+  `tdd` (absent → `test-after`), and gives both branches per the spec § 5 table.
+- TDD skill: upstream 6.4.1 text kept as the `tdd` branch; the test-after process of phase 18
+  added as the `test-after` branch; common part (bug log, spec first, failures reported by name,
+  test scope per the project's conventions). Description covers both.
+- writing-plans: two task templates (TDD steps / `Acceptance:` steps); Review Focus lines go into
+  the owning task's scenario/Acceptance list in both modes.
+- code-reviewer: behaviour the spec is silent on is reported under "Declined to judge / out of
+  spec"; the executor lists those to the partner (both modes).
+- SDD implementer/reviewer prompts: TDD Evidence in `tdd`, Acceptance coverage in `test-after`.
+- `executing-plans`: upstream TDD path kept for `tdd`; test-after path per phase 18; bug-log drain
+  before the final review in both.
+- systematic-debugging: failing test first in `tdd`, one-off reproduction in `test-after`; the
+  logged-not-blocking entry point in both.
+- Built tree: every TDD instruction under a `tdd` branch (spec § 6).
 
 - [ ] Steps as Task 3.
 
@@ -231,6 +233,37 @@ run("git", ["-C", temp, "push", "--quiet", "origin", "patch", "main", "+original
 
 - [ ] Step 1 implement · Step 2 reconcile · Step 3 drain BUG-001 · Step 4 tests for the two
   Acceptance lines · Step 5 run them + linter-free targeted run · Step 6 commit.
+
+### Task 9b: Installer — the TDD switch (spec § 5)
+
+**Files:** `payload/hooks/lib/tdd-mode.mjs` (+ test), `payload/commands/ultrapowers-tdd.md`,
+`payload/hooks/session-init.mjs`, `payload/hooks/lib/gsd-defaults-sync.mjs`,
+`payload/rules-src/testing.md`, `payload/claude-md/07-conventions.md`.
+
+Why this way: mirrors `/leanmode` (project JSON under `.claude/`, a SessionStart note), so the
+switch needs no new mechanism; the lib is the single reader for the hook, the command and the
+GSD sync.
+
+**Acceptance:**
+- `resolveTddMode(root)`: no file / no key / malformed → `test-after`; `{ "tdd": true }` → `tdd`.
+- `setTddMode(root, on)`: writes `.claude/ultrapowers.json` preserving other keys; with
+  `.planning/config.json` present sets `workflow.tdd_mode` to the same value, other fields kept.
+- session-init adds `Testing mode: <mode> (.claude/ultrapowers.json; /ultrapowers-tdd)`.
+- `syncProjectConfig` writes `workflow.tdd_mode` from the switch, not from the partial.
+- `testing.md` / `07-conventions.md`: both modes stated; the `tdd` branch restores the
+  pre-phase-18 test-first rules.
+
+```js
+export function resolveTddMode(root) {
+  try {
+    const j = JSON.parse(readFileSync(join(root, ".claude", "ultrapowers.json"), "utf8"));
+    return j.tdd === true ? "tdd" : "test-after";
+  } catch { return "test-after"; }
+}
+```
+
+- [ ] Step 1 implement · Step 2 reconcile · Step 3 bug log · Step 4 tests per Acceptance ·
+  Step 5 run · Step 6 commit.
 
 ### Task 10: Close
 

@@ -71,11 +71,55 @@ threshold is overridden for this rebase only, on the partner's word.
 - **Q3 — merge: yes.** 012 folds into 008, 013 into 009; their files are removed. Numbering
   keeps the gaps.
 
-## 5. Verification
+## 5. The TDD switch
+
+Added 2026-09-23 during execution; it supersedes phase 18's single-mode rule and delta 014's
+single-mode text.
+
+**Mode.** Each project has a testing mode: `tdd` or `test-after`. It lives in
+`<project>/.claude/ultrapowers.json` as `{ "tdd": true | false }` (committed with the project).
+No file or no key → `test-after`. Project scope only; there is no global default.
+
+**Command.** `/ultrapowers-tdd enable|disable` writes the key; without an argument it prints the
+current mode. In a project with `.planning/config.json` it also sets `workflow.tdd_mode` to the
+same value. The command's output states the new mode, so the current session follows it at once.
+
+**Delivery to the model.** The SessionStart hook (`session-init.mjs`) adds one line to the
+session context: `Testing mode: tdd|test-after (.claude/ultrapowers.json; /ultrapowers-tdd)`.
+Rules and skills name the mode and the file, so a skill read later resolves it the same way.
+`gsd-defaults-sync` takes `workflow.tdd_mode` from the project's switch, not from the partial.
+
+**What each mode means.**
+
+| | `tdd` (enable) | `test-after` (disable, default) |
+|---|---|---|
+| Order | failing test first, then code (RED → GREEN → REFACTOR), per upstream 6.4.1 | code first; tests once the unit stands whole, before its review |
+| Test selection | scenario list before code (partitioning, boundaries, budget) | the spec/plan's acceptance list only |
+| Plans | steps "write the failing test / watch it fail / implement / pass" | `Acceptance:` list; implement → reconcile → tests → run |
+| SDD / Native evidence | TDD Evidence (RED and GREEN output) | Acceptance coverage (criterion → test) |
+| Final-review fixes | RED → GREEN per fix | reproduce → fix → test only for stated behaviour |
+| Debugging | failing test reproduces the bug before the fix | one-off reproduction; test after, only for stated behaviour |
+
+**Common to both modes:** the bug log; a decision that changes behaviour, scope or an interface
+goes into the spec/plan first; Review Focus lines become `Acceptance:`/scenario lines of the
+owning task; reviewer findings on behaviour the spec is silent on go to the partner; any failure
+a run shows is reported by name; test cadence, scope and tiers from `CONVENTIONS`/`testing.md`.
+
+**Units of change added to this phase.**
+- Installer: `payload/rules-src/testing.md` and `payload/claude-md/07-conventions.md` carry both
+  modes (the pre-phase-18 TDD text restored as the `tdd` branch); `payload/commands/ultrapowers-tdd.md`;
+  `payload/hooks/lib/tdd-mode.mjs` (resolve the mode, write it, sync GSD); `session-init.mjs`
+  note; `gsd-defaults-sync` override; `gsd-defaults.partial.json` keeps `tdd_mode: false` as
+  the no-switch value.
+- Fork: delta 014 becomes two-mode — the upstream TDD skill text stays for `tdd`, the
+  test-after section is added beside it; every skill 014 touches branches on the mode.
+
+## 6. Verification
 
 - `node transform/inventory.mjs check` clean; `node --test` in the fork passes.
 - `node transform/build-cli.mjs check`: every delta applies, none obsolete; only the threshold
   refusal remains, overridden per § 3.
-- The built tree: no `TDD|failing test|watched fail|RED→GREEN` outside `writing-skills/*`,
-  `systematic-debugging/CREATION-LOG.md`, `dispatching-parallel-agents` example text; no
-  `rm -rf` in skill prose; no `~/.superpowers/` path.
+- The built tree: every TDD instruction sits under a `tdd` mode branch; no `rm -rf` in skill
+  prose; no `~/.superpowers/` path.
+- Installer: tests for the mode resolution (absent → test-after), the command's write and GSD
+  sync, the session note; full suite green.
