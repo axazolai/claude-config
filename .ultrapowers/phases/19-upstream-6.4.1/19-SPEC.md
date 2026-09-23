@@ -52,8 +52,9 @@ decision.
 Inventory: `skills/diagnosing-superpowers/**` tracked (minus the two ignored above),
 `skills/executing-plans/scripts/*` tracked, `using-superpowers/references/claude-code-tools.md`
 tracked, `muse-tools.md`, `.muse-plugin/*`, `index.js`, `.github/**`, `docs/**`, `tests/**`
-ignored. `version.revision` is bumped, as the previous rebase to 6.3.0 left it running
-(`6.4.1-up.7`).
+ignored. `version.revision` resets to 1 on a new upstream base (`6.4.1-up.1`); the `$why` in
+`transform/config.json` gains that rule: bump when the fork changes on the same base, reset to 1
+when `originalTag` moves.
 
 ## 3. Why the 25% threshold fires
 
