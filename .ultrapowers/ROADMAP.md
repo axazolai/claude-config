@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-20
+updated: 2026-09-23
 current: null
 deployed_through: "16"
 phases:
@@ -19,9 +19,18 @@ phases:
   - { phase: "14", slug: gsd-surface-dial, status: planned, delivery: none }
   - { phase: "15", slug: claude-code-changelog-tracking, status: complete, delivery: merged }
   - { phase: "16", slug: scratch-prune, status: complete, delivery: merged }
+  - { phase: "18", slug: test-after-coverage, status: complete, delivery: branch }
 ---
 
 # Roadmap
+
+Nothing is running. Phase 18 (`test-after-coverage`) is complete on `feat/test-after-coverage`
+(2026-09-23), not merged: tests are written after the code and before review, only for what the
+spec/plan states; a decision made during the work updates the spec/plan first; non-blocking bugs
+go to `BUGS.md` and are drained before a unit's tests and at the end of the work. Installer rules
+and GSD `tdd_mode: false` here; fork delta 014 (revision 6) committed to the fork's `patch` and
+built into its `main`, not pushed. Phase 17 stays planned on its own branch. Spec and plan in
+`phases/18-test-after-coverage/`.
 
 Nothing is running. Phase 16 (`scratch-prune`) opened, merged and deployed on 2026-09-20: a user-invoked
 skill that prunes the disposable tier of a project scratchpad (`.claude/.scratchpad/tmp/`) into
