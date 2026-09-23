@@ -94,6 +94,19 @@ test("@critical a hand-set statusLine survives a base install", () => {
   rmSync(dir, { recursive: true, force: true });
 });
 
+test("@critical a retired hook's entries leave settings.json while the user's own hooks stay", () => {
+  const dir = mkdtempSync(join(tmpdir(), "cc-retired-hook-"));
+  const retired = { hooks: [{ type: "command", command: "node", args: [join(dir, "hooks", "token-usage-log.mjs")] }] };
+  const mine = { hooks: [{ type: "command", command: "echo mine-stop" }] };
+  writeFileSync(join(dir, "settings.json"),
+    JSON.stringify({ hooks: { Stop: [retired, mine], SubagentStop: [retired] } }, null, 2) + "\n");
+  assert.equal(run(dir, ["--variant=base", "--merge-all"]).status, 0);
+  const hooks = JSON.parse(readFileSync(join(dir, "settings.json"), "utf8")).hooks;
+  assert.doesNotMatch(JSON.stringify(hooks), /token-usage-log/);
+  assert.deepEqual(hooks.Stop, [mine]);
+  rmSync(dir, { recursive: true, force: true });
+});
+
 // An unrecognised flag must not change the install or fail it.
 test("@important an unknown flag is inert, and the install still succeeds", () => {
   const dir = mkdtempSync(join(tmpdir(), "cc-augment-"));

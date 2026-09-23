@@ -53,7 +53,7 @@
   goes to `<project>/.claude/.scratchpad/` outside `tmp/` and is deleted only by the per-path
   rule below. Never the home directory, `~/.claude`, or a system temp dir. Create or extend
   `.claude/.gitignore` before the first write. Durable user-scope state is out of scope and
-  does not move — the memory directory, `~/.claude/state/`, token logs, the bundle manifest.
+  does not move — the memory directory, `~/.claude/state/`, the bundle manifest.
 - At a completion boundary, delete the files this session wrote to `.claude/.scratchpad/tmp/`
   that the finished work no longer needs — name each; never touch the durable tier.
 - Never `rm -rf`. Delete by naming each path, after looking at what it holds; a glob, a mask or

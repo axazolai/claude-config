@@ -13,7 +13,7 @@ const SIG = /deny-curated-claude-md\.mjs/g;
 // that can write into the project tree - an assertion below therefore can't pass by accident.
 const QUIET = {
   CLAUDE_COMPONENT_AUTOUPDATE: "0", CLAUDE_MCP_SUGGEST: "0", CLAUDE_GSD_INITSTACK_SUGGEST: "0",
-  CLAUDE_STACK_RULES: "0", CLAUDE_LEANMODE: "0", CLAUDE_TOKEN_USAGE_LOG: "0",
+  CLAUDE_STACK_RULES: "0", CLAUDE_LEANMODE: "0",
   CLAUDE_CURATED_AUTOMARK_ROOT: "0", CLAUDE_GSD_CONTEXTMODE_SYNC: "0",
   CLAUDE_GSD_AGENT_PATCHES_CHECK: "0",
 };
@@ -78,9 +78,9 @@ test("@important a project with no .claude/.gitignore gets one carrying the scra
 test("@important an existing .gitignore with no trailing newline keeps its lines and gains one", () => {
   const { base, root } = withProject([]);
   mkdirSync(join(root, ".claude"), { recursive: true });
-  writeFileSync(join(root, ".claude", ".gitignore"), "token-usage.jsonl");
+  writeFileSync(join(root, ".claude", ".gitignore"), "local.log");
   run(base, root);
-  assert.equal(gitignoreAt(root), "token-usage.jsonl\n.scratchpad/\n");
+  assert.equal(gitignoreAt(root), "local.log\n.scratchpad/\n");
   rmSync(base, { recursive: true, force: true });
 });
 

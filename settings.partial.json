@@ -71,20 +71,6 @@
         ]
       }
     ],
-    "Stop": [
-      {
-        "hooks": [
-          { "type": "command", "command": "node", "args": ["<HOME>/.claude/hooks/token-usage-log.mjs"] }
-        ]
-      }
-    ],
-    "SubagentStop": [
-      {
-        "hooks": [
-          { "type": "command", "command": "node", "args": ["<HOME>/.claude/hooks/token-usage-log.mjs"] }
-        ]
-      }
-    ],
     "PreCompact": [
       {
         "hooks": [

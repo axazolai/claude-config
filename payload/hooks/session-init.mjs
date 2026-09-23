@@ -38,7 +38,6 @@ import { join, resolve, dirname, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawnSync, spawn } from "./lib/spawn-hidden.mjs";
 import { resolveDial } from "./lib/leanmode-rules.mjs";
-import { pruneGlobalLogIfDue } from "./lib/token-usage-prune.mjs";
 import { updateJsonFile } from "./lib/atomic-json.mjs";
 import { formatUpdateNotes } from "./lib/component-registry.mjs";
 const CLAUDE_DIR = process.env.CLAUDE_CONFIG_DIR || join(homedir(), ".claude");
@@ -427,21 +426,6 @@ if (FULL) {
           `- review by hand before shipping; this combination is a known refusal/stuck-state trigger.`);
     }
   } catch { /* half-install: skip GSD maintenance, never block the session */ }
-}
-
-// ---- token-usage global log pruning: SessionStart only ----
-// Retention for ~/.claude/state/token-usage.jsonl (the cross-project log; per-project
-// .claude/token-usage.jsonl is never pruned) used to run from token-usage-log.mjs's
-// SubagentStop/Stop handler - tied to the wrong event for a retention sweep (it fired after
-// every subagent completion and every main-agent turn, throttled internally to once/24h but
-// still triggered from per-event hooks instead of session start). Moved here 2026-07-13:
-// token-usage-log.mjs now only appends, never prunes. pruneGlobalLogIfDue() keeps its own
-// 24h throttle (state file), so calling it every session is still a cheap no-op most of the
-// time. Toggle: CLAUDE_TOKEN_USAGE_PRUNE=0 (checked inside the function itself).
-if (process.env.CLAUDE_TOKEN_USAGE_LOG !== "0") {
-  const globalLog = join(CLAUDE_DIR, "state", "token-usage.jsonl");
-  const pruneStateFile = join(CLAUDE_DIR, "state", "token-usage-prune.json");
-  safe(() => pruneGlobalLogIfDue(globalLog, pruneStateFile));
 }
 
 // ONE-TIME per project (soft nudge, not urgent like the fallow gap above - gsd-core's own

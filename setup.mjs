@@ -74,6 +74,7 @@ const HOOKS = join(CDIR, "hooks");
 const SKILL = join(CDIR, "skills", "using-git-worktrees");
 const SETTINGS = join(CDIR, "settings.json");
 const MANIFEST = join(CDIR, "state", "bundle-manifest.json");
+const RETIRED_HOOK_FILES = ["token-usage-log.mjs"];
 // Files that OLDER bundles shipped and this one no longer does - seeded so a user upgrading from a
 // pre-manifest bundle still gets them pruned. ONLY list files this package exclusively owns (never
 // a path another tool manages).
@@ -1155,6 +1156,8 @@ async function main() {
     for (const entries of Object.values(partial.hooks || {}))
       for (const e of entries) for (const h of (e.hooks || []))
         for (const a of (h.args || [])) ourFiles.add(String(a).split(/[\\/]/).pop());
+    // Hooks this bundle no longer ships: still ours, so their stale entries are stripped.
+    for (const f of RETIRED_HOOK_FILES) ourFiles.add(f);
     const mentionsOurs = (e) => (e.hooks || []).some(h => (h.args || []).some(a => ourFiles.has(String(a).split(/[\\/]/).pop())));
 
     // Re-add side is variant-filtered: a lite install must not re-add gsd-only hook entries even
