@@ -1,7 +1,7 @@
 ---
-updated: 2026-09-23
+updated: 2026-09-27
 current: null
-deployed_through: "19"
+deployed_through: "20"
 phases:
   - { phase: "01", slug: graphify-neo4j, status: complete, delivery: merged }
   - { phase: "02", slug: ai-development-mode, status: complete, delivery: merged }
@@ -21,9 +21,20 @@ phases:
   - { phase: "16", slug: scratch-prune, status: complete, delivery: merged }
   - { phase: "18", slug: test-after-coverage, status: complete, delivery: merged }
   - { phase: "19", slug: upstream-6.4.1, status: complete, delivery: merged }
+  - { phase: "20", slug: mcp-servers, status: complete, delivery: merged }
+  - { phase: "21", slug: model-policy, status: planned, delivery: none }
 ---
 
 # Roadmap
+
+Phase 20 (`mcp-servers`) — complete: squash-merged into `master` and deployed 2026-09-27.
+User-scope MCP servers become a profile property: base/full get Scrapling and Context7 through
+`setup.mjs`, plus web-routing rules in CLAUDE.md and two Scrapling hooks; the suite now runs with
+temp dirs in the project scratchpad (`node run-tests.mjs`). Detail in `phases/20-mcp-servers/`.
+
+Phase 21 (`model-policy`) — planned: default effort `high` instead of `xhigh`, an ultrapowers
+per-role model map in the `model-selection-policy` skill that outranks the fork's generic Model
+Selection, and a fork delta pointing at it. Design agreed 2026-09-26; spec not written yet.
 
 Phase 19 (`upstream-6.4.1`) — complete: merged (`7282b58`, together with the Opus 5.5 model
 policy from `feat/opus-5-5-policy`) and deployed 2026-09-23. The fork rebased onto upstream 6.4.1
