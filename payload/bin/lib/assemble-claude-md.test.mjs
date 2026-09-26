@@ -37,6 +37,16 @@ test("@important real fragments: GSD full-only; base keeps bg-elapsed; lite drop
   for (const o of [full, base, lite]) { assert.match(o, /CURATED:NOEDIT/); assert.doesNotMatch(o, /^---$/m); }
 });
 
+test("@important real fragments: base and full carry web routing and the MCP servers; lite neither", () => {
+  const full = assembleClaudeMd(REAL, "full"), base = assembleClaudeMd(REAL, "base"), lite = assembleClaudeMd(REAL, "lite");
+  for (const o of [full, base]) {
+    assert.match(o, /## WEB ACCESS/);
+    assert.match(o, /Context7 and Scrapling are user-scope MCP servers/);
+  }
+  assert.doesNotMatch(lite, /WEB ACCESS|Scrapling/);
+  assert.match(lite, /Never enable the marketplace plugin named context7/);
+});
+
 // Narrow, non-brittle scope: base/lite must ship neither the `rules-src/gsd.md` pointer (04-
 // reading-order.full.md, full-only — already covered above) nor the "gsd" entry in the base-
 // plugins list (09-plugins.full.md

@@ -269,8 +269,17 @@ Reinstall: `node setup.mjs` (interactively pick the other variant, or pass
   — asks for confirmation (`y/N`) before calling `claude plugin install/uninstall`; if the
   `claude` CLI isn't on PATH, it prints the commands for you to run by hand instead of
   executing them.
-- **requires restarting Claude Code** — as always, `enabledPlugins`, hooks, and `statusLine`
-  don't hot-reload.
+- reconciles the user-scope MCP servers from `managedMcpServers` in `variants.json`: base and
+  full get `scrapling` (`uvx --from "scrapling[ai]" scrapling-mcp`, needs `uv`) and `context7`
+  (HTTP; the key comes from the `CONTEXT7_API_KEY` environment variable, and without it the
+  server is registered keyless), lite gets none. A configured server is never rewritten.
+  `--replace-all` adds what is missing and only prints removals as manual commands. Right after
+  `scrapling` is added, its stealth/dynamic browsers are downloaded
+  (`uvx --from "scrapling[ai]" scrapling install`); on failure the command is printed for a
+  manual run. A child profile without `mcpServers` inherits its parent's list. The key value never
+  appears in the output.
+- **requires restarting Claude Code** — as always, `enabledPlugins`, hooks, MCP servers, and
+  `statusLine` don't hot-reload.
 
 The `~/.claude/state/bundle-manifest.json` manifest stores a `variant` field — it decides the
 default offered on the next flag-less run, and `session-init.mjs` uses the same field to decide
@@ -278,7 +287,8 @@ which GSD-specific steps to skip (a manifest with no `variant` field is a pre-va
 treated as `full`).
 
 For tests there's a hermetic mode: `CLAUDE_SETUP_SKIP_PLUGINS=1` skips the plugin-reconciliation
-step entirely (including the `claude plugin list` probe), without touching the CLI.
+step entirely (including the `claude plugin list` probe), without touching the CLI;
+`CLAUDE_SETUP_SKIP_MCP=1` likewise turns the MCP-server step into a printout with no `claude mcp` call.
 
 ---
 
@@ -311,7 +321,8 @@ remove the symlink — it stays as a fallback.
 ## Additional subsystems (bin/commands/hooks)
 
 Beyond the baseline protection, the set installs a few independent tools (each with its own unit
-tests `*.test.mjs`, run via `node --test`):
+tests `*.test.mjs`, run via `node run-tests.mjs` — `node --test` with temp dirs under
+`.claude/.scratchpad/test-tmp/`, deleted after the run):
 
 - **pnpm phantom-dependency guard** — the `/pnpm-phantom-fix` command + `bin/pnpm-phantom-scan.mjs`
   + the PostToolUse hook `hooks/pnpm-phantom-fix-hook.mjs`: finds undeclared-but-imported packages
@@ -334,6 +345,12 @@ tests `*.test.mjs`, run via `node --test`):
   PreToolUse nudge `schedulewakeup-loop-only-nudge` (ScheduleWakeup is for /loop pacing only; a
   tracked background task's completion re-invokes the model by itself, so polling wakeups are
   pure waste).
+- **Web access (base/full)** — the WEB ACCESS section of CLAUDE.md routes between Context7,
+  `ctx_fetch_and_index` and the Scrapling MCP; the PreToolUse gate `scrapling-raw-gate` denies
+  `main_content_only=false` (it turns off the hidden-content sanitizer that defends against
+  prompt injection; override: `CLAUDE_SCRAPLING_ALLOW_RAW=1`), and the PostToolUse /
+  PostToolUseFailure `web-block-nudge` points at Scrapling when `WebFetch` /
+  `ctx_fetch_and_index` returns a Cloudflare challenge, a 403/429, or an empty JS shell.
 - **A frontend project's design stack** — `bin/install-design-stack.mjs` (step 5 of
   `/init-stack`, only when detection found a frontend stack). It installs **Impeccable**
   per project (`npx impeccable install --providers=claude --scope=project --no-hooks`) and grafts
@@ -417,6 +434,8 @@ installed.
     gsd-config-patch.mjs                 # PostToolUse: one-time .planning/config.json patches (model+workflow)
     ci-watch-nudge.mjs                   # PostToolUse: after `git push` — nudge to `gh run watch`
     prune-tests-nudge.mjs                 # PostToolUse: after `git push` — nudge to prune untagged tests
+    scrapling-raw-gate.mjs               # PreToolUse: deny Scrapling with main_content_only=false (base/full)
+    web-block-nudge.mjs                  # PostToolUse(+Failure): block/JS shell → retry through Scrapling (base/full)
     pnpm-phantom-fix-hook.mjs            # PostToolUse: phantom-dependency scan after an install
     inject-axes.mjs                      # SessionStart + SubagentStart: rule-axis injector (see below)
     session-init.mjs                     # SessionStart: project bootstrap

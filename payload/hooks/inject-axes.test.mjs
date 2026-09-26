@@ -21,6 +21,7 @@ function run(payload, env = {}) {
 
 function leanmodeRoot() {
   const root = mkdtempSync(join(tmpdir(), "inj-"));
+  mkdirSync(join(root, ".git"), { recursive: true });
   mkdirSync(join(root, ".claude"), { recursive: true });
   writeFileSync(join(root, ".claude", "leanmode.json"), JSON.stringify({ dial: "full", default: "full" }));
   return root;
@@ -52,6 +53,7 @@ test("@important CLAUDE_LEANMODE=0 disables the leanmode axis (no output)", () =
 
 function bothRoot() {
   const root = mkdtempSync(join(tmpdir(), "inj2-"));
+  mkdirSync(join(root, ".git"), { recursive: true });
   mkdirSync(join(root, ".claude"), { recursive: true });
   writeFileSync(join(root, ".claude", "leanmode.json"), JSON.stringify({ dial: "full", default: "full" }));
   writeFileSync(join(root, ".claude", "verbosity.json"), JSON.stringify({ level: "full" }));

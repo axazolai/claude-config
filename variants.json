@@ -22,11 +22,27 @@
   "$gsdCore": "The gsd-core release this bundle was validated against. Pinned, not @latest: the gsd-executor fork is regenerated from one exact release, the twelve agent patches are verified against it, and a hook patch anchors a line in it - @latest would hand two machines set up on different days a different gsd-core and silently invalidate that on one of them. setup.mjs installs or upgrades TO this version and never downgrades; an install ahead of it is reported, not touched. Bumping this is the moment to re-verify the fork and the patches (see RISK-GSDEXEC-001).",
   "gsdCore": { "version": "1.11.0" },
   "keepInstalled": ["superpowers", "ultrapowers"],
+  "$managedMcpServers": "User-scope MCP servers setup.mjs may add or remove. A profile lists the ones it wants in mcpServers (absent: inherited through extends); a configured server is never rewritten. headerFromEnv maps a header to the environment variable holding its value - values never live here. postAdd runs once, right after a successful add, under the same consent.",
+  "managedMcpServers": {
+    "scrapling": {
+      "command": "uvx",
+      "args": ["--from", "scrapling[ai]", "scrapling-mcp"],
+      "requires": "uvx",
+      "postAdd": { "command": "uvx", "args": ["--from", "scrapling[ai]", "scrapling", "install"] }
+    },
+    "context7": {
+      "type": "http",
+      "url": "https://mcp.context7.com/mcp",
+      "headerFromEnv": { "CONTEXT7_API_KEY": "CONTEXT7_API_KEY" },
+      "missingEnvNote": "CONTEXT7_API_KEY not set - registered without a key (lower rate limit)"
+    }
+  },
   "profiles": {
-    "full": { "plugins": ["ultrapowers", "context-mode"] },
+    "full": { "plugins": ["ultrapowers", "context-mode"], "mcpServers": ["scrapling", "context7"] },
 
     "base": {
       "plugins": ["ultrapowers", "context-mode"],
+      "mcpServers": ["scrapling", "context7"],
       "exclude": [
         "agents/gsd-*.md", "apply-gsd-agent-patches.mjs", "gsd-defaults-sync.mjs",
         "sync-gsd-context-mode-tool.mjs", "commands/init-session.md",
@@ -41,6 +57,7 @@
     "lite": {
       "extends": "base",
       "plugins": ["context-mode"],
+      "mcpServers": [],
       "overlay": "payload-lite",
       "maxPluginTier": "core",
       "exclude": [
@@ -49,7 +66,8 @@
         "hooks/schedulewakeup-loop-only-nudge*",
         "hooks/prune-tests-nudge*",
         "hooks/pnpm-phantom-fix-hook*", "bin/pnpm-phantom-*", "bin/lib/pnpm-*",
-        "bin/turbopack-gvs-check.mjs", "bin/lib/turbopack-gvs-*", "commands/pnpm-phantom-fix.md"
+        "bin/turbopack-gvs-check.mjs", "bin/lib/turbopack-gvs-*", "commands/pnpm-phantom-fix.md",
+        "hooks/scrapling-raw-gate*", "hooks/web-block-nudge*"
       ]
     }
   }

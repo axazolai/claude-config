@@ -261,8 +261,17 @@ Claude Code. Живёт в [`axazolai/ultrapowers`](https://github.com/axazolai/
 - сверяет набор плагинов и печатает план (что поставить/убрать, что включить/выключить) —
   спрашивает подтверждение (`y/N`) перед вызовом `claude plugin install/uninstall`; если CLI
   `claude` не найден в PATH, вместо выполнения печатает команды для ручного запуска.
-- **требует перезапуска Claude Code** — как и всегда, `enabledPlugins`, хуки и `statusLine` не
-  подхватываются на лету.
+- сверяет MCP-серверы уровня пользователя из `managedMcpServers` в `variants.json`: base и full
+  получают `scrapling` (`uvx --from "scrapling[ai]" scrapling-mcp`, нужен `uv`) и `context7`
+  (HTTP; ключ берётся из переменной окружения `CONTEXT7_API_KEY`, без неё сервер
+  регистрируется без ключа), lite — ни одного. Уже настроенный сервер не перезаписывается.
+  `--replace-all` добавляет недостающие, а удаление только печатает командой для ручного
+  запуска. Сразу после добавления `scrapling` скачиваются его браузеры для stealth/dynamic
+  (`uvx --from "scrapling[ai]" scrapling install`); при сбое команда печатается для ручного
+  запуска. Дочерний профиль без `mcpServers` наследует список родителя. Значение ключа в
+  вывод не попадает.
+- **требует перезапуска Claude Code** — как и всегда, `enabledPlugins`, хуки, MCP-серверы и
+  `statusLine` не подхватываются на лету.
 
 Манифест `~/.claude/state/bundle-manifest.json` хранит поле `variant` — оно решает, какой вариант
 подставится дефолтом при следующем запуске без флага, и по нему же `session-init.mjs` определяет,
@@ -270,7 +279,8 @@ Claude Code. Живёт в [`axazolai/ultrapowers`](https://github.com/axazolai/
 появления вариантов, трактуется как `full`).
 
 Для тестов есть герметичный режим: `CLAUDE_SETUP_SKIP_PLUGINS=1` полностью пропускает шаг
-плагиновой реконсиляции (и сам probe `claude plugin list`), не трогая CLI.
+плагиновой реконсиляции (и сам probe `claude plugin list`), не трогая CLI;
+`CLAUDE_SETUP_SKIP_MCP=1` так же делает шаг MCP-серверов печатью без вызова `claude mcp`.
 
 ---
 
@@ -303,7 +313,8 @@ Claude Code. Живёт в [`axazolai/ultrapowers`](https://github.com/axazolai/
 ## Дополнительные подсистемы (bin/команды/хуки)
 
 Помимо базовой защиты набор ставит несколько независимых инструментов (каждый со своими
-юнит-тестами `*.test.mjs`, гоняются `node --test`):
+юнит-тестами `*.test.mjs`, гоняются `node run-tests.mjs` — это `node --test` с временными каталогами в
+`.claude/.scratchpad/test-tmp/`, которые удаляются после прогона):
 
 - **pnpm phantom-dependency guard** — команда `/pnpm-phantom-fix` + `bin/pnpm-phantom-scan.mjs`
   + PostToolUse-хук `hooks/pnpm-phantom-fix-hook.mjs`: находит undeclared-but-imported пакеты
@@ -325,6 +336,12 @@ Claude Code. Живёт в [`axazolai/ultrapowers`](https://github.com/axazolai/
   PostToolUse `prune-tests-nudge` (после `git push` — вычистить непомеченные тесты) +
   PreToolUse-нудж `schedulewakeup-loop-only-nudge` (ScheduleWakeup — только для /loop-пейсинга;
   завершение отслеживаемой фоновой задачи ре-инвокает модель само, wakeup-поллинг — впустую).
+- **Веб-доступ (base/full)** — секция WEB ACCESS в CLAUDE.md разводит Context7,
+  `ctx_fetch_and_index` и Scrapling MCP; PreToolUse-гейт `scrapling-raw-gate` запрещает
+  `main_content_only=false` (он выключает санитайзер скрытого контента — защиту от
+  prompt injection; обход — `CLAUDE_SCRAPLING_ALLOW_RAW=1`), а PostToolUse/PostToolUseFailure
+  `web-block-nudge` при заглушке Cloudflare, 403/429 или пустой JS-оболочке после `WebFetch`/
+  `ctx_fetch_and_index` подсказывает повторить через Scrapling.
 - **Design stack фронтенд-проекта** — `bin/install-design-stack.mjs` (шаг 5 `/init-stack`,
   только когда детект дал фронтенд-стек). Ставит per-project **Impeccable**
   (`npx impeccable install --providers=claude --scope=project --no-hooks`) и прививает к нему
@@ -404,6 +421,8 @@ Claude Code. Живёт в [`axazolai/ultrapowers`](https://github.com/axazolai/
     gsd-config-patch.mjs                 # PostToolUse: разовые патчи .planning/config.json (модель+воркфлоу)
     ci-watch-nudge.mjs                   # PostToolUse: после `git push` — нудж `gh run watch`
     prune-tests-nudge.mjs                 # PostToolUse: после `git push` — нудж вычистить непомеченные тесты
+    scrapling-raw-gate.mjs               # PreToolUse: запрет Scrapling с main_content_only=false (base/full)
+    web-block-nudge.mjs                  # PostToolUse(+Failure): блок/JS-оболочка → повторить через Scrapling (base/full)
     pnpm-phantom-fix-hook.mjs            # PostToolUse: скан фантомных зависимостей после install
     inject-axes.mjs                      # SessionStart + SubagentStart: инжектор осей правил (см. ниже)
     session-init.mjs                     # SessionStart: бутстрап проекта

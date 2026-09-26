@@ -2,14 +2,14 @@ import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import { mkdtempSync, writeFileSync, readFileSync, mkdirSync, rmSync, readdirSync, existsSync, cpSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, dirname, relative } from "node:path";
+import { join, dirname } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { spawnSync, spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 
 const ROOT = dirname(fileURLToPath(import.meta.url));
 const run = (dir, args) => spawnSync(process.execPath, [join(ROOT, "setup.mjs"), ...args],
-  { encoding: "utf8", env: { ...process.env, CLAUDE_CONFIG_DIR: dir, CLAUDE_SETUP_SKIP_PLUGINS: "1", CLAUDE_SETUP_SKIP_PURGE: "1" }, timeout: 120000 });
+  { encoding: "utf8", env: { ...process.env, CLAUDE_CONFIG_DIR: dir, CLAUDE_SETUP_SKIP_PLUGINS: "1", CLAUDE_SETUP_SKIP_MCP: "1", CLAUDE_SETUP_SKIP_PURGE: "1" }, timeout: 120000 });
 
 function walk(dir, rel = "") {
   const out = [];
@@ -163,7 +163,7 @@ after(() => rmSync(TTY_DIR, { recursive: true, force: true }));
 function runTty(dir, args, answers = []) {
   return new Promise((resolve) => {
     const child = spawn(process.execPath, [TTY_DRIVER, ...args], {
-      env: { ...process.env, CLAUDE_CONFIG_DIR: dir, CLAUDE_SETUP_SKIP_PLUGINS: "1", CLAUDE_SETUP_SKIP_PURGE: "1",
+      env: { ...process.env, CLAUDE_CONFIG_DIR: dir, CLAUDE_SETUP_SKIP_PLUGINS: "1", CLAUDE_SETUP_SKIP_MCP: "1", CLAUDE_SETUP_SKIP_PURGE: "1",
         SETUP_URL: pathToFileURL(join(ROOT, "setup.mjs")).href },
     });
     const pending = answers.map((a) => [...a]);
@@ -231,7 +231,7 @@ const NOT_REPORTED = /is installed here and is not part of this bundle/;
 // env spread would otherwise inherit an ambient one and silently put the run back on the relocated
 // branch this exists to be the opposite of.
 function runAtHome(home, args) {
-  const env = { ...process.env, USERPROFILE: home, HOME: home, CLAUDE_SETUP_SKIP_PLUGINS: "1", CLAUDE_SETUP_SKIP_PURGE: "1" };
+  const env = { ...process.env, USERPROFILE: home, HOME: home, CLAUDE_SETUP_SKIP_PLUGINS: "1", CLAUDE_SETUP_SKIP_MCP: "1", CLAUDE_SETUP_SKIP_PURGE: "1" };
   delete env.CLAUDE_CONFIG_DIR;
   return spawnSync(process.execPath, [join(ROOT, "setup.mjs"), ...args], { encoding: "utf8", env, timeout: 120000 });
 }
@@ -242,14 +242,13 @@ function runAtHome(home, args) {
 function copyRepoRoot() {
   const repo = mkdtempSync(join(tmpdir(), "cc-repo-"));
   const gitIsDir = existsSync(join(ROOT, ".git")) && statSync(join(ROOT, ".git")).isDirectory();
-  const skip = new Set(["docs", "node_modules", ".ultrapowers", ".planning"]);
-  cpSync(ROOT, repo, {
-    recursive: true,
-    filter: (src) => {
-      const top = relative(ROOT, src).split(/[\\/]/)[0];
-      return !(skip.has(top) || (top === ".git" && gitIsDir));
-    },
-  });
+  const skip = new Set(["docs", "node_modules", ".ultrapowers", ".planning", ".claude"]);
+  // Entry by entry: the temp dir may live under .claude/.scratchpad, and cpSync refuses a whole-tree
+  // copy into its own subdirectory before any filter runs.
+  for (const name of readdirSync(ROOT)) {
+    if (skip.has(name) || (name === ".git" && gitIsDir)) continue;
+    cpSync(join(ROOT, name), join(repo, name), { recursive: true });
+  }
   return repo;
 }
 
@@ -345,7 +344,7 @@ test("@critical a malformed settings.hooks shape cannot throw after the files ha
     plantGsdCore(dir, { settings: false });
     writeFileSync(join(dir, "settings.json"), JSON.stringify({ hooks }, null, 2) + "\n");
     const r = spawnSync(process.execPath, [join(repo, "setup.mjs"), "--variant=base", "--uninstall-gsd", "--skip-all"],
-      { encoding: "utf8", env: { ...process.env, CLAUDE_CONFIG_DIR: dir, CLAUDE_SETUP_SKIP_PLUGINS: "1", CLAUDE_SETUP_SKIP_PURGE: "1" }, timeout: 120000 });
+      { encoding: "utf8", env: { ...process.env, CLAUDE_CONFIG_DIR: dir, CLAUDE_SETUP_SKIP_PLUGINS: "1", CLAUDE_SETUP_SKIP_MCP: "1", CLAUDE_SETUP_SKIP_PURGE: "1" }, timeout: 120000 });
     assert.equal(r.status, 0, `${label}: ${r.stderr}`);
     assert.equal(batches(dir).length, 1, `${label}: the run never reached the removal`);
     assert.ok(!gsdPresent(dir), `${label}: gsd-core was not moved`);
@@ -454,4 +453,42 @@ test("@critical the interactive prompt defaults to no; only an explicit yes remo
   assert.ok(!gsdPresent(yes), "an explicit yes did not remove gsd-core");
   assert.equal(batches(yes).length, 1);
   rmSync(yes, { recursive: true, force: true });
+});
+
+function mcpRun(claudeJson, args, extraEnv = {}) {
+  const dir = mkdtempSync(join(tmpdir(), "cc-mcp-"));
+  if (claudeJson) writeFileSync(join(dir, ".claude.json"), JSON.stringify(claudeJson));
+  const r = spawnSync(process.execPath, [join(ROOT, "setup.mjs"), ...args], { encoding: "utf8", timeout: 120000,
+    env: { ...process.env, CLAUDE_CONFIG_DIR: dir, CLAUDE_SETUP_SKIP_PLUGINS: "1", CLAUDE_SETUP_SKIP_MCP: "1",
+      CLAUDE_SETUP_SKIP_PURGE: "1", ...extraEnv } });
+  rmSync(dir, { recursive: true, force: true });
+  return r.stdout + r.stderr;
+}
+const mcpSection = (out) => out.slice(out.indexOf("--- mcp reconciliation ---")).split("\n---")[0];
+
+test("@important base dry-run plans both MCP servers and changes nothing", () => {
+  const out = mcpRun({}, ["--variant=base", "--dry-run"]);
+  const sec = mcpSection(out);
+  assert.match(sec, /add\s+claude mcp add --scope user scrapling -- uvx/);
+  assert.match(sec, /add\s+claude mcp add --scope user --transport http context7/);
+  assert.match(sec, /\(dry-run: no MCP changes\)/);
+});
+
+test("@critical the Context7 key never appears in setup output", () => {
+  const out = mcpRun({}, ["--variant=base", "--dry-run"], { CONTEXT7_API_KEY: "SECRETX-e2e" });
+  assert.doesNotMatch(out, /SECRETX-e2e/);
+  assert.match(mcpSection(out), /CONTEXT7_API_KEY: \*\*\*/);
+});
+
+test("@important lite plans removal of a configured managed server and adds nothing", () => {
+  const sec = mcpSection(mcpRun({ mcpServers: { scrapling: { command: "uvx" } } }, ["--variant=lite", "--dry-run"]));
+  assert.match(sec, /remove\s+claude mcp remove --scope user scrapling/);
+  assert.doesNotMatch(sec, /\badd\s+claude/);
+});
+
+test("@important a relocated config dir without .claude.json plans every server, never reading HOME's", () => {
+  const sec = mcpSection(mcpRun(null, ["--variant=base", "--dry-run"]));
+  assert.match(sec, /add\s+claude mcp add --scope user scrapling/);
+  assert.match(sec, /add\s+claude mcp add --scope user --transport http context7/);
+  assert.match(sec, /then\s+uvx --from "scrapling\[ai\]" scrapling install/);
 });

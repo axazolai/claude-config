@@ -30,3 +30,9 @@ scope outranks user scope on conflict.
 ## Bug log location
 
 This tree's bug log is `.ultrapowers/BUGS.md`.
+
+## Running tests
+
+Run the suite with `node run-tests.mjs` (arguments pass through to `node --test`). It points
+TEMP/TMP/TMPDIR at `.claude/.scratchpad/test-tmp/<run>/` and deletes that directory afterwards.
+A test that builds a temporary project gives it its own root marker (`.git` or `package.json`).

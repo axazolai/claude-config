@@ -38,6 +38,13 @@ export function resolvedExclude(cfg, name) {
   return [...parent, ...(def.exclude || [])];
 }
 
+// A profile's own mcpServers list replaces its parent's; an absent one is inherited through extends.
+export function resolvedMcpServers(cfg, name) {
+  const def = profilesOf(cfg)[name] || {};
+  if (def.mcpServers) return def.mcpServers;
+  return def.extends ? resolvedMcpServers(cfg, def.extends) : [];
+}
+
 export function resolveVariant({ repoRoot, variant, cfg = null }) {
   cfg = cfg || loadVariants(repoRoot);
   const profiles = profilesOf(cfg);
@@ -53,7 +60,8 @@ export function resolveVariant({ repoRoot, variant, cfg = null }) {
   if (!def.include && !def.exclude && !def.extends) {
     const rels = payloadRels.filter((r) => !isAlways(r));
     return { name: variant, rels, srcFor: srcForPayload,
-      excludedSet: new Set(payloadRels.filter(isAlways)), uncovered: [], orphanOverlay: [], plugins: def.plugins };
+      excludedSet: new Set(payloadRels.filter(isAlways)), uncovered: [], orphanOverlay: [], plugins: def.plugins,
+      mcpServers: resolvedMcpServers(cfg, variant) };
   }
 
   // denylist (base/lite via extends): everything not excluded
@@ -65,7 +73,8 @@ export function resolveVariant({ repoRoot, variant, cfg = null }) {
       if (matchAny(rel, excRes)) { excluded.push(rel); continue; }
       rels.push(rel);
     }
-    return finalizeResolved({ variant, def, repoRoot, payloadDir, rels, excluded, plugins: def.plugins });
+    return finalizeResolved({ variant, def, repoRoot, payloadDir, rels, excluded, plugins: def.plugins,
+      mcpServers: resolvedMcpServers(cfg, variant) });
   }
 
   // legacy allowlist (kept one release for back-compat) — existing include/exclude body,
@@ -79,11 +88,12 @@ export function resolveVariant({ repoRoot, variant, cfg = null }) {
     else if (matchAny(rel, incRes)) rels.push(rel);
     else uncovered.push(rel);
   }
-  return finalizeResolved({ variant, def, repoRoot, payloadDir, rels, excluded, uncovered, plugins: def.plugins });
+  return finalizeResolved({ variant, def, repoRoot, payloadDir, rels, excluded, uncovered, plugins: def.plugins,
+    mcpServers: resolvedMcpServers(cfg, variant) });
 }
 
 // shared overlay/srcFor/orphan handling (was inline in the old allowlist path)
-function finalizeResolved({ variant, def, repoRoot, payloadDir, rels, excluded, uncovered = [], plugins }) {
+function finalizeResolved({ variant, def, repoRoot, payloadDir, rels, excluded, uncovered = [], plugins, mcpServers }) {
   const overlayDir = def.overlay ? join(repoRoot, def.overlay) : null;
   const overlayRels = overlayDir ? walkRels(overlayDir) : [];
   const relSet = new Set(rels);
@@ -92,7 +102,8 @@ function finalizeResolved({ variant, def, repoRoot, payloadDir, rels, excluded, 
   const srcFor = (rel) => overlaySet.has(rel)
     ? join(overlayDir, ...rel.split("/"))
     : join(payloadDir, ...rel.split("/"));
-  return { name: variant, rels, srcFor, excludedSet: new Set(excluded), uncovered, orphanOverlay, plugins };
+  return { name: variant, rels, srcFor, excludedSet: new Set(excluded), uncovered, orphanOverlay, plugins,
+    mcpServers };
 }
 
 // Drop hook entries whose script basenames are not all inside the variant set; drop empty events.

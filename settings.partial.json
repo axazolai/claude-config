@@ -49,6 +49,12 @@
         "hooks": [
           { "type": "command", "command": "node", "args": ["<HOME>/.claude/hooks/schedulewakeup-loop-only-nudge.mjs"] }
         ]
+      },
+      {
+        "matcher": "^mcp__scrapling__.*",
+        "hooks": [
+          { "type": "command", "command": "node", "args": ["<HOME>/.claude/hooks/scrapling-raw-gate.mjs"] }
+        ]
       }
     ],
     "PostToolUse": [
@@ -68,6 +74,20 @@
         "matcher": "Bash",
         "hooks": [
           { "type": "command", "command": "node", "args": ["<HOME>/.claude/hooks/prune-tests-nudge.mjs"] }
+        ]
+      },
+      {
+        "matcher": "WebFetch|mcp__plugin_context-mode_context-mode__ctx_fetch_and_index",
+        "hooks": [
+          { "type": "command", "command": "node", "args": ["<HOME>/.claude/hooks/web-block-nudge.mjs"] }
+        ]
+      }
+    ],
+    "PostToolUseFailure": [
+      {
+        "matcher": "WebFetch|mcp__plugin_context-mode_context-mode__ctx_fetch_and_index",
+        "hooks": [
+          { "type": "command", "command": "node", "args": ["<HOME>/.claude/hooks/web-block-nudge.mjs"] }
         ]
       }
     ],

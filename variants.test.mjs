@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { globToRe, resolveVariant, resolvedExclude, profilesOf } from "./variants.mjs";
+import { globToRe, resolveVariant, resolvedExclude, profilesOf, loadVariants } from "./variants.mjs";
 
 // Static import specifiers (relative only). Dynamic import() is intentionally NOT matched:
 // full-only code loads excluded libs via gated dynamic imports, which is legal in lite.
@@ -83,3 +83,34 @@ test("@important resolvedExclude: unions the extends chain, child last", () => {
 
 // Task 7: an install against an unknown marketplace fails outright, and setup.mjs will not guess a
 // repo. So every marketplace a managed plugin lives in must have its source recorded here.
+const REPO = new URL(".", import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, "$1");
+
+test("@important mcpServers: base and full get scrapling and context7, lite gets none", () => {
+  assert.deepEqual(resolveVariant({ repoRoot: REPO, variant: "full" }).mcpServers, ["scrapling", "context7"]);
+  assert.deepEqual(resolveVariant({ repoRoot: REPO, variant: "base" }).mcpServers, ["scrapling", "context7"]);
+  assert.deepEqual(resolveVariant({ repoRoot: REPO, variant: "lite" }).mcpServers, []);
+});
+
+test("@important mcpServers: absent is inherited through extends, an own list replaces it, no parent gives none", () => {
+  const cfg = { profiles: { bare: { exclude: [] }, parent: { exclude: [], mcpServers: ["x"] },
+    child: { extends: "parent" }, own: { extends: "parent", mcpServers: [] } } };
+  const mcp = (variant) => resolveVariant({ repoRoot: REPO, variant, cfg }).mcpServers;
+  assert.deepEqual(mcp("bare"), []);
+  assert.deepEqual(mcp("child"), ["x"]);
+  assert.deepEqual(mcp("own"), []);
+});
+
+test("@important mcpServers: every profile entry is a managed server", () => {
+  const cfg = loadVariants(REPO);
+  for (const [name, def] of Object.entries(profilesOf(cfg)))
+    for (const s of def.mcpServers || []) assert.ok(s in cfg.managedMcpServers, `${name} lists unmanaged ${s}`);
+});
+
+test("@important lite ships neither Scrapling hook", () => {
+  const lite = resolveVariant({ repoRoot: REPO, variant: "lite" }).rels;
+  const base = resolveVariant({ repoRoot: REPO, variant: "base" }).rels;
+  for (const h of ["hooks/scrapling-raw-gate.mjs", "hooks/web-block-nudge.mjs"]) {
+    assert.ok(!lite.includes(h), `lite ships ${h}`);
+  }
+  assert.ok(base.includes("hooks/scrapling-raw-gate.mjs") && base.includes("hooks/web-block-nudge.mjs"));
+});

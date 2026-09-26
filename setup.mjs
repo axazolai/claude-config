@@ -47,6 +47,8 @@ import { gsdCorePresent, buildGsdInventory, filterGsdHooks, gsdCoreInstallPlan, 
 import { applyPlan, purgeRetention, trashRoot } from "./payload/bin/lib/claude-cleanup-lib.mjs";
 import { resolveVariant, filterPartialHooks, loadVariants, profilesOf, globToRe } from "./variants.mjs";
 import { buildPluginPlan, formatPlan, selectActions, describeAction } from "./plugin-reconcile.mjs";
+import { buildMcpPlan, formatMcpPlan, describeMcpAction, mcpAddArgs, mcpRemoveArgs, redactValues, postAddArgv,
+  describePostAdd, quoteForCmd } from "./mcp-reconcile.mjs";
 import { BUNDLE_RELS as GRAPHIFY_BUNDLE_RELS, PROJECT_RELS as GRAPHIFY_PROJECT_RELS, discoverRoots,
   companionMcpNames, findStashedGraphify, stripGraphifySettings, stripGraphifyMcp,
   stripProjectInitGraphify, stripPostCommit, stripGraphifyClaudeSection, formatPurge } from "./graphify-purge.mjs";
@@ -115,6 +117,12 @@ let VARIANT = null, V = null;
 
 const log = (s = "") => process.stdout.write(s + "\n");
 const safe = (fn) => { try { return fn(); } catch { return undefined; } };
+// An npm-installed Claude Code on Windows is a claude.cmd shim, which only runs through a shell.
+function spawnClaude(args, opts = {}) {
+  const r = spawnSync("claude", args, opts);
+  if (process.platform !== "win32" || r.error?.code !== "ENOENT") return r;
+  return spawnSync("claude.cmd", args.map(quoteForCmd), { ...opts, shell: true });
+}
 
 /* ---------- doctor: validate registered hook script paths ---------- */
 if (argv.has("--doctor")) {
@@ -1287,7 +1295,7 @@ async function main() {
     const keepInstalled = variantsFile.keepInstalled || [];
     const cliProbe = process.env.CLAUDE_SETUP_SKIP_PLUGINS === "1"
       ? undefined   // hermetic mode (tests): no shell-out; falls to the notes path below
-      : safe(() => spawnSync("claude", ["plugin", "list", "--json"], { encoding: "utf8" }));
+      : safe(() => spawnClaude(["plugin", "list", "--json"], { encoding: "utf8" }));
     const parsedList = cliProbe && cliProbe.status === 0 ? safe(() => JSON.parse(cliProbe.stdout)) : undefined;
     const installedIds = Array.isArray(parsedList)
       ? parsedList.map((p) => p.id || p.name).filter(Boolean)
@@ -1337,7 +1345,7 @@ async function main() {
           // install - never a weaker one just because it is a prerequisite.
           if (a.type === "marketplace_add") {
             if (execInstall) {
-              const r = spawnSync("claude", ["plugin", "marketplace", "add", a.source], { encoding: "utf8", stdio: "inherit" });
+              const r = spawnClaude(["plugin", "marketplace", "add", a.source], { encoding: "utf8", stdio: "inherit" });
               summary.push(`${r.status === 0 ? "marketplace-add" : "marketplace-add-FAILED"} ${a.source}`);
             } else {
               log(`  run manually: claude plugin marketplace add ${a.source}`);
@@ -1347,7 +1355,7 @@ async function main() {
           }
           if (a.type === "install" || a.type === "uninstall") {
             if (execInstall) {
-              const r = spawnSync("claude", ["plugin", a.type, a.id], { encoding: "utf8", stdio: "inherit" });
+              const r = spawnClaude(["plugin", a.type, a.id], { encoding: "utf8", stdio: "inherit" });
               summary.push(`${r.status === 0 ? "plugin-" + a.type : "plugin-" + a.type + "-FAILED"} ${a.id}`);
             } else {
               log(`  run manually: claude plugin ${a.type} ${a.id}`);
@@ -1361,6 +1369,59 @@ async function main() {
         if (write(SETTINGS, JSON.stringify(s, null, 2) + "\n")) summary.push(`updated  ${SETTINGS} (enabledPlugins reconciled)`);
         log("  NOTE: restart Claude Code - enabledPlugins does not hot-reload.");
       }
+    }
+  }
+
+  /* ---------- MCP reconciliation: only managedMcpServers are ever touched ---------- */
+  {
+    const managed = loadVariants(REPO_ROOT).managedMcpServers || {};
+    const skip = process.env.CLAUDE_SETUP_SKIP_MCP === "1";
+    // Claude Code keeps .claude.json inside a relocated config dir and never falls back to HOME.
+    const cjPath = (process.env.CLAUDE_CONFIG_DIR ? [join(CDIR, ".claude.json")]
+      : [join(CDIR, ".claude.json"), join(HOME, ".claude.json")]).find((x) => existsSync(x));
+    const cj = (cjPath && safe(() => JSON.parse(readFileSync(cjPath, "utf8")))) || {};
+    const hasCommand = (c) => skip || safe(() => (process.platform === "win32"
+      ? spawnSync("where", [c], { encoding: "utf8" })
+      : spawnSync("sh", ["-c", 'command -v "$1"', "sh", c], { encoding: "utf8" })).status === 0) === true;
+    const { actions, notes } = buildMcpPlan({ required: V.mcpServers, managed,
+      configured: Object.keys(cj.mcpServers || {}), env: process.env, hasCommand });
+    const secrets = actions.flatMap((a) => Object.values(a.headers || {}));
+    if (actions.length || notes.length) {
+      log("\n--- mcp reconciliation ---");
+      log(formatMcpPlan(actions, notes));
+      let chosen = [], execRemove = false;
+      if (DRY) log("  (dry-run: no MCP changes)");
+      else if (skip) log("  (skipped: CLAUDE_SETUP_SKIP_MCP=1)");
+      else if (BULK === "skip") log("  (--skip-all: no MCP changes)");
+      else if (BULK) chosen = actions;
+      else if (INTERACTIVE && actions.length) {
+        const a = await ask(`    apply ${actions.length} MCP action(s)? (y = all / n = none / s = choose) > `);
+        if (a[0] === "y") chosen = actions;
+        else if (a[0] === "s") for (const act of actions)
+          if ((await ask(`      ${describeMcpAction(act)}? (y/N) > `))[0] === "y") chosen.push(act);
+        execRemove = true;
+      }
+      else if (actions.length) log("  (non-interactive: printed only - re-run in a terminal or with --replace-all)");
+      let ran = false;
+      for (const a of chosen) {
+        if (a.type === "remove" && !execRemove) {
+          log(`  run manually: ${describeMcpAction(a)}`);
+          summary.push(`mcp-remove-manual ${a.name}`);
+          continue;
+        }
+        // stdout is captured, never printed: `claude mcp add` can echo the header back.
+        const r = spawnClaude(a.type === "add" ? mcpAddArgs(a) : mcpRemoveArgs(a), { encoding: "utf8" });
+        ran = true;
+        if (r.status !== 0) log(redactValues(r.stderr || r.error?.message || "", secrets));
+        summary.push(`mcp-${a.type}${r.status === 0 ? "" : "-FAILED"} ${a.name}`);
+        const post = r.status === 0 && postAddArgv(a);
+        if (!post) continue;
+        log(`  running: ${describePostAdd(a)}`);
+        const p = spawnSync(post[0], post.slice(1), { stdio: "inherit" });
+        summary.push(`mcp-postadd${p.status === 0 ? "" : "-FAILED"} ${a.name}`);
+        if (p.status !== 0) log(`  run manually: ${describePostAdd(a)}`);
+      }
+      if (ran) log("  NOTE: restart Claude Code - MCP servers load at startup.");
     }
   }
 

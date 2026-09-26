@@ -1615,3 +1615,19 @@
   The table was reverted in `47db796`; its review had already proven by execution that the
   enumeration could not be completed — four path shapes fell through to `brand` and were
   rewritten into paths that never resolve.
+
+### RISK-MCPKEY-001 — The Context7 API key is visible in `claude.exe`'s argv during `mcp add`
+
+- **Status:** Active (accepted)
+- **Context:** `setup.mjs` registers Context7 with `claude mcp add --scope user --transport http
+  context7 <url> --header "CONTEXT7_API_KEY: <value>"` (`mcp-reconcile.mjs` `mcpAddArgs`). For
+  the duration of that call any local process that can list command lines can read the value.
+  Claude Code then stores it in plaintext in `.claude.json` regardless of how it was passed.
+- **Mitigation:** the value never reaches printed output, summary lines or logs
+  (`describeMcpAction`/`formatMcpPlan` mask it, `claude mcp add` stdout is not printed, stderr goes
+  through `redactValues`); covered by `mcp-reconcile.test.mjs` and the e2e key test. The call runs
+  once per machine: a configured server is never re-added.
+- **Residual:** a same-user process sampling command lines during setup sees the key. Escalate
+  to a `${CONTEXT7_API_KEY}` reference in the stored header once env expansion is confirmed for
+  user-scope `.claude.json` (documented today for `.mcp.json` only), which removes both the argv
+  exposure and the plaintext copy.

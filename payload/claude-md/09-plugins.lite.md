@@ -1,10 +1,8 @@
 ## PLUGINS & SKILLS (loading policy)
 - Base plugins (ultrapowers, context-mode) are enabled at USER scope and load every session.
-  Do not duplicate them in project settings.
-- Context7 and Scrapling are user-scope MCP servers installed by setup.mjs. Never enable the
-  marketplace plugin named context7.
-- GSD-Core is installed with npx and detected on disk. Never enable the marketplace plugin
-  named `gsd`.
+  Do not duplicate them in project settings. In the `lite` profile ultrapowers is installed
+  but disabled.
+- Never enable the marketplace plugin named context7.
 - Stack-specific plugins are enabled PER PROJECT via `.claude/settings.json` -> enabledPlugins.
 - Project plugin sets live under `~/.claude/setting-templates/`, nested by direction (e.g.
   `frontend/react.json`, `bots/node.json` - see that folder's README for the full layout) and
