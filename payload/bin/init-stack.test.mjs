@@ -380,3 +380,22 @@ test("@important installSkills: refuses to overwrite an existing bundled-skill t
     rmSync(root, { recursive: true, force: true });
   }
 });
+
+test("@critical installSkills: a bundled entry whose name or source escapes its folder is refused, nothing written", () => {
+  const root = mkdtempSync(join(tmpdir(), "init-stack-bundled-escape-"));
+  try {
+    const bad = [
+      { id: "bundled:a", name: "../escaped", install: { bundled: "postgres" } },
+      { id: "bundled:b", name: "postgres", install: { bundled: "../postgres" } },
+      { id: "bundled:c", name: "..", install: { bundled: "postgres" } },
+    ];
+    const { result } = withCapturedLog(() =>
+      installSkills(bad, { libraryDir: REPO_LIBRARY_DIR, projectRoot: root }),
+    );
+    assert.deepEqual(result.ok, []);
+    assert.deepEqual(result.failed, ["bundled:a", "bundled:b", "bundled:c"]);
+    assert.ok(!existsSync(join(root, ".claude")), "nothing may be written for a refused entry");
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});

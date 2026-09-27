@@ -62,8 +62,8 @@ resolves its full inheritance chain, checks each declared plugin, and merges the
 into the project's `.claude/settings.json`. It also surfaces any `skills[]` a template declares -
 either npx-installed Agent Skills (`install.cmd`) or ones bundled with this installer
 (`install.bundled`) - and, in `-i`, offers to install the missing ones: an `install.cmd` entry
-runs `npx skills add ...`, an `install.bundled` entry copies `~/.claude/skill-library/<name>/` to
-the project's `.claude/skills/<name>/` (refusing to overwrite an existing target). Skills are
+runs `npx skills add ...`, an `install.bundled` entry copies `~/.claude/skill-library/<bundled>/`
+(its `install.bundled` value) to the project's `.claude/skills/<name>/` (its `name`; refusing to overwrite an existing target). Skills are
 opt-in (never auto-installed) and have no enable/disable, so their present-check is by directory
 name and approximate (for the npx path the install command is the source of truth; slugs drift -
 verify at install).
@@ -157,11 +157,11 @@ fire together (e.g. a Django project detects `django` only, not `django` + `pyth
     },
     {
       "id": "bundled:postgres",              // documentation only for a bundled entry - any id works
-      "name": "postgres",                    // also the skill-library/ folder name to copy
+      "name": "postgres",                    // copy TARGET: <project>/.claude/skills/<name>/
       "description": "...",
-      "install": { "bundled": "postgres" }   // copies ~/.claude/skill-library/postgres/ to
-                                              // <project>/.claude/skills/postgres/; refuses to
-                                              // overwrite an existing target; no npx involved
+      "install": { "bundled": "postgres" }   // copy SOURCE: ~/.claude/skill-library/<bundled>/;
+                                              // refuses to overwrite an existing target; no npx
+                                              // involved; both values must be plain folder names
     }
   ]
 }

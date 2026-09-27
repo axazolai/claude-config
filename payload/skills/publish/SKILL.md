@@ -335,12 +335,14 @@ Extra rules for this mode:
   file edits. The subagent is bound by the same list; its only push is `git push <remote> <dev>`.
 - A red dev pipeline never blocks the release; fix `<dev>` afterwards as separate work.
 
-Prerequisites: `git status --porcelain` empty (commit first), `git tag -l <tag>` empty,
-`git branch -a --list "*<snapshot>"` empty.
+Prerequisite: `git status --porcelain` empty (commit first). The tag and `<snapshot>` checks
+run at the end of step 1, against the final version.
 
 ### 1. Confirm the version
 
-As prod step 1, against the CURRENT `<remote>/<dev>` tip, not the local one.
+As prod step 1, against the CURRENT `<remote>/<dev>` tip, not the local one — except a taken
+tag: this mode handles it by the version collision rule below, not by prod step 1's
+`/publish dev` route.
 
 **Version collision** — the tag exists, or local `<dev>` carries the same version as the
 release point: two builds must never share a number. Bump the patch on BOTH streams, lower
@@ -351,6 +353,10 @@ chain has no gap. Both bumps are committed in step 2, before the freeze and befo
 exists. The next `<dev>` → `<prod>` merge will conflict on the version files and changelog: keep
 `<dev>`'s number and the union of entries, newest first. The user declines → release another
 point, or cancel and use `/publish dev`.
+
+**Final check** — with the release version final (bumped or not), `git tag -l <tag>` and
+`git branch -a --list "*<snapshot>"` must both be empty for it. Non-empty → STOP before step 2;
+nothing has been written.
 
 ### 2. Record the release point
 
@@ -465,8 +471,15 @@ wait for them to report the result.
   set) before reporting.
 - **Tag pipeline rejects the tag** — nothing deployed, and the tag is spent: treat it as "tag
   already taken" (hard rule 5). Never delete or move it. Bump the patch component with its own
-  changelog entry (it reaches `<prod>` the way prod step 1 describes), then re-run the mode from
-  its tag step with the new version.
+  changelog entry; the bump reaches `<prod>` before anything is tagged — never tag a `<prod>`
+  tip that lacks it.
+  - `prod` / `fast`: the bump lands on `<dev>` through `/publish dev`, then restart the mode from
+    step 1, as prod step 1 describes.
+  - `step`: the bump is a release fix — it lands on `<snapshot>` with its own explicit permission
+    (step 6), never through `/publish dev`, and only once the dev subagent has returned (one
+    working tree); pick a patch number that neither a tag nor `<dev>`
+    already carries. `RELEASE_SHA` becomes that commit; resume from step 5 (a new MR/PR
+    `<snapshot>` → `<prod>`) so the bump is merged and verified before step 9 tags it.
 - **Anything else** — read the first error in the job log, match it against the project's own
   troubleshooting notes, propose a fix; it goes through `/publish dev`.
 - **Pipeline green, production not updated** — the deploy did not pick up the tag; check the

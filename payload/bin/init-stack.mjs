@@ -15,7 +15,7 @@
 // NOT import from the repo-root variants.mjs (installer-meta, not shipped at runtime). Only
 // payload-internal siblings (./lib/*) and node:* built-ins.
 import { readFileSync, existsSync, readdirSync, writeFileSync, mkdirSync, cpSync } from "node:fs";
-import { join, dirname, relative } from "node:path";
+import { join, dirname, relative, basename } from "node:path";
 import { homedir } from "node:os";
 import { spawnSync } from "../hooks/lib/spawn-hidden.mjs";
 import { createInterface } from "node:readline";
@@ -467,10 +467,11 @@ function short(desc, width = 100) {
 
 export function printSkills(skills) {
   if (!skills.length) return;
-  console.log("\nStack skills (npx skills add - opt-in, not auto-installed; run -i to install):");
+  console.log("\nStack skills (opt-in, not auto-installed; run -i to install):");
   for (const e of skills) {
     const mark = e.state === "installed" ? "[installed]" : "[available]";
-    console.log(`  - ${e.id}  ${mark}`);
+    const how = (e.install || {}).bundled ? "copy from the bundle" : "npx skills add";
+    console.log(`  - ${e.id}  ${mark}  (${how})`);
     if (e.description) console.log(`      ${short(e.description)}`);
   }
 }
@@ -645,12 +646,20 @@ export function installMissing(entries) {
 // before. Returns {ok, failed} id lists. libraryDir defaults to the installed
 // ~/.claude/skill-library/ (real runs need no override); projectRoot has no sensible default -
 // callers with a bundled entry to install must supply it.
+const isPlainFolderName = (n) =>
+  typeof n === "string" && n !== "" && n !== "." && n !== ".." && !/[\\/]/.test(n) && basename(n) === n;
+
 export function installSkills(entries, { libraryDir = join(configDir(), "skill-library"), projectRoot } = {}) {
   const ok = [];
   const failed = [];
   for (const e of entries) {
     const bundled = (e.install || {}).bundled;
     if (bundled) {
+      if (!isPlainFolderName(e.name) || !isPlainFolderName(bundled)) {
+        console.error(`  ! ${e.id}: name/install.bundled must be plain folder names (skipped)`);
+        failed.push(e.id);
+        continue;
+      }
       const dest = join(projectRoot, ".claude", "skills", e.name);
       if (existsSync(dest)) {
         console.log(`  - ${e.id}: ${dest} already exists (skipped, not overwritten)`);
