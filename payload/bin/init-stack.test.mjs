@@ -6,14 +6,15 @@
 // apply/tier-filter/CLI additions (init-stack.py has no equivalent to port from).
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, readdirSync, rmSync } from "node:fs";
-import { join, dirname } from "node:path";
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, readdirSync, rmSync, existsSync } from "node:fs";
+import { join, dirname, relative } from "node:path";
 import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
-import { resolveChain, classify, gather, cleanNonplugin, deepMerge, splitId, keepPlugin, apply, grab, main, readMaxPluginTier, migrateProjectModelConfigFile } from "./init-stack.mjs";
+import { resolveChain, classify, gather, cleanNonplugin, deepMerge, splitId, keepPlugin, apply, grab, main, readMaxPluginTier, migrateProjectModelConfigFile, gatherSkills, installSkills, installedSkillNames } from "./init-stack.mjs";
 import { detect } from "./lib/stack-markers.mjs";
 
 const REPO_TEMPLATES_DIR = join(dirname(fileURLToPath(import.meta.url)), "..", "setting-templates");
+const REPO_LIBRARY_DIR = join(dirname(fileURLToPath(import.meta.url)), "..", "skill-library");
 
 // Every test that touches subprocess-guarded paths (installMissing/syncGsdContextModeAgents)
 // relies on this: never let the suite shell out to `claude plugin install`/marketplace add or
@@ -298,4 +299,84 @@ test("@important applying settings leaves no lock or temp sibling behind", () =>
     const left = readdirSync(join(dir, ".claude"));
     assert.deepEqual(left, ["settings.json"], `stray files: ${JSON.stringify(left)}`);
   } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+// ---------- bundled stack skills (Task 3: DB/_base.json's "postgres" entry ships as
+// install.bundled, copied from payload/skill-library/, not npx-installed) ----------
+
+// Recursively collects [relPath, contents-as-Buffer] pairs under dir, sorted, so two trees can
+// be compared byte-for-byte regardless of directory-entry enumeration order.
+function collectFiles(dir, base = dir) {
+  const out = [];
+  for (const e of readdirSync(dir, { withFileTypes: true })) {
+    const p = join(dir, e.name);
+    if (e.isDirectory()) out.push(...collectFiles(p, base));
+    else out.push([relative(base, p).replace(/\\/g, "/"), readFileSync(p)]);
+  }
+  return out.sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
+}
+
+function assertTreesByteEqual(dirA, dirB) {
+  const a = collectFiles(dirA);
+  const b = collectFiles(dirB);
+  assert.deepEqual(a.map(([p]) => p), b.map(([p]) => p), "file lists differ");
+  for (let i = 0; i < a.length; i++) {
+    assert.ok(a[i][1].equals(b[i][1]), `${a[i][0]} differs byte-for-byte`);
+  }
+}
+
+test("@important gatherSkills: a SQL project lists bundled:postgres as available", () => {
+  const entries = gatherSkills(["sql"], { templatesDir: REPO_TEMPLATES_DIR });
+  const pg = entries.find((e) => e.id === "bundled:postgres");
+  assert.ok(pg, `bundled:postgres not found in ${JSON.stringify(entries.map((e) => e.id))}`);
+  assert.equal(pg.name, "postgres");
+  assert.equal(pg.state, "available");
+  assert.deepEqual(pg.install, { bundled: "postgres" });
+});
+
+test("@important installSkills: a bundled entry is copied byte-equal from the library, no npx invoked, then reports installed", () => {
+  const root = mkdtempSync(join(tmpdir(), "init-stack-bundled-"));
+  try {
+    const entries = gatherSkills(["sql"], { templatesDir: REPO_TEMPLATES_DIR });
+    const pg = entries.find((e) => e.id === "bundled:postgres");
+    const { lines } = withCapturedLog(() =>
+      installSkills([pg], { libraryDir: REPO_LIBRARY_DIR, projectRoot: root }),
+    );
+    assert.ok(
+      !lines.some((l) => l.includes("npx")),
+      `no npx command should ever be invoked for a bundled entry, saw: ${JSON.stringify(lines)}`,
+    );
+    const dest = join(root, ".claude", "skills", "postgres");
+    assert.ok(existsSync(dest), `${dest} was not created`);
+    assertTreesByteEqual(dest, join(REPO_LIBRARY_DIR, "postgres"));
+
+    const after = gatherSkills(["sql"], {
+      templatesDir: REPO_TEMPLATES_DIR,
+      installedSkills: installedSkillNames(root, root), // configDirPath arg unused here (no ~/.claude/skills fixture)
+    });
+    const pgAfter = after.find((e) => e.id === "bundled:postgres");
+    assert.equal(pgAfter.state, "installed");
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("@important installSkills: refuses to overwrite an existing bundled-skill target", () => {
+  const root = mkdtempSync(join(tmpdir(), "init-stack-bundled-existing-"));
+  try {
+    const dest = join(root, ".claude", "skills", "postgres");
+    mkdirSync(dest, { recursive: true });
+    writeFileSync(join(dest, "SKILL.md"), "pre-existing, must not be overwritten", "utf8");
+
+    const entries = gatherSkills(["sql"], { templatesDir: REPO_TEMPLATES_DIR });
+    const pg = entries.find((e) => e.id === "bundled:postgres");
+    const { result } = withCapturedLog(() =>
+      installSkills([pg], { libraryDir: REPO_LIBRARY_DIR, projectRoot: root }),
+    );
+    assert.deepEqual(result.ok, []);
+    assert.deepEqual(result.failed, ["bundled:postgres"]);
+    assert.equal(readFileSync(join(dest, "SKILL.md"), "utf8"), "pre-existing, must not be overwritten");
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 });

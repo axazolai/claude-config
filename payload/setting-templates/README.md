@@ -59,10 +59,14 @@ setting-templates/
 `telegram-node`, `telegram-python`, `csharp`, `aspnet`, `csharp-cli`, `wpf`), looks up each one's
 file via the `STACK_PATHS` table in `bin/init-stack.mjs`,
 resolves its full inheritance chain, checks each declared plugin, and merges the `merge` block
-into the project's `.claude/settings.json`. It also surfaces any `skills[]` a template declares
-(npx-installed Agent Skills) and, in `-i`, offers to `npx skills add` the missing ones - skills are
+into the project's `.claude/settings.json`. It also surfaces any `skills[]` a template declares -
+either npx-installed Agent Skills (`install.cmd`) or ones bundled with this installer
+(`install.bundled`) - and, in `-i`, offers to install the missing ones: an `install.cmd` entry
+runs `npx skills add ...`, an `install.bundled` entry copies `~/.claude/skill-library/<name>/` to
+the project's `.claude/skills/<name>/` (refusing to overwrite an existing target). Skills are
 opt-in (never auto-installed) and have no enable/disable, so their present-check is by directory
-name and approximate (the install command is the source of truth; slugs drift - verify at install).
+name and approximate (for the npx path the install command is the source of truth; slugs drift -
+verify at install).
 
 A template may also declare a `designStack` block, as `frontend/_base.json` does. It is not plugin
 machinery and `/init-stack` does not merge it into `settings.json`: step 5 hands it to
@@ -141,12 +145,23 @@ fire together (e.g. a Django project detects `django` only, not `django` + `pyth
       }
     }
   ],
-  "skills": [                                // OPTIONAL - npx-installed Agent Skills (NOT plugins)
+  "skills": [                                // OPTIONAL - Agent Skills (NOT plugins). Each entry
+                                              // installs via EITHER install.cmd (npx) OR
+                                              // install.bundled (copied from this installer's own
+                                              // skill-library/) - never both.
     {
       "id": "owner/repo",                    // passed to `npx skills add <id>`
       "name": "installed-skill-dir",         // best-effort present-detection (dir name in skills/)
       "description": "...",                  // prefer skills that add JUDGMENT, not API docs (Context7 covers docs)
       "install": { "cmd": "npx skills add owner/repo", "slash": "" }
+    },
+    {
+      "id": "bundled:postgres",              // documentation only for a bundled entry - any id works
+      "name": "postgres",                    // also the skill-library/ folder name to copy
+      "description": "...",
+      "install": { "bundled": "postgres" }   // copies ~/.claude/skill-library/postgres/ to
+                                              // <project>/.claude/skills/postgres/; refuses to
+                                              // overwrite an existing target; no npx involved
     }
   ]
 }

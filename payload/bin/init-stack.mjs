@@ -14,7 +14,7 @@
 // Self-contained: ships inside payload/ (installed standalone into ~/.claude), so this must
 // NOT import from the repo-root variants.mjs (installer-meta, not shipped at runtime). Only
 // payload-internal siblings (./lib/*) and node:* built-ins.
-import { readFileSync, existsSync, readdirSync, writeFileSync, mkdirSync } from "node:fs";
+import { readFileSync, existsSync, readdirSync, writeFileSync, mkdirSync, cpSync } from "node:fs";
 import { join, dirname, relative } from "node:path";
 import { homedir } from "node:os";
 import { spawnSync } from "../hooks/lib/spawn-hidden.mjs";
@@ -246,10 +246,13 @@ export function gather(
   return { entries, nonpluginMerge };
 }
 
-// ---------- skills (npx skills add ...; SKILL.md dirs, NOT marketplace plugins) ----------
+// ---------- skills (npx skills add ..., OR install.bundled copied from skill-library/; SKILL.md
+// dirs, NOT marketplace plugins) ----------
 // Skills declared by the detected stacks' templates (a template's optional skills[] array),
 // deduped, each with a present/missing state (present == its `name` is in installedSkills,
-// which the caller computes by scanning ~/.claude/skills / ./.claude/skills dir names).
+// which the caller computes by scanning ~/.claude/skills / ./.claude/skills dir names). Each
+// entry's `install` block is passed through unchanged - `install.cmd` (npx) and `install.bundled`
+// (a skill-library/ folder name) are both opaque to gatherSkills; installSkills interprets them.
 export function gatherSkills(stacks, { templatesDir = defaultTemplatesDir(), installedSkills = new Set() } = {}) {
   const out = [];
   const seen = new Set();
@@ -636,11 +639,34 @@ export function installMissing(entries) {
   return { ok, failed };
 }
 
-// Run `npx skills add <id>` for each chosen skill. Returns {ok, failed} id lists.
-export function installSkills(entries) {
+// Install each chosen skill: an `install.bundled` entry is copied from libraryDir/<bundled>/ to
+// <projectRoot>/.claude/skills/<name>/ (refusing to overwrite an existing target - no `npx`
+// command is ever run for these); an `install.cmd` entry still runs `npx skills add <id>` as
+// before. Returns {ok, failed} id lists. libraryDir defaults to the installed
+// ~/.claude/skill-library/ (real runs need no override); projectRoot has no sensible default -
+// callers with a bundled entry to install must supply it.
+export function installSkills(entries, { libraryDir = join(configDir(), "skill-library"), projectRoot } = {}) {
   const ok = [];
   const failed = [];
   for (const e of entries) {
+    const bundled = (e.install || {}).bundled;
+    if (bundled) {
+      const dest = join(projectRoot, ".claude", "skills", e.name);
+      if (existsSync(dest)) {
+        console.log(`  - ${e.id}: ${dest} already exists (skipped, not overwritten)`);
+        failed.push(e.id);
+        continue;
+      }
+      console.log(`  Installing skill ${e.id} (copy from the bundle) ...`);
+      try {
+        cpSync(join(libraryDir, bundled), dest, { recursive: true });
+        ok.push(e.id);
+      } catch (exc) {
+        console.error(`  ! ${e.id}: bundle copy failed: ${exc.message}`);
+        failed.push(e.id);
+      }
+      continue;
+    }
     const cmd = (e.install || {}).cmd;
     if (!cmd) {
       console.log(`  - ${e.id}: no install command (skipped)`);
@@ -793,9 +819,9 @@ export async function runInteractive(stacks, opts = {}) {
   return 0;
 }
 
-// Interactive skill step: show the stack's declared skills and offer to `npx skills add` the
-// MISSING ones. None pre-checked (skills are opt-in). Skills have no enable/disable - install
-// only.
+// Interactive skill step: show the stack's declared skills and offer to install the MISSING
+// ones - `npx skills add` for an `install.cmd` entry, a bundle copy for an `install.bundled`
+// entry. None pre-checked (skills are opt-in). Skills have no enable/disable - install only.
 export async function offerSkills(stacks, opts = {}) {
   const skills = gatherSkills(stacks, opts);
   if (!skills.length) return;
@@ -803,14 +829,21 @@ export async function offerSkills(stacks, opts = {}) {
   console.log("\nStack skills:");
   for (const e of skills) console.log(`  - ${e.id}  [${e.state === "installed" ? "installed" : "available"}]`);
   if (!missing.length) return;
-  const labels = missing.map((e) => e.id);
-  const sel = await checklistSelect(labels, new Set(), "\nSkills to INSTALL now (npx skills add; none pre-checked):");
+  const labels = missing.map((e) =>
+    (e.install || {}).bundled ? `${e.id}  (copy from the bundle)` : `${e.id}  (npx skills add)`,
+  );
+  const sel = await checklistSelect(labels, new Set(), "\nSkills to INSTALL now (none pre-checked):");
   if (!sel || !sel.size) return;
   const chosen = [...sel].sort((a, b) => a - b).map((i) => missing[i]);
   console.log("\nInstalling skills:");
-  const { ok, failed } = installSkills(chosen);
+  const { ok, failed } = installSkills(chosen, { projectRoot: opts.root, libraryDir: opts.libraryDir });
   console.log("Installed:", ok.length ? ok.join(", ") : "(none)");
-  if (failed.length) console.log("Failed:", failed.join(", "), "- verify the `npx skills add` slug and retry.");
+  if (failed.length) {
+    console.log(
+      "Failed:", failed.join(", "),
+      "- for an npx entry verify the `npx skills add` slug and retry; for a bundled entry check the target doesn't already exist.",
+    );
+  }
 }
 
 // ---------- gsd-* agents: context-mode MCP tool sync (best-effort, cross-tool, no-op if the
@@ -881,7 +914,9 @@ function mainInner(argv, opts) {
   }
 
   const maxPluginTier = opts.maxPluginTier !== undefined ? opts.maxPluginTier : readMaxPluginTier(configDirPath);
-  const gatherOpts = { templatesDir, installed, known, marketplacesDir, maxPluginTier, settingsFile, root };
+  // libraryDir threads through to offerSkills -> installSkills for `install.bundled` entries;
+  // undefined here just means installSkills falls back to its own ~/.claude/skill-library/ default.
+  const gatherOpts = { templatesDir, installed, known, marketplacesDir, maxPluginTier, settingsFile, root, libraryDir: opts.libraryDir };
 
   if (argv[0] === "--apply-all") {
     const { entries } = gather(stacks, gatherOpts);
