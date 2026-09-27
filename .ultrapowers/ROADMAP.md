@@ -24,7 +24,7 @@ phases:
   - { phase: "20", slug: mcp-servers, status: complete, delivery: merged }
   - { phase: "21", slug: model-policy, status: complete, delivery: merged }
   - { phase: "22", slug: scratchpad-phase-cleanup, status: complete, delivery: merged }
-  - { phase: "23", slug: publish-and-postgres, status: complete, delivery: branch }
+  - { phase: "23", slug: publish-and-postgres, status: complete, delivery: merged }
 ---
 
 # Roadmap
@@ -84,8 +84,8 @@ exemption is scoped to Opus 5.5+ only. One regression (BUG-004) was found and fi
 Full suite at close: 543/543/0 fail. Detail in `phases/22-scratchpad-phase-cleanup/` (`22-SUMMARY.md`'s
 "Pre-deploy fixes" section covers both phases 21 and 22's territory).
 
-Phase 23 (`publish-and-postgres`) — complete: implemented on `worktree-phase-23-publish-postgres`
-(a git worktree, not yet merged), 2026-09-27, via Subagent-Driven Development. Collapses four
+Phase 23 (`publish-and-postgres`) — complete: implemented in a git worktree via Subagent-Driven
+Development, merged locally into `master` (`61502ea`) 2026-09-27, not yet pushed. Collapses four
 reference release-workflow skills into one depersonalised `/publish` skill (launch keys
 `dev`/`prod`/`fast`/`step`, `.claude/publish.json` project settings written by a first-run
 interview, GitLab/GitHub/no-CI/CD paths, `--dry-run`/`--reconfigure`/`--agent-merge`/`--no-watch`);

@@ -4,8 +4,8 @@ status: complete
 action: null
 tasks_done: 4
 tasks_total: 4
-branch: worktree-phase-23-publish-postgres
-delivery: branch
+branch: worktree-phase-23-publish-postgres (merged, deleted)
+delivery: merged
 depends_on: []
 updated: 2026-09-27
 ---
@@ -21,8 +21,9 @@ commits). Full suite: 566/566, 0 fail — confirmed independently by the control
 commit, not just from task reports. See `23-SUMMARY.md` for the task/ruling/review ledger fold
 and `23-VERIFICATION.md` for the goal-backward check (verdict: **ACHIEVED**).
 
-**Not merged or pushed.** No merge, push, plugin update or deploy happened from this SDD
-workspace — everything lives on the `worktree-phase-23-publish-postgres` branch only.
+**Merged locally into `master` (`61502ea`), not pushed.** No push, plugin update or deploy
+happened. The feature branch and its worktree were deleted after a clean merge-result full-suite
+run (566/566).
 
 **Open item for the user, surfaced by the verification pass (not caught by any per-task or
 whole-branch review, and not fixed — the fix wave was already spent):** the plan's own Review
