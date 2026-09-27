@@ -48,7 +48,12 @@ See `22-SUMMARY.md` for the task/ruling/review ledger fold and `22-VERIFICATION.
 goal-backward check (verdict: ACHIEVED, one minor spec divergence noted, three items
 unverifiable until Task 8 runs post-deploy).
 
-**Not done here, by design:** Task 8 ("after deploy") — the live `CLAUDE_ENV_FILE`/PowerShell
-check, the live guard check, and the one-time `--all-harness` sweep of this machine's harness
-backlog — runs after merge, push, `node setup.mjs --replace-all` and a restart, by the main
-session with the user. No merge or push happened from this SDD workspace.
+**Task 8 (after deploy), completed 2026-09-27** by the main session with the user, post-merge/
+push/`--replace-all`/restart: Bash `$TEMP`/`$TMP`/`$TMPDIR` resolve to
+`<project>/.claude/.scratchpad/proc`; the PowerShell tool does not source `CLAUDE_ENV_FILE`
+(recorded in `22-SPEC.md` § 3.2 — cosmetic gap, the layout guard still covers the harness path
+regardless of which tool issues a write); a live Write into the harness scratchpad was denied
+by `scratchpad-layout-guard.mjs`. `/scratch-prune --all-harness` trashed 38 legacy items
+(4.68 MB) from this project and, after one user confirmation, purged 184 harness session dirs
+(3.23 GB) across 21 other projects plus this project's own 10; retention purged one stale trash
+batch. Phase 22 is now fully closed.

@@ -209,6 +209,6 @@ Deny via `hookSpecificOutput.permissionDecision: "deny"`; `isMainModule()` as in
 
 Not part of the branch. After merge, push, `node setup.mjs --replace-all` and a Claude Code restart:
 
-- [ ] Bash: `echo "$TEMP"` → `<project>/.claude/.scratchpad/proc`. PowerShell tool: `$env:TEMP` → record whether it sources `CLAUDE_ENV_FILE`; write the result into spec § 3.2.
-- [ ] Guard live check: a Write into the harness scratchpad is denied.
-- [ ] One-time: `/scratch-prune --all-harness` in claude-config — this project's legacy content, then the harness table for all projects, one confirmation.
+- [x] Bash: `echo "$TEMP"` → `<project>/.claude/.scratchpad/proc`. PowerShell tool: `$env:TEMP` → record whether it sources `CLAUDE_ENV_FILE`; write the result into spec § 3.2. Done 2026-09-27: Bash resolves correctly; PowerShell does not source `CLAUDE_ENV_FILE` (recorded in spec § 3.2).
+- [x] Guard live check: a Write into the harness scratchpad is denied. Done 2026-09-27: confirmed live.
+- [x] One-time: `/scratch-prune --all-harness` in claude-config — this project's legacy content, then the harness table for all projects, one confirmation. Done 2026-09-27: 38 legacy items (4.68 MB) trashed; 184 harness session dirs (3.23 GB) across 21 other projects purged after user confirmation; 1 stale trash batch purged by retention.

@@ -67,6 +67,13 @@ failure) was ruled parked rather than rushed into a second fix wave, and is logg
 ACHIEVED (one minor spec divergence noted, three items unverifiable until phase 22's own Task 8
 runs post-deploy).
 
+Task 8 ran post-deploy on 2026-09-27: Bash sources `CLAUDE_ENV_FILE` correctly, the PowerShell
+tool does not (recorded in `22-SPEC.md` § 3.2, cosmetic — the layout guard still covers the
+harness path), the guard denies a live write into the harness scratchpad, and
+`/scratch-prune --all-harness` cleared this project's legacy backlog (38 items, 4.68 MB) plus
+184 harness session dirs (3.23 GB) across 21 other projects on this machine, after one user
+confirmation. Phase 22 is fully closed; see `22-STATE.md`.
+
 A pre-deploy fixes plan (`22-FIXES-PLAN.md`, 2026-09-27, same branch, commits `4ca79b9..6f87f81`)
 closed all 5 of the user's pre-deploy decisions before merge: `RISK-CLEANUP-002` is now **Closed**
 (the partial-copy-failure edge case above is fixed, not just documented); harness cleanup now

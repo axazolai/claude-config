@@ -122,6 +122,12 @@ export TMPDIR='<project>/.claude/.scratchpad/proc'
   `/`) — any of those already covers it, no new file is written.
 - The plan's first task checks whether the PowerShell tool sources `CLAUDE_ENV_FILE`; if not,
   the gap is recorded here and the guard still covers the harness path.
+- Verified 2026-09-27, Windows: Bash sources it (`$TEMP`/`$TMP`/`$TMPDIR` all resolve to
+  `<project>/.claude/.scratchpad/proc`); the PowerShell tool does not (`$env:TEMP`/`$env:TMP`
+  still show the ambient system value, `$env:TMPDIR` empty) — it starts its own shell without
+  reading `CLAUDE_ENV_FILE`. The layout guard still denies writes into the harness scratchpad
+  regardless of which tool issues them, so the gap is cosmetic (PowerShell temp files land in
+  the system temp dir, not the project scratchpad) rather than a layout-enforcement hole.
 - The hook also emits `additionalContext` "Run /scratch-prune: <reason>" when the project
   has legacy scratchpad content (files in the root, a `tmp/`, folders outside the layout) or its
   harness session dirs other than the current one and other active sessions (§ 4.2), counting
