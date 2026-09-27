@@ -1,7 +1,7 @@
 ---
 updated: 2026-09-27
 current: null
-deployed_through: "20"
+deployed_through: "22"
 phases:
   - { phase: "01", slug: graphify-neo4j, status: complete, delivery: merged }
   - { phase: "02", slug: ai-development-mode, status: complete, delivery: merged }
@@ -22,8 +22,9 @@ phases:
   - { phase: "18", slug: test-after-coverage, status: complete, delivery: merged }
   - { phase: "19", slug: upstream-6.4.1, status: complete, delivery: merged }
   - { phase: "20", slug: mcp-servers, status: complete, delivery: merged }
-  - { phase: "21", slug: model-policy, status: complete, delivery: branch }
-  - { phase: "22", slug: scratchpad-phase-cleanup, status: complete, delivery: branch }
+  - { phase: "21", slug: model-policy, status: complete, delivery: merged }
+  - { phase: "22", slug: scratchpad-phase-cleanup, status: complete, delivery: merged }
+  - { phase: "23", slug: publish-and-postgres, status: planned, delivery: none }
 ---
 
 # Roadmap
