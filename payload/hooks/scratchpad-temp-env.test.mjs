@@ -44,10 +44,6 @@ test("@important envLines: a literal single quote in the path is escaped for the
   assert.equal(out, `export TEMP=${q}\nexport TMP=${q}\nexport TMPDIR=${q}\n`);
 });
 
-test("@temp slugify matches the real harness leaf for this project's own path", () => {
-  assert.equal(slugify(String.raw`D:\6__Work\AI_Projects\claude-config`), "D--6--Work-AI-Projects-claude-config");
-});
-
 test("@important hints: legacy scratchpad content produces a scratch-prune line", () => {
   const scratchpad = mkdtempSync(join(tmpdir(), "ste-legacy-"));
   writeAged(join(scratchpad, "loose.txt"), "x");

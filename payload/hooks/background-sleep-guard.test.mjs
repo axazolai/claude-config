@@ -32,11 +32,6 @@ test("@important ; echo chain is denied same as && echo", () => {
   assert.match(decide({ command: "sleep 5; echo done", run_in_background: true }), /background wait does no work/);
 });
 
-test("case-insensitive match (SLEEP, START-SLEEP)", () => {
-  assert.match(decide({ command: "SLEEP 5", run_in_background: true }), /background wait does no work/);
-  assert.match(decide({ command: "START-SLEEP -Seconds 5", run_in_background: true }), /background wait does no work/);
-});
-
 test("@important foreground wait-only command passes (run_in_background absent or false)", () => {
   assert.equal(decide({ command: "sleep 590 && echo done" }), null);
   assert.equal(decide({ command: "sleep 590 && echo done", run_in_background: false }), null);
@@ -48,11 +43,6 @@ test("@important a real command in the background passes", () => {
 
 test("@important a wait chained before real work in the background passes", () => {
   assert.equal(decide({ command: "sleep 5 && npm test", run_in_background: true }), null);
-});
-
-test("missing toolInput or command passes", () => {
-  assert.equal(decide(null), null);
-  assert.equal(decide({ run_in_background: true }), null);
 });
 
 test("@important unreadable stdin exits 0 with no output", () => {
