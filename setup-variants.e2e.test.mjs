@@ -1,15 +1,33 @@
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, writeFileSync, readFileSync, mkdirSync, rmSync, readdirSync, existsSync, cpSync, statSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join, dirname } from "node:path";
+import { mkdtempSync, writeFileSync, readFileSync, mkdirSync, rmSync, readdirSync, existsSync, cpSync, statSync, chmodSync } from "node:fs";
+import { tmpdir, homedir } from "node:os";
+import { join, dirname, resolve, relative, isAbsolute } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { spawnSync, spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 
 const ROOT = dirname(fileURLToPath(import.meta.url));
+const REAL_HOME = homedir();
+const REAL_STATE = join(REAL_HOME, ".claude.json");
+const realAutoUpdates = () => {
+  try { const t = readFileSync(REAL_STATE, "utf8"); return JSON.stringify(JSON.parse(t.replace(/^﻿/, "")).autoUpdates ?? null); }
+  catch (err) { return `unreadable: ${err.code ?? err.name}`; }
+};
+const REAL_AUTO_UPDATES_BEFORE = realAutoUpdates();
+const HOME_ROOT = mkdtempSync(join(tmpdir(), "cc-home-"));
+after(() => rmSync(HOME_ROOT, { recursive: true, force: true }));
+const SPAWN_HOMES = [];
+function sandboxHome(env) {
+  const h = mkdtempSync(join(HOME_ROOT, "h-"));
+  writeFileSync(join(h, ".claude.json"), "{}\n");
+  const out = { ...env, HOME: h, USERPROFILE: h };
+  SPAWN_HOMES.push({ HOME: out.HOME, USERPROFILE: out.USERPROFILE });
+  return out;
+}
+const setupEnv = (extra) => sandboxHome({ ...process.env, ...extra });
 const run = (dir, args) => spawnSync(process.execPath, [join(ROOT, "setup.mjs"), ...args],
-  { encoding: "utf8", env: { ...process.env, CLAUDE_CONFIG_DIR: dir, CLAUDE_SETUP_SKIP_PLUGINS: "1", CLAUDE_SETUP_SKIP_MCP: "1", CLAUDE_SETUP_SKIP_PURGE: "1" }, timeout: 120000 });
+  { encoding: "utf8", env: setupEnv({ CLAUDE_CONFIG_DIR: dir, CLAUDE_SETUP_SKIP_PLUGINS: "1", CLAUDE_SETUP_SKIP_MCP: "1", CLAUDE_SETUP_SKIP_PURGE: "1" }), timeout: 120000 });
 
 function walk(dir, rel = "") {
   const out = [];
@@ -163,8 +181,8 @@ after(() => rmSync(TTY_DIR, { recursive: true, force: true }));
 function runTty(dir, args, answers = []) {
   return new Promise((resolve) => {
     const child = spawn(process.execPath, [TTY_DRIVER, ...args], {
-      env: { ...process.env, CLAUDE_CONFIG_DIR: dir, CLAUDE_SETUP_SKIP_PLUGINS: "1", CLAUDE_SETUP_SKIP_MCP: "1", CLAUDE_SETUP_SKIP_PURGE: "1",
-        SETUP_URL: pathToFileURL(join(ROOT, "setup.mjs")).href },
+      env: setupEnv({ CLAUDE_CONFIG_DIR: dir, CLAUDE_SETUP_SKIP_PLUGINS: "1", CLAUDE_SETUP_SKIP_MCP: "1", CLAUDE_SETUP_SKIP_PURGE: "1",
+        SETUP_URL: pathToFileURL(join(ROOT, "setup.mjs")).href }),
     });
     const pending = answers.map((a) => [...a]);
     let stdout = "", stderr = "", lastAnswered = null;
@@ -233,6 +251,7 @@ const NOT_REPORTED = /is installed here and is not part of this bundle/;
 function runAtHome(home, args) {
   const env = { ...process.env, USERPROFILE: home, HOME: home, CLAUDE_SETUP_SKIP_PLUGINS: "1", CLAUDE_SETUP_SKIP_MCP: "1", CLAUDE_SETUP_SKIP_PURGE: "1" };
   delete env.CLAUDE_CONFIG_DIR;
+  SPAWN_HOMES.push({ HOME: env.HOME, USERPROFILE: env.USERPROFILE });
   return spawnSync(process.execPath, [join(ROOT, "setup.mjs"), ...args], { encoding: "utf8", env, timeout: 120000 });
 }
 // A second REPO_ROOT, so a test can break an installer input (settings.partial.json) that lives in
@@ -344,7 +363,7 @@ test("@critical a malformed settings.hooks shape cannot throw after the files ha
     plantGsdCore(dir, { settings: false });
     writeFileSync(join(dir, "settings.json"), JSON.stringify({ hooks }, null, 2) + "\n");
     const r = spawnSync(process.execPath, [join(repo, "setup.mjs"), "--variant=base", "--uninstall-gsd", "--skip-all"],
-      { encoding: "utf8", env: { ...process.env, CLAUDE_CONFIG_DIR: dir, CLAUDE_SETUP_SKIP_PLUGINS: "1", CLAUDE_SETUP_SKIP_MCP: "1", CLAUDE_SETUP_SKIP_PURGE: "1" }, timeout: 120000 });
+      { encoding: "utf8", env: setupEnv({ CLAUDE_CONFIG_DIR: dir, CLAUDE_SETUP_SKIP_PLUGINS: "1", CLAUDE_SETUP_SKIP_MCP: "1", CLAUDE_SETUP_SKIP_PURGE: "1" }), timeout: 120000 });
     assert.equal(r.status, 0, `${label}: ${r.stderr}`);
     assert.equal(batches(dir).length, 1, `${label}: the run never reached the removal`);
     assert.ok(!gsdPresent(dir), `${label}: gsd-core was not moved`);
@@ -459,8 +478,8 @@ function mcpRun(claudeJson, args, extraEnv = {}) {
   const dir = mkdtempSync(join(tmpdir(), "cc-mcp-"));
   if (claudeJson) writeFileSync(join(dir, ".claude.json"), JSON.stringify(claudeJson));
   const r = spawnSync(process.execPath, [join(ROOT, "setup.mjs"), ...args], { encoding: "utf8", timeout: 120000,
-    env: { ...process.env, CLAUDE_CONFIG_DIR: dir, CLAUDE_SETUP_SKIP_PLUGINS: "1", CLAUDE_SETUP_SKIP_MCP: "1",
-      CLAUDE_SETUP_SKIP_PURGE: "1", ...extraEnv } });
+    env: setupEnv({ CLAUDE_CONFIG_DIR: dir, CLAUDE_SETUP_SKIP_PLUGINS: "1", CLAUDE_SETUP_SKIP_MCP: "1",
+      CLAUDE_SETUP_SKIP_PURGE: "1", ...extraEnv }) });
   rmSync(dir, { recursive: true, force: true });
   return r.stdout + r.stderr;
 }
@@ -491,4 +510,269 @@ test("@important a relocated config dir without .claude.json plans every server,
   assert.match(sec, /add\s+claude mcp add --scope user scrapling/);
   assert.match(sec, /add\s+claude mcp add --scope user --transport http context7/);
   assert.match(sec, /then\s+uvx --from "scrapling\[ai\]" scrapling install/);
+});
+
+test("@important dry-run reports session-default conflicts and writes nothing", () => {
+  const dir = mkdtempSync(join(tmpdir(), "cc-sessdef-"));
+  const before = JSON.stringify({ model: "claude-opus-5-5", effortLevel: "xhigh" }, null, 2) + "\n";
+  writeFileSync(join(dir, "settings.json"), before);
+  const r = run(dir, ["--variant=base", "--dry-run"]);
+  assert.equal(r.status, 0, r.stderr);
+  assert.match(r.stdout, /--- session defaults ---/);
+  assert.match(r.stdout, /model: claude-opus-5-5 -> sonnet/);
+  assert.match(r.stdout, /effortLevel: xhigh -> high/);
+  assert.equal(readFileSync(join(dir, "settings.json"), "utf8"), before);
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test("@important --replace-all writes the managed session defaults, keeping other keys", () => {
+  const dir = mkdtempSync(join(tmpdir(), "cc-sessdef-"));
+  writeFileSync(join(dir, "settings.json"), JSON.stringify({
+    model: "claude-opus-5-5", effortLevel: "xhigh",
+    statusLine: { type: "command", command: "echo mine" },
+  }, null, 2) + "\n");
+  const r = run(dir, ["--variant=base", "--replace-all"]);
+  assert.equal(r.status, 0, r.stderr);
+  const settings = JSON.parse(readFileSync(join(dir, "settings.json"), "utf8"));
+  assert.equal(settings.model, "sonnet");
+  assert.equal(settings.effortLevel, "high");
+  assert.equal(settings.statusLine.command, "echo mine");
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test("@critical an unparsable settings.json is left byte-identical, with or without a bulk flag", () => {
+  const broken = '{\n  "model": "claude-opus-5-5",\n  "hooks": {},\n}\n';
+  for (const args of [[], ["--variant=base", "--replace-all"], ["--variant=base", "--merge-all"]]) {
+    const dir = mkdtempSync(join(tmpdir(), "cc-sessdef-"));
+    assert.equal(run(dir, ["--variant=base", "--replace-all"]).status, 0);
+    writeFileSync(join(dir, "settings.json"), broken);
+    const r = run(dir, args);
+    assert.equal(r.status, 0, r.stderr);
+    assert.equal(readFileSync(join(dir, "settings.json"), "utf8"), broken, `settings.json rewritten under [${args}]`);
+    assert.match(r.stdout, /settings\.json: INVALID JSON - left untouched/);
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("@important --merge-all keeps a conflicting session default and adds an absent one", () => {
+  const dir = mkdtempSync(join(tmpdir(), "cc-sessdef-"));
+  writeFileSync(join(dir, "settings.json"), JSON.stringify({ model: "claude-opus-5-5" }, null, 2) + "\n");
+  const r = run(dir, ["--variant=base", "--merge-all"]);
+  assert.equal(r.status, 0, r.stderr);
+  const settings = JSON.parse(readFileSync(join(dir, "settings.json"), "utf8"));
+  assert.equal(settings.model, "claude-opus-5-5");
+  assert.equal(settings.effortLevel, "high");
+  assert.match(r.stdout, /kept model: claude-opus-5-5/);
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test("@important --skip-all reports session-default conflicts and writes nothing, absent keys included", () => {
+  const dir = mkdtempSync(join(tmpdir(), "cc-sessdef-skip-"));
+  const before = JSON.stringify({ model: "claude-opus-5-5" }, null, 2) + "\n";
+  writeFileSync(join(dir, "settings.json"), before);
+  const r = run(dir, ["--variant=base", "--skip-all"]);
+  assert.equal(r.status, 0, r.stderr);
+  assert.match(r.stdout, /--- session defaults ---/);
+  assert.match(r.stdout, /\(--skip-all: settings unchanged\)/);
+  assert.equal(readFileSync(join(dir, "settings.json"), "utf8"), before);
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test("@important session defaults are written when settings.json does not exist yet", () => {
+  const dir = mkdtempSync(join(tmpdir(), "cc-sessdef-absent-"));
+  const r = run(dir, ["--variant=base"]);
+  assert.equal(r.status, 0, r.stderr);
+  const settings = JSON.parse(readFileSync(join(dir, "settings.json"), "utf8"));
+  assert.equal(settings.model, "sonnet");
+  assert.equal(settings.effortLevel, "high");
+  rmSync(dir, { recursive: true, force: true });
+});
+
+// Pre-decided so the update-check and PowerShell-tool opt-ins (later in the same run) never ask -
+// only the targeted session-defaults prompt is left interactive, which the TTY driver relies on
+// being the run's last question (see runTty's own comment above).
+function sessionDefaultsTtyFixture(dir, modelValue) {
+  assert.equal(run(dir, ["--variant=base", "--replace-all"]).status, 0);
+  const settings = JSON.parse(readFileSync(join(dir, "settings.json"), "utf8"));
+  settings.model = modelValue;
+  delete settings.effortLevel;
+  settings.env = { ...(settings.env || {}), CLAUDE_CONFIG_UPDATE_CHECK: "0", CLAUDE_CODE_USE_POWERSHELL_TOOL: "0" };
+  writeFileSync(join(dir, "settings.json"), JSON.stringify(settings, null, 2) + "\n");
+}
+
+test("@important interactive n on a session-default conflict still writes the absent key", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "cc-sessdef-tty-n-"));
+  sessionDefaultsTtyFixture(dir, "claude-opus-5-5");
+  const r = await runTty(dir, ["--variant=base"], [["replace 1 session default(s)?", "n"]]);
+  assert.equal(r.status, 0, r.stderr);
+  const after = JSON.parse(readFileSync(join(dir, "settings.json"), "utf8"));
+  assert.equal(after.model, "claude-opus-5-5");
+  assert.equal(after.effortLevel, "high");
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test("@important a superseded model with a session-default conflict asks one question, not two", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "cc-sessdef-tty-migrate-"));
+  sessionDefaultsTtyFixture(dir, "claude-opus-4-8");
+  const r = await runTty(dir, ["--variant=base"], [["replace 1 session default(s)?", "y"]]);
+  assert.equal(r.status, 0, r.stderr);
+  assert.doesNotMatch(r.stdout, /looks superseded/);
+  const after = JSON.parse(readFileSync(join(dir, "settings.json"), "utf8"));
+  assert.equal(after.model, "sonnet");
+  assert.equal(after.effortLevel, "high");
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test("@important a superseded model's tier-preserving id is reported in dry-run, where no kept-line ever prints", () => {
+  const dir = mkdtempSync(join(tmpdir(), "cc-sessdef-migrate-dry-"));
+  writeFileSync(join(dir, "settings.json"), JSON.stringify({ model: "claude-opus-4-8" }, null, 2) + "\n");
+  const r = run(dir, ["--variant=base", "--dry-run"]);
+  assert.equal(r.status, 0, r.stderr);
+  assert.match(r.stdout, /model: claude-opus-4-8 -> sonnet \(superseded - claude-opus-5-5 is the tier-preserving id/);
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test("@important a kept superseded model conflict also reports its tier-preserving id", () => {
+  const dir = mkdtempSync(join(tmpdir(), "cc-sessdef-migrate-kept-"));
+  writeFileSync(join(dir, "settings.json"), JSON.stringify({ model: "claude-opus-4-8" }, null, 2) + "\n");
+  const r = run(dir, ["--variant=base", "--merge-all"]);
+  assert.equal(r.status, 0, r.stderr);
+  assert.match(r.stdout, /kept model: claude-opus-4-8 \(re-run with --replace-all to set sonnet\) \(superseded - claude-opus-5-5 is the tier-preserving id/);
+  const settings = JSON.parse(readFileSync(join(dir, "settings.json"), "utf8"));
+  assert.equal(settings.model, "claude-opus-4-8");
+  rmSync(dir, { recursive: true, force: true });
+});
+
+const BROKEN_JSON = '{\n  "model": "claude-opus-5-5",\n  "hooks": {},\n}\n';
+const notValid = (dir, block) => `${join(dir, "settings.json")}: not valid JSON — skipped (${block})`;
+// fakeClaude: PATH holds only a recording `claude` stub (plus the OS shell dir), so no real CLI runs.
+function jsonSafetyRun({ settings, claudeJson = '{\n  "autoUpdates": true\n}\n', args, env = {}, fakeClaude = false, readOnly = false }) {
+  const dir = mkdtempSync(join(tmpdir(), "cc-jsonsafe-"));
+  const bin = mkdtempSync(join(tmpdir(), "cc-fakebin-"));
+  if (settings !== undefined) writeFileSync(join(dir, "settings.json"), settings);
+  writeFileSync(join(dir, ".claude.json"), claudeJson);
+  if (readOnly) chmodSync(join(dir, "settings.json"), 0o444);
+  const base = Object.fromEntries(Object.entries(process.env).filter(([k]) => !/^path$/i.test(k)));
+  let PATH = process.env.PATH ?? process.env.Path;
+  if (fakeClaude) {
+    if (process.platform === "win32") {
+      writeFileSync(join(bin, "claude.cmd"), '@echo %*>> "%~dp0calls.log"\r\n');
+      PATH = `${bin};${join(process.env.SystemRoot || "C:\Windows", "System32")}`;
+    } else {
+      writeFileSync(join(bin, "claude"), '#!/bin/sh\necho "$@" >> "$(dirname "$0")/calls.log"\n');
+      chmodSync(join(bin, "claude"), 0o755);
+      PATH = `${bin}:/usr/bin:/bin`;
+    }
+  }
+  const r = spawnSync(process.execPath, [join(ROOT, "setup.mjs"), ...args], { encoding: "utf8", timeout: 120000,
+    env: sandboxHome({ ...base, PATH, CLAUDE_CONFIG_DIR: dir, CLAUDE_SETUP_SKIP_PURGE: "1", ...env }) });
+  if (readOnly) chmodSync(join(dir, "settings.json"), 0o644);
+  const readOr = (p) => (existsSync(p) ? readFileSync(p, "utf8") : null);
+  const res = { dir, status: r.status, stderr: r.stderr, out: r.stdout + r.stderr,
+    settings: readOr(join(dir, "settings.json")), claudeJson: readOr(join(dir, ".claude.json")),
+    calls: readOr(join(bin, "calls.log")) || "" };
+  rmSync(dir, { recursive: true, force: true });
+  rmSync(bin, { recursive: true, force: true });
+  return res;
+}
+const SKIP_BOTH = { CLAUDE_SETUP_SKIP_PLUGINS: "1", CLAUDE_SETUP_SKIP_MCP: "1" };
+
+test("@critical plugin reconciliation leaves an unparsable settings.json byte-identical under --replace-all", () => {
+  const r = jsonSafetyRun({ settings: BROKEN_JSON, args: ["--variant=base", "--replace-all"],
+    env: { CLAUDE_SETUP_SKIP_MCP: "1" }, fakeClaude: true });
+  assert.equal(r.status, 0, r.stderr);
+  assert.equal(r.settings, BROKEN_JSON);
+  assert.ok(r.out.includes(notValid(r.dir, "plugin reconciliation")), r.out);
+});
+
+let brokenClaudeJsonRun;
+const brokenClaudeJson = () => (brokenClaudeJsonRun ??= jsonSafetyRun({ claudeJson: '{ "mcpServers": {,} }\n',
+  args: ["--variant=base", "--replace-all"], env: { CLAUDE_SETUP_SKIP_PLUGINS: "1" }, fakeClaude: true }));
+
+test("@critical an unparsable .claude.json is byte-identical after --replace-all and no claude mcp command runs", () => {
+  const r = brokenClaudeJson();
+  assert.equal(r.status, 0, r.stderr);
+  assert.equal(r.claudeJson, '{ "mcpServers": {,} }\n');
+  assert.doesNotMatch(r.calls, /\bmcp\b/);
+});
+
+test("@important an unparsable .claude.json prints the MCP skip line", () => {
+  assert.ok(brokenClaudeJson().out.includes("cannot read .claude.json — MCP step skipped"));
+});
+
+test("@critical the update-check opt-in leaves an unparsable settings.json byte-identical under --replace-all", () => {
+  const r = jsonSafetyRun({ settings: BROKEN_JSON, args: ["--variant=base", "--replace-all", "--enable-update-check"], env: SKIP_BOTH });
+  assert.equal(r.status, 0, r.stderr);
+  assert.equal(r.settings, BROKEN_JSON);
+  assert.ok(r.out.includes(notValid(r.dir, "update-check opt-in")), r.out);
+});
+
+test("@critical the PowerShell-tool opt-in leaves an unparsable settings.json byte-identical under --replace-all", () => {
+  const r = jsonSafetyRun({ settings: BROKEN_JSON, args: ["--variant=base", "--replace-all", "--enable-powershell-tool"], env: SKIP_BOTH });
+  assert.equal(r.status, 0, r.stderr);
+  assert.equal(r.settings, BROKEN_JSON);
+  assert.ok(r.out.includes(notValid(r.dir, "PowerShell-tool opt-in")), r.out);
+});
+
+test("@important a BOM-prefixed valid settings.json is parsed and reconciled normally", () => {
+  const r = jsonSafetyRun({ settings: "\uFEFF" + JSON.stringify({ model: "claude-opus-5-5",
+    statusLine: { type: "command", command: "echo mine" } }, null, 2) + "\n",
+  args: ["--variant=base", "--replace-all", "--enable-update-check"], env: SKIP_BOTH });
+  assert.equal(r.status, 0, r.stderr);
+  assert.doesNotMatch(r.out, /not valid JSON|INVALID JSON/);
+  const s = JSON.parse(r.settings.replace(/^\uFEFF/, ""));
+  assert.equal(s.model, "sonnet");
+  assert.equal(s.statusLine.command, "echo mine");
+  assert.equal(s.env.CLAUDE_CONFIG_UPDATE_CHECK, "1");
+});
+
+test("@important a failed settings.json write prints a warning", { skip: process.getuid?.() === 0 && "root ignores file modes" }, () => {
+  const before = JSON.stringify({ model: "claude-opus-5-5" }, null, 2) + "\n";
+  const r = jsonSafetyRun({ settings: before, args: ["--variant=base", "--replace-all"], env: SKIP_BOTH, readOnly: true });
+  assert.equal(r.settings, before);
+  assert.ok(r.out.includes(`WARNING: could not write ${join(r.dir, "settings.json")}`), r.out);
+});
+
+test("@important the autoUpdates block parses a BOM-prefixed valid .claude.json and enables updates", () => {
+  const r = jsonSafetyRun({ settings: JSON.stringify({ model: "claude-opus-5-5" }, null, 2) + "\n",
+    claudeJson: "﻿" + JSON.stringify({ autoUpdates: false, keep: 1 }, null, 2) + "\n",
+    args: ["--variant=base", "--replace-all"], env: SKIP_BOTH });
+  assert.equal(r.status, 0, r.stderr);
+  assert.ok(r.out.includes("autoUpdates: enabled"), r.out);
+  assert.doesNotMatch(r.out, /autoUpdates: state file is not valid JSON/);
+  assert.deepEqual(JSON.parse(r.claudeJson.replace(/^﻿/, "")), { autoUpdates: true, keep: 1 });
+});
+
+test("@important --doctor parses a BOM-prefixed valid settings.json", () => {
+  const dir = mkdtempSync(join(tmpdir(), "cc-doctor-"));
+  const hook = join(dir, "hook.mjs");
+  writeFileSync(hook, "export {};\n");
+  writeFileSync(join(dir, "settings.json"), "﻿" + JSON.stringify({
+    hooks: { SessionStart: [{ hooks: [{ type: "command", command: "node", args: [hook] }] }] } }, null, 2) + "\n");
+  const r = run(dir, ["--doctor"]);
+  rmSync(dir, { recursive: true, force: true });
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+  assert.doesNotMatch(r.stdout, /missing or invalid JSON/);
+  assert.match(r.stdout, /SessionStart: OK/);
+});
+
+test("@critical no setup.mjs run in this file reaches the real home or its .claude.json", () => {
+  const fold = (p) => (process.platform === "win32" ? resolve(p).toLowerCase() : resolve(p));
+  const sameOrInside = (child, parent) => {
+    const rel = relative(fold(parent), fold(child));
+    return rel === "" || (!rel.startsWith("..") && !isAbsolute(rel));
+  };
+  // A tmpdir under the home (Windows' default %LOCALAPPDATA%\Temp) is the one allowed place below it.
+  const tmpUnderHome = sameOrInside(tmpdir(), REAL_HOME);
+  assert.ok(SPAWN_HOMES.length > 0, "no setup.mjs spawn was recorded");
+  for (const h of SPAWN_HOMES) {
+    assert.ok(h.HOME && h.USERPROFILE, `a spawn ran without a sandbox home: ${JSON.stringify(h)}`);
+    for (const p of [h.HOME, h.USERPROFILE]) {
+      assert.ok(!sameOrInside(REAL_HOME, p), `sandbox home ${p} is the real home or an ancestor of it`);
+      const underHome = sameOrInside(p, REAL_HOME);
+      assert.ok(!underHome || (tmpUnderHome && sameOrInside(p, tmpdir()) && fold(p) !== fold(tmpdir())),
+        `sandbox home ${p} lies under the real home ${REAL_HOME}`);
+    }
+  }
+  assert.equal(realAutoUpdates(), REAL_AUTO_UPDATES_BEFORE, `${REAL_STATE} autoUpdates changed`);
 });

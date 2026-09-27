@@ -22,6 +22,8 @@
   "$gsdCore": "The gsd-core release this bundle was validated against. Pinned, not @latest: the gsd-executor fork is regenerated from one exact release, the twelve agent patches are verified against it, and a hook patch anchors a line in it - @latest would hand two machines set up on different days a different gsd-core and silently invalidate that on one of them. setup.mjs installs or upgrades TO this version and never downgrades; an install ahead of it is reported, not touched. Bumping this is the moment to re-verify the fork and the patches (see RISK-GSDEXEC-001).",
   "gsdCore": { "version": "1.11.0" },
   "keepInstalled": ["superpowers", "ultrapowers"],
+  "$sessionDefaults": "Keys setup.mjs manages in ~/.claude/settings.json on every profile. Absent: written. Different: a conflict - written under --replace-all or an interactive yes, otherwise printed.",
+  "sessionDefaults": { "model": "sonnet", "effortLevel": "high" },
   "$managedMcpServers": "User-scope MCP servers setup.mjs may add or remove. A profile lists the ones it wants in mcpServers (absent: inherited through extends); a configured server is never rewritten. headerFromEnv maps a header to the environment variable holding its value - values never live here. postAdd runs once, right after a successful add, under the same consent.",
   "managedMcpServers": {
     "scrapling": {
@@ -67,7 +69,8 @@
         "hooks/prune-tests-nudge*",
         "hooks/pnpm-phantom-fix-hook*", "bin/pnpm-phantom-*", "bin/lib/pnpm-*",
         "bin/turbopack-gvs-check.mjs", "bin/lib/turbopack-gvs-*", "commands/pnpm-phantom-fix.md",
-        "hooks/scrapling-raw-gate*", "hooks/web-block-nudge*"
+        "hooks/scrapling-raw-gate*", "hooks/web-block-nudge*",
+        "hooks/phase-end-cleanup-nudge*"
       ]
     }
   }

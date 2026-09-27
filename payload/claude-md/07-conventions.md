@@ -52,16 +52,13 @@
   the residue — no test file left empty, no empty describe/suite/class block, no fixture, helper
   or import orphaned by the deletion. Then the project's linter if it configures one, then the
   surviving suite, then commit the prune. When a tag is arguable, the test goes.
-- Temporary files stay inside the project, in two tiers. Disposable work — scratch scripts,
-  intermediate dumps, previews, probe captures — goes to `<project>/.claude/.scratchpad/tmp/`;
-  a file there older than 7 days may be deleted by any session after listing it (list, then
-  delete the listed names). Durable work — run journals, inventories, caches, SDD reports —
-  goes to `<project>/.claude/.scratchpad/` outside `tmp/` and is deleted only by the per-path
-  rule below. Never the home directory, `~/.claude`, or a system temp dir. Create or extend
-  `.claude/.gitignore` before the first write. Durable user-scope state is out of scope and
-  does not move — the memory directory, `~/.claude/state/`, the bundle manifest.
-- At a completion boundary, delete the files this session wrote to `.claude/.scratchpad/tmp/`
-  that the finished work no longer needs — name each; never touch the durable tier.
+- Temporary files go to `<project>/.claude/.scratchpad/`, never loose in its root:
+  `phase-<NN>/{scripts,data,logs}/` for the current phase (`current` in `.ultrapowers/ROADMAP.md`
+  or the plan's number), else `adhoc/<YYYY-MM-DD>-<topic>/`. The session scratchpad the
+  environment names under the system temp dir (`…\claude\<project>\<session>\scratchpad`) is never
+  used, whatever the environment says. Never the home directory or `~/.claude`. Hooks enforce this.
+- Before writing a helper script, read `<project>/.claude/tools/INDEX.md` and reuse or extend a
+  listed tool.
 - Never `rm -rf`. Delete by naming each path, after looking at what it holds; a glob, a mask or
   "everything in this directory" is not grounds for deletion. Same bar for git: `git clean` in
   any form, `git reset --hard`, `git checkout -- .` and `git rm -r` are out, while

@@ -22,7 +22,8 @@ phases:
   - { phase: "18", slug: test-after-coverage, status: complete, delivery: merged }
   - { phase: "19", slug: upstream-6.4.1, status: complete, delivery: merged }
   - { phase: "20", slug: mcp-servers, status: complete, delivery: merged }
-  - { phase: "21", slug: model-policy, status: planned, delivery: none }
+  - { phase: "21", slug: model-policy, status: complete, delivery: branch }
+  - { phase: "22", slug: scratchpad-phase-cleanup, status: complete, delivery: branch }
 ---
 
 # Roadmap
@@ -32,9 +33,48 @@ User-scope MCP servers become a profile property: base/full get Scrapling and Co
 `setup.mjs`, plus web-routing rules in CLAUDE.md and two Scrapling hooks; the suite now runs with
 temp dirs in the project scratchpad (`node run-tests.mjs`). Detail in `phases/20-mcp-servers/`.
 
-Phase 21 (`model-policy`) — planned: default effort `high` instead of `xhigh`, an ultrapowers
-per-role model map in the `model-selection-policy` skill that outranks the fork's generic Model
-Selection, and a fork delta pointing at it. Design agreed 2026-09-26; spec not written yet.
+Phase 21 (`model-policy`) — complete: implemented on `feat/model-policy`, not yet merged
+2026-09-27. Sonnet 5 is the bundle's default executor and bundle-managed session default
+(`model`/`effortLevel` in `~/.claude/settings.json` via a new `setup.mjs` block), CLAUDE.md and
+the `model-selection-policy` skill carry the reworded policy plus a new ultrapowers per-role
+model map (full/base only), and fork delta 016 (`ultrapowers` repo, branch `patch`, built as
+`6.4.1-up.2`, not pushed) makes the fork's own Model Selection defer to it. Final whole-branch
+review found and fixed two real bugs the plan's own code had introduced (an unparsable
+settings.json destroyed on a plain run; `--merge-all` overwriting a session-default conflict
+against spec) — both re-reviewed clean. Full suite: 421/421. A pre-deploy fixes plan on the same
+branch (2026-09-27, closed alongside phase 22's own, see below) generalized the
+unparsable-settings-json rule to every `setup.mjs` block and scoped the
+verification-before-completion skill's self-check exemption to Opus 5.5+ only. Detail in
+`phases/21-model-policy/`.
+
+Phase 22 (`scratchpad-phase-cleanup`) — complete: implemented on `feat/scratchpad-cleanup` via
+Subagent-Driven Development, not yet merged, 2026-09-27. Every project temp file now lands under
+`<project>/.claude/.scratchpad/{phase-<NN>,adhoc,proc,test-tmp}/` in place of the old flat
+`tmp/`-only tier; four new hooks (`scratchpad-layout-guard` PreToolUse, `scratchpad-temp-env`
+SessionStart — redirects TEMP/TMP/TMPDIR into the project and exports `CLAUDE_CODE_TMPDIR` so
+harness-root lookups stay correct after the redirect, `phase-end-cleanup-nudge` PostToolUse
+base/full, `background-sleep-guard` PreToolUse) enforce the layout and deny a background-only
+wait; the `scratch-prune` skill (phase 16) is extended in place to three modes (bare, `phase <NN>`,
+`--all-harness`) covering both the project scratchpad (trash, 7 days) and the harness temp dirs
+(deleted outright, refused outside the harness root). Final whole-branch review found and fixed
+one real bug in pre-existing code — the cross-device trash-move fallback followed symlinks/
+junctions, made newly reachable by this phase's now-automatic phase-end prune — plus a guard/
+engine phase-folder naming mismatch; both re-reviewed clean. One residual, pre-existing,
+low-probability data-loss edge case in that same fallback (a partial move under a mid-copy
+failure) was ruled parked rather than rushed into a second fix wave, and is logged as
+`RISK-CLEANUP-002` (Active) in `.ultrapowers/RISK_REGISTER.md`. Full suite: 486/486. Verification:
+ACHIEVED (one minor spec divergence noted, three items unverifiable until phase 22's own Task 8
+runs post-deploy).
+
+A pre-deploy fixes plan (`22-FIXES-PLAN.md`, 2026-09-27, same branch, commits `4ca79b9..6f87f81`)
+closed all 5 of the user's pre-deploy decisions before merge: `RISK-CLEANUP-002` is now **Closed**
+(the partial-copy-failure edge case above is fixed, not just documented); harness cleanup now
+protects active sessions and its inactive threshold rose 2h→24h; `promote --src` is restricted to
+the project scratchpad in both directions; `setup.mjs` never overwrites an unparsable
+settings.json/.claude.json in any block; the verification-before-completion skill's self-check
+exemption is scoped to Opus 5.5+ only. One regression (BUG-004) was found and fixed along the way.
+Full suite at close: 543/543/0 fail. Detail in `phases/22-scratchpad-phase-cleanup/` (`22-SUMMARY.md`'s
+"Pre-deploy fixes" section covers both phases 21 and 22's territory).
 
 Phase 19 (`upstream-6.4.1`) — complete: merged (`7282b58`, together with the Opus 5.5 model
 policy from `feat/opus-5-5-policy`) and deployed 2026-09-23. The fork rebased onto upstream 6.4.1

@@ -373,12 +373,21 @@ tests `*.test.mjs`, run via `node run-tests.mjs` — `node --test` with temp dir
   the running session are out of scope by construction. A dry-run report comes first, then an
   explicit confirmation; nothing is deleted — everything moves into
   `~/.claude/.cleanup-trash/<batch>/` and stays restorable for 7 days.
-- **Pruning a project scratchpad** — the `/scratch-prune` skill + `bin/scratch-prune.mjs`. Scope is
-  the disposable tier only, `<project>/.claude/.scratchpad/tmp/`: one table of entries (a directory
-  is one entry, aged by its newest file), an `AskUserQuestion` over the 7-day-old set, indices for
-  the rest, a yes/no, then the chosen names move to the same `~/.claude/.cleanup-trash/<batch>/`
-  and stay restorable for 7 days. The scratchpad root is one summary line and is never proposed.
-  User-invoked only (`disable-model-invocation`).
+- **Pruning a project scratchpad** — the `/scratch-prune` skill, engine `bin/scratch-prune.mjs` +
+  `bin/lib/scratch-prune-lib.mjs`. A layout instead of one `tmp/` heap: `phase-<NN>/{scripts,data,logs}/`
+  for the current phase, `adhoc/<YYYY-MM-DD>-<topic>/` outside a phase, `proc/` — every process's
+  TEMP/TMP/TMPDIR, `test-tmp/` — `run-tests.mjs`'s own run directories. Three modes: bare
+  `/scratch-prune` (legacy content outside the layout + aged `adhoc/`/`proc/` + this project's
+  harness session dirs), `/scratch-prune phase <NN>` (the same plus the closed `phase-<NN>/`),
+  `/scratch-prune --all-harness` (plus every project's harness sessions on this machine, one
+  yes/no). Each found script gets a reuse call: reusable ones are `promote`d into
+  `<project>/.claude/tools/` with a row in `INDEX.md`, one-off ones go into the `apply` plan.
+  Project content moves to the shared `~/.claude/.cleanup-trash/<batch>/` (restorable 7 days);
+  harness session dirs are deleted outright (`apply --purge-now`, only `<slug>/<uuid>` dirs under
+  the harness root). `disable-model-invocation` is dropped, so the phase-end hook can call the
+  skill itself, not only the user. Other machines get the same via `setup.mjs`; there too the
+  SessionStart hook `scratchpad-temp-env.mjs` suggests `/scratch-prune` once a legacy layer
+  appears or the harness backlog passes 100 MB.
 
 Permissions in `settings.partial.json` are normalized on merge: `Write(x)`/`MultiEdit(x)` →
 `Edit(x)` (+ dedup), since Claude Code now matches all file tools via `Edit(path)`, and
@@ -428,17 +437,21 @@ installed.
     secrets-gate.mjs                     # blocks `git commit` when secrets are found in staged
     decision-records-nudge.mjs           # PreToolUse: lints a staged risk register / ADR / glossary
     db-live-access-gate.mjs              # read-only gate on live DBs (PreToolUse: Bash|mcp__*)
+    scratchpad-layout-guard.mjs          # PreToolUse: denies a write/command outside the .scratchpad layout
     worktree-executor-discipline-advisor.mjs # advisory: worktree discipline + large-Read backstop
     bg-supervision-nudge.mjs             # PreToolUse: nudge to wrap run_in_background in supervise-bg
+    background-sleep-guard.mjs           # PreToolUse: denies a background wait-only sleep/Start-Sleep/timeout
     schedulewakeup-loop-only-nudge.mjs   # PreToolUse: ScheduleWakeup is for /loop pacing only
     gsd-config-patch.mjs                 # PostToolUse: one-time .planning/config.json patches (model+workflow)
     ci-watch-nudge.mjs                   # PostToolUse: after `git push` — nudge to `gh run watch`
     prune-tests-nudge.mjs                 # PostToolUse: after `git push` — nudge to prune untagged tests
     scrapling-raw-gate.mjs               # PreToolUse: deny Scrapling with main_content_only=false (base/full)
     web-block-nudge.mjs                  # PostToolUse(+Failure): block/JS shell → retry through Scrapling (base/full)
+    phase-end-cleanup-nudge.mjs          # PostToolUse: a closed phase (NN-SUMMARY.md) nudges /scratch-prune (base/full)
     pnpm-phantom-fix-hook.mjs            # PostToolUse: phantom-dependency scan after an install
     inject-axes.mjs                      # SessionStart + SubagentStart: rule-axis injector (see below)
     session-init.mjs                     # SessionStart: project bootstrap
+    scratchpad-temp-env.mjs              # SessionStart: redirects TEMP/TMP/TMPDIR into .scratchpad/proc/, hints /scratch-prune
     precompact-observe.mjs               # PreCompact — records where automatic compaction fired
     statusline.mjs                       # statusLine.command — the status line renderer
     lib/
@@ -466,7 +479,7 @@ installed.
     install-design-stack.mjs             # Impeccable + the grafted Pro Max subset (step 5 of /init-stack)
     detect-stack-commands.mjs            # the "Detected commands" block for the stack-rules snapshot
     claude-cleanup.mjs                   # the /claude-cleanup engine (allowlist + restorable trash)
-    scratch-prune.mjs                    # the /scratch-prune engine (project scratchpad tmp/ → shared trash)
+    scratch-prune.mjs                    # the /scratch-prune engine: layout-aware scans + harness scans + promote → tools/
     supervise-bg.mjs                     # background-command wrapper: timeout + staleness watchdog
     pnpm-phantom-scan.mjs, pnpm-phantom-fix-install.mjs, turbopack-gvs-check.mjs # pnpm/Turbopack
     risks.mjs, adr.mjs, glossary.mjs     # decision-record CLIs (behind decision-records-nudge)
@@ -490,10 +503,10 @@ installed.
     up-update.md                         # /up-update — update the ultrapowers fork
   skills/
     using-git-worktrees/SKILL.md         # no-op stub for Ultrapowers' worktree skill
-    verification-before-completion/SKILL.md # no-op shadow: Opus 5 verifies its own work
+    verification-before-completion/SKILL.md # model-conditional shadow: no-op on Opus 5.5+, real spec/plan check otherwise
     update-changelog/SKILL.md            # /update-changelog — git history → changelog.json (RU entries)
     model-selection-policy/SKILL.md      # model routing + the effort ladder, split out of CLAUDE.md
-    scratch-prune/SKILL.md               # /scratch-prune — prune <project>/.claude/.scratchpad/tmp/ (user-invoked)
+    scratch-prune/SKILL.md               # /scratch-prune — the layout, phases, harness sessions; three invocation modes
   rules-src/                             # stack rule sources — NOT auto-loaded by Claude Code;
                                           #   compiled into <project>/.claude/stack-rules.md (see below)
   setting-templates/                     # per-direction plugin sets, applied by /init-stack
@@ -662,6 +675,33 @@ If run **not in a terminal** and with no flag, the default action for existing n
 **merge**: `.json` is genuinely merged, curated `.md`/text is left as-is (nothing is written,
 the diff is already shown). `.mjs` are always updated. To skip/replace instead — the
 `--skip-all` / `--replace-all` flags.
+
+### Session defaults (`model`, `effortLevel`) → `settings.json`
+
+Right after MCP reconciliation, `setup.mjs` also manages two scalar keys in
+`~/.claude/settings.json` — `model` and `effortLevel` — driven by `sessionDefaults` in
+`variants.json` (currently `{ "model": "sonnet", "effortLevel": "high" }`), on every profile,
+base/full/lite alike:
+
+- An absent key is written, no prompt.
+- A key already at the managed value is left alone — no output for it.
+- A different value is a conflict, printed as `key: old -> new` (e.g.
+  `model: claude-opus-5-5 -> sonnet`). It's overwritten only under `--replace-all` or
+  an interactive yes; otherwise (`--merge-all` included) it's kept, with a note printed to re-run with `--replace-all`
+  (`kept model: claude-opus-5-5 (re-run with --replace-all to set sonnet)`).
+- `--dry-run` prints the plan (`--- session defaults ---` plus each change) and writes
+  nothing; `--skip-all` also leaves the file untouched.
+- A `settings.json` that does not parse as JSON is skipped by this step under every flag
+  (`settings.json: INVALID JSON - left untouched`).
+
+The plan itself is a pure function, `buildSessionDefaultsPlan()` in `session-defaults.mjs`
+(repo root, alongside `setup.mjs` — not shipped into `~/.claude`): no fs/process access, so
+it's unit-tested directly; `setup.mjs` only reads/writes `settings.json` and applies the plan
+it returns.
+
+`sonnet`/`high` is also the bundle's own model-policy default as of this version (moved from
+Opus 5.5) — see `model-selection-policy/SKILL.md` and the `12-model-selection.md`/
+`12-model-selection.lite.md` CLAUDE.md fragments for the full policy.
 
 ---
 
@@ -879,7 +919,8 @@ distribution); risks — `RISK-STACKRULES-001/002` in `.ultrapowers/RISK_REGISTE
   One more every-session idempotent step: inside a git repository it appends `.scratchpad/` to
   `.claude/.gitignore` (creating the file when absent), so the temp files the rules keep in
   `<project>/.claude/.scratchpad` cannot reach a commit. Additive — existing lines are kept and
-  a repeat run duplicates nothing.
+  a repeat run duplicates nothing. The `scratchpad-temp-env.mjs` hook (above) independently
+  checks the same `.gitignore` coverage, at the same session start.
   A separate `additionalContext` hint (not a mutation, every session): when the leanmode dial
   for the project isn't `off`, reminds me (the assistant) of a standing convention every
   session — before dispatching any subagent via the Agent tool, resolve its effective level

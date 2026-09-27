@@ -1,25 +1,27 @@
 ---
 name: model-selection-policy
-description: When to run claude-opus-5-5 vs claude-sonnet-5 vs claude-haiku-4-5 and how to set reasoning effort — the executor default (Opus 5.5), the effort ladder, and why the cost lever is now effort rather than tier. Use when choosing a model or effort level for a task or subagent.
+description: When to run claude-sonnet-5 vs claude-opus-5-5 vs claude-haiku-4-5 and how to set reasoning effort — the executor default (Sonnet 5), when to step up to Opus 5.5, and the effort ladder. Use when choosing a model or effort level for a task or subagent.
 ---
 
 # Model Selection Policy
 
-DEFAULT executor: **claude-opus-5-5**. The cost lever is now `effort`, not tier — start on Opus 5.5
-and step effort *down*, rather than starting on a cheaper model and escalating up.
+DEFAULT executor: **claude-sonnet-5**. Step *up* to Opus 5.5 where judgment pays for itself;
+tune cost within a tier with `effort`.
 
-## Tier: start on Opus 5.5, step down only for a reason
-- **claude-opus-5-5** — default for anything with judgment, multi-step tool use, or a costly
-  wrong answer.
-- **claude-sonnet-5** — step down for mechanical, high-volume, or latency-bound work.
+## Tier: start on Sonnet 5, step up for judgment
+- **claude-sonnet-5** — default: implementation from a clear plan, mechanical and high-volume
+  work, most reviews of small diffs.
+- **claude-opus-5-5** — design and architecture, security-sensitive review, hard debugging,
+  multi-file judgment, work where a wrong answer is costly.
 - **claude-haiku-4-5** — no-judgment classification/extraction only; **no `effort` parameter**,
   200K window.
 - **claude-fable-5-1** — only when the user names it (2.5× Opus 5.5 cost).
 
 ## Effort is the primary cost / latency control
-- `low`/`medium` on Opus 5.5 are strong — use them widely wherever quality holds.
-- Start **`xhigh`** for heavy coding / agentic work, **`high`** otherwise, then sweep *down* on
-  your own evals. Do not carry effort values over from earlier models — they do not transfer.
+- `low`/`medium` are strong on both Sonnet 5 and Opus 5.5 — use them widely wherever quality holds.
+- Start **`high`** for coding and agentic work; **`xhigh`** for long agentic runs and debugging;
+  sweep *down* on your own evals. Do not carry `effort` values over between models — they do
+  not transfer.
 - Always pass `effort` explicitly: omitted, it is **`medium`** on Opus 5.5 (one step below the
   `high` default of every other model), so an unset role silently thinks less.
 - Re-tune per role and actually use `medium`; the useful middle of the ladder is easy to leave
@@ -67,8 +69,8 @@ mid-generation for strategy/course-correction. This is a HOST-RUNTIME setting
 session level, and every subagent an orchestrator spawns inherits the same advisor
 automatically. There is no per-agent advisor control today.
 
-This composes with, not replaces, everything above: the executor-model choice (Opus 5.5 by
-default, stepped down where it fits) still governs cost for mechanical turns; the advisor adds a
+This composes with, not replaces, everything above: the executor-model choice (Sonnet 5 by
+default, stepped up where it fits) still governs cost for mechanical turns; the advisor adds a
 stronger reviewer inline on top, on every turn, for the whole session.
 
 **Worth enabling:** long, multi-step agent loops where the plan matters but most turns are

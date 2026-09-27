@@ -362,12 +362,20 @@ Claude Code. Живёт в [`axazolai/ultrapowers`](https://github.com/axazolai/
   plugin-кэша), поэтому `memory/`, живой конфиг, venv'ы и текущая сессия вне области по
   построению. Сначала dry-run-отчёт, затем явное подтверждение; ничего не удаляется —
   всё переезжает в `~/.claude/.cleanup-trash/<партия>/` и восстановимо 7 дней.
-- **Чистка scratchpad проекта** — skill `/scratch-prune` + `bin/scratch-prune.mjs`. Область — только
-  одноразовый ярус `<project>/.claude/.scratchpad/tmp/`: одна таблица записей (каталог — одна
-  запись, возраст по самому свежему файлу), `AskUserQuestion` по набору старше 7 дней, номера для
-  остального, да/нет — и выбранные имена переезжают в ту же `~/.claude/.cleanup-trash/<партия>/`,
-  восстановимо 7 дней. Корень scratchpad — одна строка сводки, никогда не предлагается. Только по
-  вызову пользователя (`disable-model-invocation`).
+- **Чистка scratchpad проекта** — skill `/scratch-prune`, движок `bin/scratch-prune.mjs` +
+  `bin/lib/scratch-prune-lib.mjs`. Раскладка вместо кучи `tmp/`: `phase-<NN>/{scripts,data,logs}/`
+  на текущую фазу, `adhoc/<YYYY-MM-DD>-<topic>/` вне фазы, `proc/` — TEMP/TMP/TMPDIR каждого
+  процесса, `test-tmp/` — рабочие каталоги `run-tests.mjs`. Три режима: голый `/scratch-prune`
+  (legacy вне раскладки + устаревшие `adhoc/`/`proc/` + harness-сессии этого проекта),
+  `/scratch-prune phase <NN>` (то же плюс закрытая `phase-<NN>/`), `/scratch-prune --all-harness`
+  (плюс harness-сессии всех проектов машины, одно да/нет). Найденный скрипт разбирается на
+  reuse-или-одноразовый: переиспользуемый `promote`-ится в `<project>/.claude/tools/` со строкой в
+  `INDEX.md`, одноразовый уходит в план на `apply`. Содержимое проекта переезжает в общую
+  `~/.claude/.cleanup-trash/<партия>/` (восстановимо 7 дней); harness-каталоги сессий удаляются
+  сразу (`apply --purge-now`, только формы `<slug>/<uuid>` под harness-корнем). `disable-model-invocation`
+  снят — хук закрытия фазы может позвать skill сам, не только пользователь. На других машинах то
+  же ставит `setup.mjs`; там же SessionStart-хук `scratchpad-temp-env.mjs` подсказывает
+  `/scratch-prune`, когда завёлся legacy-слой или harness-хвост перевалил 100 МБ.
 
 Права в `settings.partial.json` нормализуются при мёрже: `Write(x)`/`MultiEdit(x)` → `Edit(x)`
 (+ dedup), т.к. Claude Code теперь матчит все file-tools через `Edit(path)`, а `MultiEdit` —
@@ -415,17 +423,21 @@ Claude Code. Живёт в [`axazolai/ultrapowers`](https://github.com/axazolai/
     secrets-gate.mjs                     # блок `git commit` при найденных секретах в staged
     decision-records-nudge.mjs           # PreToolUse: линт риск-регистра/ADR/глоссария на коммите
     db-live-access-gate.mjs              # read-only гейт на живые БД (PreToolUse: Bash|mcp__*)
+    scratchpad-layout-guard.mjs          # PreToolUse: запись/команда вне раскладки .scratchpad — deny
     worktree-executor-discipline-advisor.mjs # advisory: дисциплина worktree + backstop больших Read
     bg-supervision-nudge.mjs             # PreToolUse: нудж обернуть run_in_background в supervise-bg
+    background-sleep-guard.mjs           # PreToolUse: запрет фонового sleep/Start-Sleep/timeout без работы
     schedulewakeup-loop-only-nudge.mjs   # PreToolUse: ScheduleWakeup — только для /loop-пейсинга
     gsd-config-patch.mjs                 # PostToolUse: разовые патчи .planning/config.json (модель+воркфлоу)
     ci-watch-nudge.mjs                   # PostToolUse: после `git push` — нудж `gh run watch`
     prune-tests-nudge.mjs                 # PostToolUse: после `git push` — нудж вычистить непомеченные тесты
     scrapling-raw-gate.mjs               # PreToolUse: запрет Scrapling с main_content_only=false (base/full)
     web-block-nudge.mjs                  # PostToolUse(+Failure): блок/JS-оболочка → повторить через Scrapling (base/full)
+    phase-end-cleanup-nudge.mjs          # PostToolUse: закрытие фазы (NN-SUMMARY.md) → нудж /scratch-prune (base/full)
     pnpm-phantom-fix-hook.mjs            # PostToolUse: скан фантомных зависимостей после install
     inject-axes.mjs                      # SessionStart + SubagentStart: инжектор осей правил (см. ниже)
     session-init.mjs                     # SessionStart: бутстрап проекта
+    scratchpad-temp-env.mjs              # SessionStart: TEMP/TMP/TMPDIR → .scratchpad/proc/, хинт /scratch-prune
     precompact-observe.mjs               # PreCompact — записывает, где реально сработала автокомпакция
     statusline.mjs                       # statusLine.command — рендерер строки статуса
     lib/
@@ -453,7 +465,7 @@ Claude Code. Живёт в [`axazolai/ultrapowers`](https://github.com/axazolai/
     install-design-stack.mjs             # Impeccable + привитое подмножество Pro Max (шаг 5 /init-stack)
     detect-stack-commands.mjs            # блок «Detected commands» для снапшота stack-rules
     claude-cleanup.mjs                   # движок /claude-cleanup (allowlist + обратимая корзина)
-    scratch-prune.mjs                    # движок /scratch-prune (tmp/ scratchpad проекта → общая корзина)
+    scratch-prune.mjs                    # движок /scratch-prune: раскладка + harness-сканы + promote → tools/
     supervise-bg.mjs                     # обёртка фоновой команды: timeout + staleness-watchdog
     pnpm-phantom-scan.mjs, pnpm-phantom-fix-install.mjs, turbopack-gvs-check.mjs # pnpm/Turbopack
     risks.mjs, adr.mjs, glossary.mjs     # CLI решенческих записей (за ними — decision-records-nudge)
@@ -477,10 +489,10 @@ Claude Code. Живёт в [`axazolai/ultrapowers`](https://github.com/axazolai/
     up-update.md                         # /up-update — обновление форка ultrapowers
   skills/
     using-git-worktrees/SKILL.md         # no-op заглушка worktree-скилла Ultrapowers
-    verification-before-completion/SKILL.md # no-op тень: Opus 5 проверяет себя сам
+    verification-before-completion/SKILL.md # тень с условием по модели: no-op на Opus 5.5+, иначе реальная проверка
     update-changelog/SKILL.md            # /update-changelog — git-история → changelog.json (RU-записи)
     model-selection-policy/SKILL.md      # routing моделей + effort-лестница, вынесен из CLAUDE.md
-    scratch-prune/SKILL.md               # /scratch-prune — чистка <проект>/.claude/.scratchpad/tmp/ (по вызову)
+    scratch-prune/SKILL.md               # /scratch-prune — раскладка, фазы, harness-сессии; три режима вызова
   rules-src/                             # источник правил стека — НЕ автозагружается Claude Code;
                                           #   компилируется в <проект>/.claude/stack-rules.md (см. ниже)
   setting-templates/                     # наборы плагинов по направлениям, применяет /init-stack
@@ -653,6 +665,32 @@ node setup.mjs --uninstall-gsd # base/lite: убрать чужой gsd-core в 
 **merge**: `.json` объединяется по-настоящему, курируемый `.md`/текст остаётся как есть (ничего
 не пишется, дифф уже показан). `.mjs` обновляются всегда. Чтобы вместо этого пропускать/заменять
 — флаги `--skip-all` / `--replace-all`.
+
+### Дефолты сессии (`model`, `effortLevel`) → `settings.json`
+
+Сразу после сверки MCP `setup.mjs` также управляет двумя скалярными ключами в
+`~/.claude/settings.json` — `model` и `effortLevel` — по `sessionDefaults` из `variants.json`
+(сейчас `{ "model": "sonnet", "effortLevel": "high" }`), на любом профиле — full/base/lite:
+
+- Отсутствующий ключ дописывается, без вопроса.
+- Ключ, уже равный управляемому значению, не трогается — без вывода.
+- Другое значение — конфликт, печатается как `key: old -> new` (например,
+  `model: claude-opus-5-5 -> sonnet`). Перезаписывается только под `--replace-all` или
+  интерактивным «да»; иначе (в том числе под `--merge-all`) остаётся как есть, с пометкой, что перезапустить с
+  `--replace-all` (`kept model: claude-opus-5-5 (re-run with --replace-all to set sonnet)`).
+- `--dry-run` печатает план (`--- session defaults ---` и сами изменения) и ничего не пишет;
+  `--skip-all` тоже не трогает файл.
+- `settings.json`, который не разбирается как JSON, этот шаг пропускает при любых флагах
+  (`settings.json: INVALID JSON - left untouched`).
+
+Сам план — чистая функция `buildSessionDefaultsPlan()` в `session-defaults.mjs` (корень
+репозитория, рядом с `setup.mjs` — в `~/.claude` не устанавливается): без доступа к fs/process,
+поэтому тестируется напрямую юнит-тестами; `setup.mjs` только читает/пишет `settings.json` и
+применяет план, который она возвращает.
+
+`sonnet`/`high` — это и есть собственный дефолт модели-политики бандла начиная с этой версии
+(раньше был Opus 5.5) — см. `model-selection-policy/SKILL.md` и фрагменты CLAUDE.md
+`12-model-selection.md`/`12-model-selection.lite.md`.
 
 ---
 
@@ -871,7 +909,9 @@ README (источник истины — сами `rules-src/*.md` и их `REA
   Ещё один каждосессионный идемпотентный шаг: в git-репозитории дописывает `.scratchpad/` в
   `.claude/.gitignore` (создавая файл, если его нет), чтобы временные файлы, которые правила
   велят держать в `<проект>/.claude/.scratchpad`, не могли попасть в коммит. Аддитивно —
-  существующие строки сохраняются, повторный запуск ничего не дублирует.
+  существующие строки сохраняются, повторный запуск ничего не дублирует. Хук
+  `scratchpad-temp-env.mjs` (см. выше) проверяет то же покрытие `.gitignore` независимо, на
+  старте той же сессии.
   Отдельный хинт в `additionalContext` (не мутация, каждую сессию): если leanmode-диал для
   проекта не `off`, каждую сессию напоминает мне (ассистенту) конвенцию — перед каждым
   запуском саб-агента через `Agent` резолвить эффективный уровень

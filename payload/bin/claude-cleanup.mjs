@@ -1,7 +1,7 @@
 import { fileURLToPath } from "node:url";
 import { realpathSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { claudeDir, buildPlan, applyPlan, purgeRetention, restoreBatch, listTrashBatches, trashRoot }
+import { claudeDir, buildPlan, applyPlan, partialWarnings, purgeRetention, restoreBatch, listTrashBatches, trashRoot }
   from "./lib/claude-cleanup-lib.mjs";
 import { rmSync } from "node:fs";
 
@@ -33,11 +33,13 @@ export function main(argv = process.argv.slice(2), nowMs = Date.now()) {
   if (cmd === "scan") {
     const plan = buildPlan({ dir, tempRoot: opts.tempRoot, nowMs, excludeUuids: opts.excludeSession });
     process.stdout.write(JSON.stringify(plan, null, 2));
+    if (plan.registry === "unavailable") process.stderr.write("registry: unavailable - session registry unreadable, no temp dir proposed\n");
   } else if (cmd === "apply") {
     if (!opts.plan) { process.stderr.write("apply requires --plan <file>\n"); process.exitCode = 1; return; }
     const finalized = JSON.parse(readFileSync(opts.plan, "utf8")); // { items, ts? }
     const res = applyPlan({ dir, items: finalized.items, nowMs, ts: finalized.ts || stamp(nowMs) });
     process.stdout.write(`Moved ${res.moved} items (${res.bytes} bytes) to ${res.batchDir}; skipped ${res.skipped}.\n`);
+    for (const w of partialWarnings(res)) process.stdout.write(`${w}\n`);
   } else if (cmd === "purge-retention") {
     const removed = purgeRetention({ dir, nowMs });
     process.stdout.write(`Purged ${removed.length} trash batch(es): ${removed.join(", ") || "none"}.\n`);

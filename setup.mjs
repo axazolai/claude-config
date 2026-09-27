@@ -49,6 +49,7 @@ import { resolveVariant, filterPartialHooks, loadVariants, profilesOf, globToRe 
 import { buildPluginPlan, formatPlan, selectActions, describeAction } from "./plugin-reconcile.mjs";
 import { buildMcpPlan, formatMcpPlan, describeMcpAction, mcpAddArgs, mcpRemoveArgs, redactValues, postAddArgv,
   describePostAdd, quoteForCmd } from "./mcp-reconcile.mjs";
+import { buildSessionDefaultsPlan, describeSessionChange, fmt } from "./session-defaults.mjs";
 import { BUNDLE_RELS as GRAPHIFY_BUNDLE_RELS, PROJECT_RELS as GRAPHIFY_PROJECT_RELS, discoverRoots,
   companionMcpNames, findStashedGraphify, stripGraphifySettings, stripGraphifyMcp,
   stripProjectInitGraphify, stripPostCommit, stripGraphifyClaudeSection, formatPurge } from "./graphify-purge.mjs";
@@ -124,12 +125,22 @@ function spawnClaude(args, opts = {}) {
   return spawnSync("claude.cmd", args.map(quoteForCmd), { ...opts, shell: true });
 }
 
+const isObj = (x) => x && typeof x === "object" && !Array.isArray(x);
+// {} when the file is absent, null when it exists but is not a JSON object - callers skip, never overwrite.
+function readJsonOrNull(p) {
+  if (!existsSync(p)) return {};
+  try {
+    const text = readFileSync(p, "utf8");
+    const v = JSON.parse(text.charCodeAt(0) === 0xFEFF ? text.slice(1) : text);
+    return isObj(v) ? v : null;
+  } catch { return null; }
+}
+
 /* ---------- doctor: validate registered hook script paths ---------- */
 if (argv.has("--doctor")) {
   log(`Doctor: checking hooks registered in ${SETTINGS}`);
-  let s = {};
-  try { s = JSON.parse(readFileSync(SETTINGS, "utf8")); }
-  catch { log("  settings.json missing or invalid JSON."); process.exit(1); }
+  const s = existsSync(SETTINGS) ? readJsonOrNull(SETTINGS) : null;
+  if (!s) { log("  settings.json missing or invalid JSON."); process.exit(1); }
   let bad = 0;
   for (const ev of Object.keys(s.hooks || {})) {
     for (const grp of s.hooks[ev]) {
@@ -157,10 +168,14 @@ const MARKER_LINE = `<!-- ${MARKER} -->`;
 const MARKER_RE = /^<!--\s*CURATED:NOEDIT\s*-->$/;
 const isCurated = (content) =>
   typeof content === "string" && content.split(/\r?\n/).some((line) => MARKER_RE.test(line.trim()));
-const write = (p, c) => { if (DRY) return true; try { mkdirSync(dirname(p), { recursive: true }); writeFileSync(p, c); return true; } catch { return false; } };
+const write = (p, c) => {
+  if (DRY) return true;
+  try { mkdirSync(dirname(p), { recursive: true }); writeFileSync(p, c); return true; }
+  catch (e) { log(`  WARNING: could not write ${p} (${e.code || e.message})`); return false; }
+};
 
 /* ---------- deep additive JSON merge (existing values win; arrays unioned) ---------- */
-const isObj = (x) => x && typeof x === "object" && !Array.isArray(x);
+const skipInvalidSettings = (block) => log(`\n  ${SETTINGS}: not valid JSON — skipped (${block})`);
 function deepMerge(base, add) {
   if (Array.isArray(base) && Array.isArray(add)) {
     const seen = new Set(base.map((v) => JSON.stringify(v)));
@@ -1157,11 +1172,8 @@ async function main() {
   // second hardcoded copy in here. That duplication is exactly how this used to drift (a hook
   // added to settings.partial.json without a matching edit here would silently never get wired
   // into a real ~/.claude/settings.json, even though its .mjs file was correctly copied).
-  let cur = {};
-  if (existsSync(SETTINGS)) {
-    try { cur = JSON.parse(readFileSync(SETTINGS, "utf8")); }
-    catch { summary.push("settings.json: INVALID JSON - left untouched"); cur = null; }
-  }
+  const cur = readJsonOrNull(SETTINGS);
+  if (cur === null) summary.push("settings.json: INVALID JSON - left untouched");
   const partialRaw = read(join(REPO_ROOT, "settings.partial.json"));
   const partial = partialRaw === undefined ? null
     : safe(() => JSON.parse(partialRaw
@@ -1252,9 +1264,17 @@ async function main() {
     // tier-preserving id. Aliases (opus/sonnet/...) and current ids are left as-is. Interactive:
     // prompt, and on yes the new value rides the unified settings diff+choose below. BULK/non-TTY:
     // report only - never rewrite the user's chosen session model unattended.
+    // Skipped whenever the session-defaults block below will already cover `model` - one
+    // question/report per key, not a migrate prompt immediately followed by a bundle-default
+    // one. Unconditional today: no superseded id can equal the bundle-managed default (the
+    // comparison is against the user's CURRENT value, not the migration target - reshaping the
+    // default, e.g. to a full id, does not disable this). The only way to disable it is removing
+    // `sessionDefaults.model` from variants.json entirely.
     if (typeof merged.model === "string") {
       const mm = migrateSettingsModel(merged.model);
-      if (mm.changed) {
+      const managedModel = (loadVariants(REPO_ROOT).sessionDefaults || {}).model;
+      const coveredBySessionDefaults = managedModel !== undefined && managedModel !== merged.model;
+      if (mm.changed && !coveredBySessionDefaults) {
         if (INTERACTIVE) {
           const yes = await ask(`\n    model "${mm.from}" looks superseded - migrate to "${mm.value}"? (y/N) > `);
           if (yes.startsWith("y")) { merged.model = mm.value; summary.push(`model    ${mm.from} -> ${mm.value}`); }
@@ -1289,7 +1309,9 @@ async function main() {
   }
 
   /* ---------- plugin reconciliation (spec § 4): only managedPlugins are ever touched ---------- */
-  {
+  const curSettings = readJsonOrNull(SETTINGS);
+  if (curSettings === null) skipInvalidSettings("plugin reconciliation");
+  else {
     const variantsFile = loadVariants(REPO_ROOT);
     const managed = variantsFile.managedPlugins;
     const keepInstalled = variantsFile.keepInstalled || [];
@@ -1300,7 +1322,6 @@ async function main() {
     const installedIds = Array.isArray(parsedList)
       ? parsedList.map((p) => p.id || p.name).filter(Boolean)
       : null;   // CLI unavailable, errored, or emitted non-array/invalid JSON -> fallback notes
-    const curSettings = safe(() => JSON.parse(readFileSync(SETTINGS, "utf8"))) || {};
     const { actions, notes } = buildPluginPlan({
       required: V.plugins, managed, enabledPlugins: curSettings.enabledPlugins, installedIds, keepInstalled,
       forbidden: variantsFile.forbiddenPlugins || [],
@@ -1338,7 +1359,8 @@ async function main() {
       }
       else log("  (non-interactive: printed only - re-run in a terminal or with --replace-all)");
       if (go) {
-        const s = safe(() => JSON.parse(readFileSync(SETTINGS, "utf8"))) || {};
+        const fresh = readJsonOrNull(SETTINGS);
+        const s = fresh || {};
         s.enabledPlugins = s.enabledPlugins || {};
         for (const a of chosen) {
           // Registering a marketplace fetches and trusts remote code, so it gets the SAME gate as
@@ -1366,20 +1388,22 @@ async function main() {
           if (a.type === "enable") s.enabledPlugins[a.id] = true;
           if (a.type === "disable") delete s.enabledPlugins[a.id];
         }
-        if (write(SETTINGS, JSON.stringify(s, null, 2) + "\n")) summary.push(`updated  ${SETTINGS} (enabledPlugins reconciled)`);
+        if (fresh === null) skipInvalidSettings("plugin reconciliation");
+        else if (write(SETTINGS, JSON.stringify(s, null, 2) + "\n")) summary.push(`updated  ${SETTINGS} (enabledPlugins reconciled)`);
         log("  NOTE: restart Claude Code - enabledPlugins does not hot-reload.");
       }
     }
   }
 
   /* ---------- MCP reconciliation: only managedMcpServers are ever touched ---------- */
-  {
+  // Claude Code keeps .claude.json inside a relocated config dir and never falls back to HOME.
+  const cjPath = (process.env.CLAUDE_CONFIG_DIR ? [join(CDIR, ".claude.json")]
+    : [join(CDIR, ".claude.json"), join(HOME, ".claude.json")]).find((x) => existsSync(x));
+  const cj = cjPath ? readJsonOrNull(cjPath) : {};
+  if (cj === null) log("\n--- mcp reconciliation ---\n  cannot read .claude.json — MCP step skipped");
+  else {
     const managed = loadVariants(REPO_ROOT).managedMcpServers || {};
     const skip = process.env.CLAUDE_SETUP_SKIP_MCP === "1";
-    // Claude Code keeps .claude.json inside a relocated config dir and never falls back to HOME.
-    const cjPath = (process.env.CLAUDE_CONFIG_DIR ? [join(CDIR, ".claude.json")]
-      : [join(CDIR, ".claude.json"), join(HOME, ".claude.json")]).find((x) => existsSync(x));
-    const cj = (cjPath && safe(() => JSON.parse(readFileSync(cjPath, "utf8")))) || {};
     const hasCommand = (c) => skip || safe(() => (process.platform === "win32"
       ? spawnSync("where", [c], { encoding: "utf8" })
       : spawnSync("sh", ["-c", 'command -v "$1"', "sh", c], { encoding: "utf8" })).status === 0) === true;
@@ -1425,6 +1449,45 @@ async function main() {
     }
   }
 
+  /* ---------- session defaults: model and effortLevel are bundle-managed ---------- */
+  if (cur === null) log("\n--- session defaults ---\n  settings.json: INVALID JSON - left untouched");
+  else {
+    const managedDefaults = loadVariants(REPO_ROOT).sessionDefaults || {};
+    const current = readJsonOrNull(SETTINGS) || {};
+    const changes = buildSessionDefaultsPlan(current, managedDefaults);
+    // The model-migration prompt above is skipped whenever this block covers `model`, so a
+    // superseded id's tier-preserving alternative (--replace-all only offers the bundle
+    // default) has to surface here instead - in every mode that reports or keeps a `model`
+    // conflict, not only the interactive one.
+    const migrationHint = (c) => {
+      if (c.key !== "model") return "";
+      const mm = migrateSettingsModel(c.from);
+      return mm.changed ? ` (superseded - ${mm.value} is the tier-preserving id; set it by hand to stay on your own tier)` : "";
+    };
+    if (changes.length) {
+      log("\n--- session defaults ---");
+      for (const c of changes) log(`  ${describeSessionChange(c)}${migrationHint(c)}`);
+      const conflicts = changes.filter((c) => c.conflict);
+      let apply = changes.filter((c) => !c.conflict);
+      if (DRY) { apply = []; log("  (dry-run: settings unchanged)"); }
+      else if (BULK === "skip") { apply = []; log("  (--skip-all: settings unchanged)"); }
+      else if (BULK === "replace") apply = changes;
+      else if (INTERACTIVE && conflicts.length &&
+        (await ask(`    replace ${conflicts.length} session default(s)? (y/N) > `))[0] === "y") apply = changes;
+      for (const c of conflicts) if (!apply.includes(c) && !DRY && BULK !== "skip")
+        log(`  kept ${c.key}: ${fmt(c.from)} (re-run with --replace-all to set ${fmt(c.to)})${migrationHint(c)}`);
+      if (apply.length) {
+        const s = readJsonOrNull(SETTINGS);
+        if (s === null) skipInvalidSettings("session defaults");
+        else {
+          for (const c of apply) s[c.key] = c.to;
+          if (write(SETTINGS, JSON.stringify(s, null, 2) + "\n"))
+            summary.push(`updated  ${SETTINGS} (session defaults: ${apply.map((c) => c.key).join(", ")})`);
+        }
+      }
+    }
+  }
+
   /* ---------- opt-in: daily background check for new claude-config releases ---------- */
   // Deliberately NOT part of settings.partial.json's additive merge above (that would silently
   // flip a background network check on for everyone) - this is a one-time y/N decision, written
@@ -1433,9 +1496,9 @@ async function main() {
   // matter how many times setup.mjs re-runs - an explicit "no" is recorded, not re-nagged
   // (the same "decide once, don't re-ask" pattern used elsewhere for one-time opt-ins). This
   // offer itself is machine-wide only (setup.mjs) - init-stack.md has no per-project equivalent of it.
-  if (!DRY) {
-    let curEnvSettings = {};
-    try { curEnvSettings = JSON.parse(readFileSync(SETTINGS, "utf8")); } catch { curEnvSettings = {}; }
+  const curEnvSettings = DRY ? {} : readJsonOrNull(SETTINGS);
+  if (curEnvSettings === null) skipInvalidSettings("update-check opt-in");
+  else if (!DRY) {
     const updateCheckDecided = curEnvSettings.env && "CLAUDE_CONFIG_UPDATE_CHECK" in curEnvSettings.env;
     if (!updateCheckDecided) {
       let enable = ENABLE_UPDATE_CHECK_FLAG;
@@ -1468,9 +1531,9 @@ async function main() {
   // powershell-tool.mjs for why "0" has to be as final an answer as "1". PowerShell 7+ is a
   // precondition rather than a consequence: writing the key on a machine without pwsh hands
   // Claude Code a tool it cannot start.
-  if (!DRY) {
-    let psSettings = {};
-    try { psSettings = JSON.parse(readFileSync(SETTINGS, "utf8")); } catch { psSettings = {}; }
+  const psSettings = DRY ? {} : readJsonOrNull(SETTINGS);
+  if (psSettings === null) skipInvalidSettings("PowerShell-tool opt-in");
+  else if (!DRY) {
     const detectPwsh = () => {
       const r = spawnSync("pwsh", ["-NoProfile", "-NoLogo", "-Command", "$PSVersionTable.PSVersion.ToString()"], { encoding: "utf8" });
       return r.error ? null : parsePwshMajor(r.stdout);
@@ -1529,18 +1592,13 @@ async function main() {
     if (!stateFile) {
       summary.push("autoUpdates: no Claude Code state file found - left untouched");
     } else {
-      try {
-        const st = JSON.parse(readFileSync(stateFile, "utf8"));
-        if (st.autoUpdates !== true) {
-          st.autoUpdates = true;
-          writeFileSync(stateFile, JSON.stringify(st, null, 2) + "\n");
-          summary.push("autoUpdates: enabled");
-        }
-      } catch {
-        summary.push("autoUpdates: state file is not valid JSON - left untouched");
+      const st = readJsonOrNull(stateFile);
+      if (st === null) summary.push("autoUpdates: state file is not valid JSON - left untouched");
+      else if (st.autoUpdates !== true) {
+        st.autoUpdates = true;
+        if (write(stateFile, JSON.stringify(st, null, 2) + "\n")) summary.push("autoUpdates: enabled");
       }
-      let envSettings = {};
-      try { envSettings = JSON.parse(readFileSync(SETTINGS, "utf8")); } catch { envSettings = {}; }
+      const envSettings = readJsonOrNull(SETTINGS) || {};
       if (envSettings.env && envSettings.env.DISABLE_AUTOUPDATER) {
         summary.push("autoUpdates: settings.json env sets DISABLE_AUTOUPDATER - remove it by hand to let updates run");
       }

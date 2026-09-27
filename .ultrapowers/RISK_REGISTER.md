@@ -18,6 +18,7 @@
 - [RISK-GSDSURFACE-003 — Raising the profile restores agent files without this bundle's patches](#risk-gsdsurface-003-raising-the-profile-restores-agent-files-without-this-bundles-patches)
 - [RISK-HARNESS-001 — `Connection closed mid-response` truncates a turn, and the bundle cannot retry it](#risk-harness-001-connection-closed-mid-response-truncates-a-turn-and-the-bundle-cannot-retry-it)
 - [RISK-HOOKSTDIN-001 — `token-usage-log.mjs` throws on a literal `null` on stdin](#risk-hookstdin-001-token-usage-logmjs-throws-on-a-literal-null-on-stdin)
+- [RISK-MCPKEY-001 — The Context7 API key is visible in `claude.exe`'s argv during `mcp add`](#risk-mcpkey-001-the-context7-api-key-is-visible-in-claudeexes-argv-during-mcp-add)
 - [RISK-NEO4J-003 — Neo4j credentials leaking into the repo or argv](#risk-neo4j-003-neo4j-credentials-leaking-into-the-repo-or-argv)
 - [RISK-NEO4J-004 — graphify upgrade breaks the write path or the agent patch](#risk-neo4j-004-graphify-upgrade-breaks-the-write-path-or-the-agent-patch)
 - [RISK-NEO4J-005 — Same repo cloned on two PCs flip-flops in Neo4j](#risk-neo4j-005-same-repo-cloned-on-two-pcs-flip-flops-in-neo4j)
@@ -34,8 +35,9 @@
 - [RISK-STATUSLINE-002 — the autocompact point is assumed until a compaction is observed](#risk-statusline-002-the-autocompact-point-is-assumed-until-a-compaction-is-observed)
 - [RISK-SUP-001 — Hang supervision depends on the model wrapping the job](#risk-sup-001-hang-supervision-depends-on-the-model-wrapping-the-job)
 - [RISK-SUP-003 — supervise-bg could kill a legitimately long or quiet job](#risk-sup-003-supervise-bg-could-kill-a-legitimately-long-or-quiet-job)
+- [RISK-TESTLEVEL-001 — 128 helper tests hold logic no consumer-level test covers](#risk-testlevel-001-128-helper-tests-hold-logic-no-consumer-level-test-covers)
+- [RISK-TESTLEVEL-002 — `detect-stack-commands` now carries 15 tests' worth of logic on 2 tests](#risk-testlevel-002-detect-stack-commands-now-carries-15-tests-worth-of-logic-on-2-tests)
 - [RISK-TESTUNIT-001 — `.test/unit/` is gitignored, so tests there rot unnoticed](#risk-testunit-001-testunit-is-gitignored-so-tests-there-rot-unnoticed)
-- [RISK-TOKENLOG-001 — Scraped model pricing can silently break](#risk-tokenlog-001-scraped-model-pricing-can-silently-break)
 - [RISK-ULTRAPOWERS-001 — Owning a fork carries merge burden on every upstream release](#risk-ultrapowers-001-owning-a-fork-carries-merge-burden-on-every-upstream-release)
 - [RISK-ULTRAPOWERS-004 — Keep-list rot devalues the completeness check](#risk-ultrapowers-004-keep-list-rot-devalues-the-completeness-check)
 - [RISK-ULTRAPOWERS-006 — Agent registry adds resident context cost every session](#risk-ultrapowers-006-agent-registry-adds-resident-context-cost-every-session)
@@ -69,45 +71,18 @@
 
 ### Closed
 - [RISK-BRANCH-001 — `fix/worktree-deps-and-initstack-hardening` held fixes master never got](#risk-branch-001-fixworktree-deps-and-initstack-hardening-held-fixes-master-never-got)
+- [RISK-CLEANUP-002 — Partial cross-device trash move can silently lose already-copied children](#risk-cleanup-002-partial-cross-device-trash-move-can-silently-lose-already-copied-children)
 - [RISK-DESIGNSTACK-005 — Pro Max `design` sub-skill hardcodes global paths / prune could delete a user skill](#risk-designstack-005-pro-max-design-sub-skill-hardcodes-global-paths-prune-could-delete-a-user-skill)
 - [RISK-FALLOW-001 — `fallow.enabled` is set optimistically, not gated on binary presence](#risk-fallow-001-fallowenabled-is-set-optimistically-not-gated-on-binary-presence)
 - [RISK-GRAPHPUSH-003 — graphify export neo4j --push writes every node and then never returns](#risk-graphpush-003-graphify-export-neo4j---push-writes-every-node-and-then-never-returns)
 - [RISK-GRAPHPUSH-004 — every commit prunes and re-pushes the whole graph, leaving Neo4j gutted for the duration](#risk-graphpush-004-every-commit-prunes-and-re-pushes-the-whole-graph-leaving-neo4j-gutted-for-the-duration)
 - [RISK-INITSTACK-001 — `/init-stack` GSD-free rewrite deleted steps 6-11; ~24 stale references + 2 dropped capabilities](#risk-initstack-001-init-stack-gsd-free-rewrite-deleted-steps-6-11-24-stale-references-2-dropped-capabilities)
 - [RISK-STATUSLINE-001 — the context-window size field name is documented, not observed](#risk-statusline-001-the-context-window-size-field-name-is-documented-not-observed)
+- [RISK-TOKENLOG-001 — Scraped model pricing can silently break](#risk-tokenlog-001-scraped-model-pricing-can-silently-break)
 - [RISK-ULTRAPOWERS-002 — Rebrand is machine-wide and cannot be gated per project](#risk-ultrapowers-002-rebrand-is-machine-wide-and-cannot-be-gated-per-project)
 - [RISK-ULTRAPOWERS-003 — Blind replacement would break `superpowers:` skill resolution](#risk-ultrapowers-003-blind-replacement-would-break-superpowers-skill-resolution)
 
 ## Active
-### RISK-TESTLEVEL-001 — 128 helper tests hold logic no consumer-level test covers
-
-- **Status:** Active
-- **Context:** the tier rule sends tests of internal helpers to `@temp` and keeps `@important`
-  for delivered behaviour, so a helper's tests are meant to be replaced by a test one level up,
-  at its consumer. For 21 helper modules that consumer has no test file at all, so deleting the
-  helper tests would leave the logic with zero coverage rather than moving it. Largest:
-  `turbopack-gvs-lib` (10 tests, consumer `turbopack-gvs-check.mjs`), `project-scan` (9,
-  `graphify-sync-all.mjs`), `doc-corpus` (8, `graph-docs.mjs`), `global-index` (5,
-  `graph-find.mjs`), `supervise-lib` (5, `supervise-bg.mjs`). A further 58 sit under `setup.mjs`,
-  whose `setup-variants.e2e.test.mjs` covers install, prune and rollback but not the plugin
-  planner's forbidden/keepInstalled rules nor the PowerShell consent matrix.
-- **Mitigation:** the 128 are kept tagged `@important` and are exempt from the prune until a
-  consumer-level test exists. Order per module: write the consumer test on input and delivered
-  result, confirm it fails against the pre-change code, then delete that module's helper tests.
-- **Residual:** the suite carries tests at the wrong level until each is discharged, and the
-  count will not reach its floor before then.
-
-### RISK-TESTLEVEL-002 — `detect-stack-commands` now carries 15 tests' worth of logic on 2 tests
-
-- **Status:** Active
-- **Context:** `stack-rules-check` (12 tests) and `stack-commands` (3) were deleted as helper
-  modules whose consumer has its own tests. That consumer, `detect-stack-commands.mjs`, has two.
-  The condition was met literally; the coverage it implies is not there. Drift detection and the
-  stack→command table now rest on those two tests.
-- **Mitigation:** raise `detect-stack-commands.test.mjs` to cover the drift statuses and the
-  command table's decisions — the pnpm workspace form, native-beats-JS precedence, unknown stack.
-- **Residual:** until then a regression in drift reporting can pass the suite.
-
 ### RISK-BOOTSTRAP-001 — Remote code execution via `curl|bash` / `irm|iex` bootstrap
 
 - **Status:** Active
@@ -118,6 +93,7 @@
   reproducibility; documented safe alternative (download → inspect → run) in README; secrets
   never embedded in bootstrap scripts. Status nuance (migrated 2026-07-31): accepted
 - **Residual:** Standard installer trust model — user must trust the repo owner. Accepted.
+
 
 ### RISK-CHANGELOG-001 — The post-commit trigger enqueues the skill's own manual bump commits
 
@@ -151,6 +127,7 @@
   means either widening the hook's skip pattern or making the manual flow's message match it; both
   edit SKILL.md text reviewed on 2026-07-28 and belong in a deliberate follow-up, not a drive-by.
 
+
 ### RISK-CHANGELOG-002 — `lint` costs two `git log` subprocesses per queued entry, on every commit once the nudge lands
 
 - **Status:** Active
@@ -178,6 +155,7 @@
   `try/catch` plus a `main().catch`, so a *failing* lint stays fail-open and never blocks a commit.
   A *slow* one still delays it, which try/catch cannot help with.
 
+
 ### RISK-CLAUDEMD-001 — Legacy `@.claude/CLAUDE.md` imports double-load project context
 
 - **Status:** Active
@@ -189,6 +167,7 @@
   deny hook rightly blocks writes). Remove the `@.claude/CLAUDE.md` line by hand when
   touching an affected project's root `CLAUDE.md`. Status nuance (migrated 2026-07-31): accepted, manual cleanup
 - **Residual:** duplicated context in affected projects until manually cleaned. Accepted.
+
 
 ### RISK-CLAUDEMD-002 — the shipped rules name commands, skills and paths that nothing verifies
 
@@ -232,6 +211,7 @@
   the same construct was assumed to be in `precompact-observe.mjs` before it was reproduced.
   Fixing it is a few minutes and belongs to whoever next touches that hook family.
 
+
 ### RISK-DESIGNSTACK-003 — Pro Max search requires Python 3
 
 - **Status:** Active
@@ -244,6 +224,7 @@
 - **Residual:** on a python-less machine the agent uses the static reference tables rather than
   ranked search — reduced quality, not a failure. Accepted.
 
+
 ### RISK-DESIGNSTACK-006 — Pinned npm package ids can drift or rename
 
 - **Status:** Active
@@ -255,6 +236,7 @@
   without aborting `/init-stack`. Status nuance (migrated 2026-07-31): accepted / low
 - **Residual:** a silent rename leaves the components un-updated until the ids are corrected;
   detection is manual. Accepted / low.
+
 
 ### RISK-GRAPHPUSH-001 — Automatic push drags a full global MERGE behind every commit
 - **Status:** Active
@@ -269,6 +251,7 @@
   slower, and the first sign will be a push that outlives its ten-minute lock TTL. If that
   happens, the answer is a throttle stamp, deliberately not built now (see 13-SPEC.md).
 
+
 ### RISK-GRAPHPUSH-002 — Driver recovery installs a package as a side effect of a commit
 - **Status:** Active
 - **Context:** The `neo4j` driver disappeared once already, because `uv tool install graphifyy`
@@ -281,6 +264,7 @@
   fail-soft skip carrying the command to run, never a throw, and never blocks the commit.
 - **Residual:** Accepted. The alternative is a chain that silently stops working after a routine
   upgrade, which is the failure this phase exists to end.
+
 
 ### RISK-GSDEXEC-001 — `gsd-executor-decomposing.md` is a full fork with no inheritance, will drift
 
@@ -339,6 +323,7 @@
   deviations 1, 2 and 4. Deviation 2 is what removes the `executor-no-recursive-agent-spawn` span
   the patch pass just inserted, so it must run after it, not before.
 
+
 ### RISK-GSDSURFACE-001 — Two independent layers set the GSD profile, and the overlay wins
 
 - **Status:** Active
@@ -358,6 +343,7 @@
   diverges from the dial until the next apply. The drift note in `session-init.mjs` reports it;
   nothing prevents it.
 
+
 ### RISK-GSDSURFACE-002 — The profile flag and marker semantics are verified against one gsd-core version
 
 - **Status:** Active
@@ -376,6 +362,7 @@
   or `gsd-verify-work` out of the `standard` closure invalidates the recommendation to run
   `standard`, not just the test.
 
+
 ### RISK-GSDSURFACE-003 — Raising the profile restores agent files without this bundle's patches
 
 - **Status:** Active
@@ -388,6 +375,7 @@
   after the installer and before the restart notice.
 - **Residual:** curated (`CURATED:NOEDIT`) agent files are skipped by the apply path by design,
   so a raise that restores one leaves a warning only a human can clear.
+
 
 ### RISK-HARNESS-001 — `Connection closed mid-response` truncates a turn, and the bundle cannot retry it
 
@@ -433,6 +421,7 @@
 
 - **Mitigation:** Status nuance (migrated 2026-07-31): Root-caused 2026-07-28 — a LAN-side proxy timeout, not a Claude Code defect. Mitigated
 
+
 ### RISK-HOOKSTDIN-001 — `token-usage-log.mjs` throws on a literal `null` on stdin
 
 - **Status:** Active
@@ -447,6 +436,23 @@
 - **Mitigation:** none yet. The one-line guard above is known to work and is already proven in a
   sibling hook. Status nuance (migrated 2026-07-31): 2026-07-30 — found by phase 09, not caused by it, and deliberately not fixed there
 
+
+### RISK-MCPKEY-001 — The Context7 API key is visible in `claude.exe`'s argv during `mcp add`
+
+- **Status:** Active
+- **Context:** `setup.mjs` registers Context7 with `claude mcp add --scope user --transport http
+  context7 <url> --header "CONTEXT7_API_KEY: <value>"` (`mcp-reconcile.mjs` `mcpAddArgs`). For
+  the duration of that call any local process that can list command lines can read the value.
+  Claude Code then stores it in plaintext in `.claude.json` regardless of how it was passed.
+- **Mitigation:** the value never reaches printed output, summary lines or logs
+  (`describeMcpAction`/`formatMcpPlan` mask it, `claude mcp add` stdout is not printed, stderr goes
+  through `redactValues`); covered by `mcp-reconcile.test.mjs` and the e2e key test. The call runs
+  once per machine: a configured server is never re-added. Status nuance (migrated 2026-09-27): accepted
+- **Residual:** a same-user process sampling command lines during setup sees the key. Escalate
+  to a `${CONTEXT7_API_KEY}` reference in the stored header once env expansion is confirmed for
+  user-scope `.claude.json` (documented today for `.mcp.json` only), which removes both the argv
+  exposure and the plaintext copy.
+
 ### RISK-NEO4J-003 — Neo4j credentials leaking into the repo or argv
 
 - **Status:** Active
@@ -459,6 +465,7 @@
   remains the backstop. Status nuance (migrated 2026-07-31): accepted
 - **Residual:** a user could still hand-paste creds into a committed file; the gate catches common
   shapes but not all. Accepted.
+
 
 ### RISK-NEO4J-004 — graphify upgrade breaks the write path or the agent patch
 
@@ -474,6 +481,7 @@
 - **Residual:** a CLI-level breaking change in graphify would need a wrapper update; surfaced by the
   quality-check queries failing. Accepted.
 
+
 ### RISK-NEO4J-005 — Same repo cloned on two PCs flip-flops in Neo4j
 
 - **Status:** Active
@@ -486,6 +494,7 @@
   distinct nodes. Status nuance (migrated 2026-07-31): accepted
 - **Residual:** transient oscillation for a genuinely divergent shared repo under frequent dual
   sync. Accepted; revisit only if observed.
+
 
 ### RISK-PHASEDIR-001 — `phase-dir` caps a kind at 99, and a leaked lock is never collected
 
@@ -516,6 +525,7 @@
   by hand (`rmdir` the lock; rename by hand past 99). Widening the prefix is deferred until a tree
   approaches the ceiling, since it would rename every existing directory and every document inside
   it.
+
 
 ### RISK-PLANTREE-001 — The risk register no longer lives where the rules say to look for it
 
@@ -562,6 +572,7 @@
   all implement. No data-loss exposure in any of these: the register is tracked in git and
   maintained by hand; what was lost was one automatic append.
 
+
 ### RISK-PNPM-001 — False positives from dynamic/conditional imports
 
 - **Status:** Active
@@ -577,6 +588,7 @@
   so an over-declaration is trivially reversible by hand. Status nuance (migrated 2026-07-31): accepted / low
 - **Residual:** at worst a harmless, unused optional-peer line in `pnpm-workspace.yaml`. Accepted.
 
+
 ### RISK-PNPM-002 — Native-trigger coverage gap for sub-package installs
 
 - **Status:** Active
@@ -589,6 +601,7 @@
   detection latency, not a wrong write. Status nuance (migrated 2026-07-31): accepted
 - **Residual:** a phantom introduced by a manual sub-package install stays latent until the next
   top-level install or manual scan. Accepted; documented as a caveat in the command.
+
 
 ### RISK-PNPM-003 — Auto-writing pnpm-workspace.yaml
 
@@ -603,6 +616,7 @@
   unit tests. Status nuance (migrated 2026-07-31): accepted / low
 - **Residual:** an unusual hand-authored `pnpm-workspace.yaml` shape falls back to manual entry
   rather than an automated fix. Accepted — safety over convenience.
+
 
 ### RISK-RULESREACH-001 — Process rules bind only after a deploy, so a repository can run for weeks under rules it does not have
 - **Status:** Active
@@ -631,9 +645,10 @@
   repository, where a test gates a commit without any installation step. The second is what this
   entry's own mitigation did, and it is the only half that worked today.
 
+
 ### RISK-SECRETS-001 — Placeholder allowlist in `secrets-gate.mjs` can mask a real secret
 
-- **Status:** Active (accepted — a deliberate weakening to cut false positives on example configs)
+- **Status:** Active
 - **Context:** `payload/hooks/secrets-gate.mjs` skips values that look like placeholders so docs
   and example configs stop false-positiving. Two tiers: `placeholderRe` (word markers — `your_`,
   `example`, `<...>`, `xxxx`, `changeme`, `test_secret`, `_here`, …) is tested against the matched
@@ -648,7 +663,7 @@
   (AWS/Slack/GitHub/private-key) never get the weak tier; gitleaks, when installed, runs additively
   with its own allowlist and is untouched by this regex layer. `payload/hooks/secrets-gate.test.mjs`
   covers six cases end-to-end through a real staged diff — three placeholders pass, two real secrets
-  block, one env reference passes.
+  block, one env reference passes. Status nuance (migrated 2026-09-27): accepted — a deliberate weakening to cut false positives on example configs
 - **Residual:** the zero-dependency baseline can miss a real secret that embeds a word marker, and
   on a machine without gitleaks it is the only automated gate. Accepted as the cost of usable
   example configs; escalate to a per-value entropy check if a real leak slips through.
@@ -656,6 +671,7 @@
   (`3a21f4d`, 2026-07-21) — see [RISK-BRANCH-001](#risk-branch-001-fixworktree-deps-and-initstack-hardening-holds-fixes-master-never-got).
   The branch's own copy of this entry claimed twenty regression fixtures; no such file was in the
   commit, so the count above is the coverage that actually exists.
+
 
 ### RISK-SETUP-001 — A corrupt `settings.partial.json` crashes the installer instead of being reported
 
@@ -678,6 +694,7 @@
   test that the note is actually emitted; left out of the gsd-core detector's fix wave because it is
   neither that feature's code nor on its recovery path.
 
+
 ### RISK-STACKRULES-001 — Model-driven rules compilation can lose requirements
 
 - **Status:** Active
@@ -690,6 +707,7 @@
   frontmatter marks it machine-owned so fixes go into `rules-src/` (source of truth) and a
   rebuild is idempotent; the snapshot is a reviewable file, not hidden state. Status nuance (migrated 2026-07-31): accepted
 - **Residual:** prose-level nuance can still be lossy between rebuilds. Accepted.
+
 
 ### RISK-STACKRULES-002 — Snapshot desync / stale auto-loading copies
 
@@ -722,6 +740,7 @@
   `markers` and never reads the rule sections. (4) Machines that skip `setup.mjs` after upgrading
   stay on the old (working) mechanism until they run it. All accepted.
 
+
 ### RISK-STATUSLINE-002 — the autocompact point is assumed until a compaction is observed
 
 - **Status:** Active
@@ -745,6 +764,7 @@
   its `windowSize`, and no `pending` key remains. If `pending` survives, promotion is not
   happening; if `tokens` equals `windowSize`, nothing was learned.
 
+
 ### RISK-SUP-001 — Hang supervision depends on the model wrapping the job
 
 - **Status:** Active
@@ -758,6 +778,7 @@
 - **Residual:** a model that ignores the nudge and launches a raw job can still hang invisibly.
   Accepted — this is the ceiling of what hooks can enforce.
 
+
 ### RISK-SUP-003 — supervise-bg could kill a legitimately long or quiet job
 
 - **Status:** Active
@@ -768,6 +789,38 @@
   skips obvious long-lived servers entirely, so those are not wrapped in the first place. Status nuance (migrated 2026-07-31): accepted / low
 - **Residual:** a mis-tuned bound on an atypical job could kill it early; the `HANG` marker and
   exit code 124 make that diagnosable. Accepted.
+
+
+### RISK-TESTLEVEL-001 — 128 helper tests hold logic no consumer-level test covers
+
+- **Status:** Active
+- **Context:** the tier rule sends tests of internal helpers to `@temp` and keeps `@important`
+  for delivered behaviour, so a helper's tests are meant to be replaced by a test one level up,
+  at its consumer. For 21 helper modules that consumer has no test file at all, so deleting the
+  helper tests would leave the logic with zero coverage rather than moving it. Largest:
+  `turbopack-gvs-lib` (10 tests, consumer `turbopack-gvs-check.mjs`), `project-scan` (9,
+  `graphify-sync-all.mjs`), `doc-corpus` (8, `graph-docs.mjs`), `global-index` (5,
+  `graph-find.mjs`), `supervise-lib` (5, `supervise-bg.mjs`). A further 58 sit under `setup.mjs`,
+  whose `setup-variants.e2e.test.mjs` covers install, prune and rollback but not the plugin
+  planner's forbidden/keepInstalled rules nor the PowerShell consent matrix.
+- **Mitigation:** the 128 are kept tagged `@important` and are exempt from the prune until a
+  consumer-level test exists. Order per module: write the consumer test on input and delivered
+  result, confirm it fails against the pre-change code, then delete that module's helper tests.
+- **Residual:** the suite carries tests at the wrong level until each is discharged, and the
+  count will not reach its floor before then.
+
+
+### RISK-TESTLEVEL-002 — `detect-stack-commands` now carries 15 tests' worth of logic on 2 tests
+
+- **Status:** Active
+- **Context:** `stack-rules-check` (12 tests) and `stack-commands` (3) were deleted as helper
+  modules whose consumer has its own tests. That consumer, `detect-stack-commands.mjs`, has two.
+  The condition was met literally; the coverage it implies is not there. Drift detection and the
+  stack→command table now rest on those two tests.
+- **Mitigation:** raise `detect-stack-commands.test.mjs` to cover the drift statuses and the
+  command table's decisions — the pnpm workspace form, native-beats-JS precedence, unknown stack.
+- **Residual:** until then a regression in drift reporting can pass the suite.
+
 
 ### RISK-TESTUNIT-001 — `.test/unit/` is gitignored, so tests there rot unnoticed
 
@@ -796,23 +849,6 @@
   sharpens the risk rather than changing its status, because whichever way the user settles it,
   "run the full suite" needs an invocation that actually collects these files.
 
-### RISK-TOKENLOG-001 — Scraped model pricing can silently break
-
-- **Status:** Closed (2026-09-23) — token-usage collection and the pricing scraper removed in
-  phase 19; nothing reads or refreshes the pricing table any more.
-- **Context:** `hooks/lib/token-usage-pricing-refresh.mjs` estimates `cost_usd` in the
-  token-usage log by scraping `docs.claude.com/en/docs/about-claude/pricing`'s HTML pricing
-  table. There is no official Anthropic pricing API — this is regex-based HTML parsing against a
-  page Anthropic doesn't version or contract to keep stable. If the page's markup structure
-  changes, parsing can silently return zero or partial rows.
-- **Mitigation:** a `MIN_EXPECTED_MODELS` guard (currently 8) rejects a suspiciously small parse
-  result and leaves the existing `~/.claude/state/model-pricing.json` untouched rather than
-  overwriting it with bad data; `token-usage-log.mjs` surfaces a `systemMessage` warning when the
-  pricing file is more than 48h stale. Refresh is throttled to once/24h and fully optional
-  (`CLAUDE_TOKEN_USAGE_COST=0` disables cost estimation and the refresh job entirely, leaving raw
-  token counts only). Status nuance (migrated 2026-07-31): accepted
-- **Residual:** `cost_usd` is always a **best-effort local estimate**, never billing-grade — same
-  disclaimer Claude Code's own `/usage` command carries for its dollar figure. Accepted.
 
 ### RISK-ULTRAPOWERS-001 — Owning a fork carries merge burden on every upstream release
 
@@ -832,6 +868,7 @@
   upstream has since implemented is reported as obsolete instead of carried forever. Status nuance (migrated 2026-07-31): accepted, 2026-07-27; rewritten the same day, when the fork replaced the patcher
 - **Residual:** a release that restructures the tree wholesale still needs a human read. That is
   what the size threshold exists to surface rather than hide.
+
 
 ### RISK-ULTRAPOWERS-004 — Keep-list rot devalues the completeness check
 
@@ -859,6 +896,7 @@
 
 - **Mitigation:** Status nuance (migrated 2026-07-31): Open (mitigated by design; narrowed 2026-07-27 when the ignore list became a
 
+
 ### RISK-ULTRAPOWERS-006 — Agent registry adds resident context cost every session
 
 - **Status:** Active
@@ -875,6 +913,7 @@
 - **Residual:** ~1 300-2 200 tokens resident in `base`/`lite`, deliberately spent to buy per-agent
   tier selection. Accepted.
 
+
 ### RISK-ULTRAPOWERS-008 — Upstream may change its licence or its direction
 
 - **Status:** Active
@@ -887,6 +926,7 @@
   the fork's README and `plugin.json` description, stated as a fork rather than implied. Status nuance (migrated 2026-07-31): accepted, 2026-07-27
 - **Residual:** future releases could become unusable to us. The fork keeps working at whatever
   version we last merged, which is the whole point of holding the objects ourselves.
+
 
 ### RISK-ULTRAPOWERS-010 — `/gsd-update` reinstalls gsd-core at any time
 
@@ -903,9 +943,10 @@
   behaviour to remove software the user may have just deliberately installed. That is a worse
   trade than periodic drift, and it is out of scope for this feature.
 
+
 ### RISK-ULTRAPOWERS-011 — `/up-update update` cannot land an update that re-authors a delta
 
-- **Status:** Active (opened 2026-08-18)
+- **Status:** Active
 - **Context:** `update` runs two gates in a fixed order. Before it moves the base it asserts that
   `main` matches a fresh build against the CURRENT base; only afterwards does it fetch the new
   upstream tag and re-run the build. Whenever an upstream release changes text a delta patches,
@@ -924,8 +965,9 @@
   clone, letting the human re-author inside a tree that already describes the new upstream; the
   drift assertion would then run against that tree rather than the old one. `describesTree` and
   `describesTag` in `inventory.json` also have to move with the base — `update` writes only
-  `config.json`, so today they are a third thing the human must remember.
+  `config.json`, so today they are a third thing the human must remember. Status nuance (migrated 2026-09-27): opened 2026-08-18
 - **Owner:** `payload/bin/up-update.mjs`, `payload/bin/lib/up-update-lib.mjs`
+
 
 ### RISK-VARIANT-001 — Variant switch could delete a file the user hand-edited under `~/.claude`
 
@@ -947,6 +989,7 @@
   list first — the hash gate still protects modified files even then, but curated/unmodified
   surplus is removed without a per-file prompt. Accepted — same trust model as every other
   bulk-flag use in this installer.
+
 
 ### RISK-VARIANT-002 — `managedPlugins` marketplace ids can drift from the live marketplace
 
@@ -981,6 +1024,7 @@
   the user runs by hand, catching the failure before it executes. Accepted; revisit by
   confirming the id on a machine that has `gsd` installed via the marketplace.
 
+
 ### RISK-VARIANT-003 — The gsd-core detector edits hook entries this bundle does not own
 
 - **Status:** Active
@@ -999,6 +1043,7 @@
   removed with the rest. It is restorable from the batch, but the user is not asked about it
   separately. Accepted: the alternative is leaving dead registrations pointing at deleted files.
 
+
 ### RISK-VARIANT-004 — `/gsd-update` reinstalls gsd-core behind the detector's back
 
 - **Status:** Active
@@ -1012,6 +1057,7 @@
   says it should not be in, with no signal. A session-start guard was considered and left out of
   scope — it would put a foreign-product check on every session start for a condition the user
   creates deliberately.
+
 
 ### RISK-VARIANT-005 — A declined prune of `gsd-defaults.partial.json` is re-offered on every non-`full` run
 
@@ -1036,6 +1082,7 @@
   hardcoded; that changes what `manifestNow` means (files this bundle *ships*, not files it writes)
   and was too broad to make inside the gsd-core detector's branch.
 
+
 ### RISK-VERBOSITY-001 — "Terse" verbosity axis slides into minification or drops load-bearing intent
 
 - **Status:** Active
@@ -1049,6 +1096,7 @@
   construction (same carve-out leanmode makes). Status nuance (migrated 2026-07-31): accepted, behavioral
 - **Residual:** prose-guided behavior can still misfire on an edge case; caught in review, not
   hook-enforced. Accepted.
+
 
 ## Deferred
 ### RISK-GRAPHFRESH-001 — Stage 2 freshness edits regress the working graphify autosync
@@ -1065,6 +1113,7 @@
 - **Residual:** none accepted yet — this risk is not closed until Stage 2 ships with the guard
   test green, or is deferred to its own spec.
 
+
 ### RISK-INJECT-001 — Generalizing the leanmode hook into an axis injector could change leanmode behavior
 
 - **Status:** Deferred (until tests green)
@@ -1079,6 +1128,7 @@
 - **Residual:** the injector composition layer is new code; regression risk retired once the
   leanmode suite + new tests are green.
 
+
 ### RISK-SUP-002 — Task* hook events unverified in this harness build
 
 - **Status:** Deferred (verification pending)
@@ -1088,6 +1138,7 @@
   not exist, the entries are inert (unknown events are ignored). Real handling is wired only after
   the probe log confirms they fire and reveals their schema (post-restart).
 - **Residual:** the cleaner TaskCreated launch surface stays unused until verified. Accepted.
+
 
 ## Mitigated
 ### RISK-CLEANUP-001 — `/claude-cleanup` could cause irreversible loss of user data
@@ -1131,6 +1182,7 @@
   then remove the source, and record the entry once the copy completed — as an exported helper
   with its own `@critical` test.
 
+
 ### RISK-DESIGNSTACK-001 — Impeccable installer footgun writes into all harnesses + settings.local.json
 
 - **Status:** Mitigated
@@ -1148,6 +1200,7 @@
 - **Residual:** relies on the installer honouring `--scope=project`/`--no-hooks`; a future
   Impeccable that ignores them would need the orchestrator pinned/updated. Accepted.
 
+
 ### RISK-DESIGNSTACK-002 — `impeccable update` clobbers the Pro Max content-graft
 
 - **Status:** Mitigated
@@ -1162,6 +1215,7 @@
   not found and the graft is **skipped** (reported as `skippedNoAnchor`), not mis-inserted — the
   detector still works, just without Pro Max enrichment until the anchors are refreshed. Accepted.
 
+
 ### RISK-DESIGNSTACK-004 — Registered hook path couples to the installed skill's script location
 
 - **Status:** Mitigated
@@ -1174,6 +1228,7 @@
   present. Status nuance (migrated 2026-07-31): mitigated by design
 - **Residual:** between an upstream rename and the next `/init-stack`/update cycle the hook could be
   stale. Low (Impeccable's script layout has been stable at v3.3.1); accepted.
+
 
 ### RISK-NEO4J-001 — Multi-source staleness when several PCs push the global graph to one Neo4j
 
@@ -1190,6 +1245,7 @@
   them first and can be briefly orphaned on that repo's refresh; MERGE re-adds them on next push.
   See RISK-NEO4J-005 for the same-repo-two-PCs case. Accepted.
 
+
 ### RISK-NEO4J-002 — NAS/Neo4j unavailable at push time
 
 - **Status:** Mitigated
@@ -1201,6 +1257,7 @@
   push is never a prerequisite for any commit/sync step. Status nuance (migrated 2026-07-31): mitigated by design
 - **Residual:** Neo4j can lag the JSON until the next successful push. Acceptable — JSON is the
   source of truth graphify reads; Neo4j is an eventually-consistent mirror. Accepted.
+
 
 ### RISK-NEO4J-006 — Connection test at setup time depends on the neo4j driver being present
 
@@ -1217,6 +1274,7 @@
   failure). Governed by decision D1 in the plan. Status nuance (migrated 2026-07-31): mitigated by design
 - **Residual:** on a PC with no way to install the driver, Neo4j config is deferred, not saved
   broken. Accepted — deferral is the correct outcome there.
+
 
 ### RISK-PNPM-004 — enableGlobalVirtualStore structurally incompatible with Turbopack
 
@@ -1244,6 +1302,7 @@
   consent-gated manual step. Strategy B is the less-trodden path and may hit Turbopack edge cases;
   the fallback (disable gVS, store in-tree) is noted in the recipe. Accepted.
 
+
 ### RISK-ULTRAPOWERS-005 — Migration can mis-pair spec and plan documents
 
 - **Status:** Mitigated
@@ -1257,6 +1316,7 @@
   at. Acceptance counts files in and out. Status nuance (migrated 2026-07-31): mitigated by design
 - **Residual:** a confirmed-but-wrong pairing. Recoverable — `git mv` keeps history, so the move
   is reversible.
+
 
 ### RISK-ULTRAPOWERS-007 — A fork left un-updated drifts until merging stops being mechanical
 
@@ -1273,6 +1333,7 @@
   about. Status nuance (migrated 2026-07-31): mitigated by design, 2026-07-27
 - **Residual:** the command still has to be run. Whether a periodic nudge is warranted should be
   decided after the first few real updates, not guessed now.
+
 
 ### RISK-ULTRAPOWERS-009 — Removing foreign hook registrations weakens "only ever touch our own entries"
 
@@ -1302,6 +1363,7 @@
   Reversible from the printed `cp`, and the file itself is only moved, never deleted. Accepted: the
   alternative is reading gsd-core's own manifest, which would couple this bundle to a foreign
   product's internal layout.
+
 
 ## Closed
 ### RISK-BRANCH-001 — `fix/worktree-deps-and-initstack-hardening` held fixes master never got
@@ -1337,6 +1399,35 @@
   intent from the originals could have been dropped silently. Each carries tests written for the
   behaviour it claims; the archive tag is the record to check against if something looks missing.
 
+
+### RISK-CLEANUP-002 — Partial cross-device trash move can silently lose already-copied children
+- **Status:** Closed (2026-09-27) — fixed in `9468858`, double-failure warning in `43c0717`
+- **Context:** `moveInto`'s cross-device (`EXDEV`) fallback in `payload/bin/lib/claude-cleanup-lib.mjs`
+  (used by `applyPlan`, which `/scratch-prune` now runs automatically and question-free at every
+  phase end per phase 22) copies a directory child-by-child then deletes the source child. If it
+  throws partway through (`EPERM` recreating a symlink without privilege, `ENOSPC`, `EBUSY`), the
+  already-processed children are already removed from the source but the whole item is caught,
+  counted `skipped`, and gets NO manifest entry. `restoreBatch` then deletes that unrecorded slot
+  immediately if nothing else in the batch was skipped, and `purgeRetention` deletes it within 7
+  days regardless — the partially-moved children are gone for good, with no restore path. Found
+  during phase 22's final whole-branch review while re-verifying a symlink/junction-following fix
+  to the same fallback (see `.ultrapowers/phases/22-scratchpad-phase-cleanup/22-SUMMARY.md`); this
+  gap predates phase 22 (same fallback, same failure shape) but phase 22 raises its likelihood by
+  making the trash-apply automatic and unattended.
+- **Mitigation:** `copyMoveNoFollow` now copies the whole item, verifies entry count and total
+  bytes between source and destination, and only then deletes the source. A copy or verify failure
+  removes the partial destination and leaves the source intact (item `skipped`, no manifest entry).
+  A failure while deleting the source copies the already-deleted entries back from the verified
+  copy and discards it (item `skipped`); if that copy-back fails too, the verified copy stays in the
+  batch and is recorded in the manifest. Contract: `22-SPEC.md` §4.1; regression tests with
+  injected `EXDEV`/`EPERM`/`EBUSY` in `claude-cleanup-lib.test.mjs`.
+- **Residual:** only on a double failure (source delete and copy-back both fail) does a source
+  remnant coexist with a recorded full copy; `restore` then skips it (never clobber) and it is
+  recovered by hand from the batch slot within retention. The case is not silent: the manifest
+  entry carries `partial: true` and both `apply` commands print a `WARNING:` line naming the
+  original path and the copy's path in the batch (`43c0717`).
+
+
 ### RISK-DESIGNSTACK-005 — Pro Max `design` sub-skill hardcodes global paths / prune could delete a user skill
 
 - **Status:** Closed (2026-07-31) — subset choice + provenance-based prune
@@ -1356,6 +1447,7 @@
 - **Residual:** if `uipro` is run OUTSIDE the orchestrator first (extras pre-exist the orchestrator's
   snapshot) they are treated as user content and left in place — acceptable (the orchestrator only
   prunes what it installs). Accepted.
+
 
 ### RISK-FALLOW-001 — `fallow.enabled` is set optimistically, not gated on binary presence
 
@@ -1417,6 +1509,7 @@
   The inline fallow install command assumes pnpm (consistent with the rest of this repo's Node
   tooling conventions) — a project on npm/yarn only would need to adapt the command by hand.
 
+
 ### RISK-GRAPHPUSH-003 — graphify export neo4j --push writes every node and then never returns
 - **Status:** Closed (2026-08-02) — the Neo4j path was removed from the bundle
 - **Resolution:** Closed by removal on 2026-08-02. The Neo4j path left the bundle entirely —
@@ -1456,6 +1549,7 @@
   also restores the lock's release path and with it the serialisation. It is not in phase 13's
   scope and is deliberately not being written blind. Until then the switch is
   `CLAUDE_GRAPHIFY_NEO4J_PUSH=0`, which stops the push and leaves the extract running.
+
 
 ### RISK-GRAPHPUSH-004 — every commit prunes and re-pushes the whole graph, leaving Neo4j gutted for the duration
 - **Status:** Closed (2026-08-02) — no commit pushes to Neo4j any more
@@ -1501,6 +1595,7 @@
   so a burst of commits produces a single rebuild; or move it off the commit path onto a timer.
   Choosing among them needs a decision record, not an edit — and `RISK-GRAPHPUSH-003` should be
   settled first, since a push that never returns makes any debounce window meaningless.
+
 
 ### RISK-INITSTACK-001 — `/init-stack` GSD-free rewrite deleted steps 6-11; ~24 stale references + 2 dropped capabilities
 
@@ -1553,6 +1648,7 @@
   unreinstated by design — if the orchestration-pilot idea is revisited later, it starts fresh
   from the dormant reference doc rather than resuming this risk.
 
+
 ### RISK-STATUSLINE-001 — the context-window size field name is documented, not observed
 
 - **Status:** Closed (2026-07-31) — observed, 2026-07-30
@@ -1587,6 +1683,26 @@
   statusline, which is what makes the outstanding task non-blocking in practice as well as in
   principle.
 
+
+### RISK-TOKENLOG-001 — Scraped model pricing can silently break
+
+- **Status:** Closed (2026-09-23) — token-usage collection and the pricing scraper removed in
+  phase 19; nothing reads or refreshes the pricing table any more.
+- **Context:** `hooks/lib/token-usage-pricing-refresh.mjs` estimates `cost_usd` in the
+  token-usage log by scraping `docs.claude.com/en/docs/about-claude/pricing`'s HTML pricing
+  table. There is no official Anthropic pricing API — this is regex-based HTML parsing against a
+  page Anthropic doesn't version or contract to keep stable. If the page's markup structure
+  changes, parsing can silently return zero or partial rows.
+- **Mitigation:** a `MIN_EXPECTED_MODELS` guard (currently 8) rejects a suspiciously small parse
+  result and leaves the existing `~/.claude/state/model-pricing.json` untouched rather than
+  overwriting it with bad data; `token-usage-log.mjs` surfaces a `systemMessage` warning when the
+  pricing file is more than 48h stale. Refresh is throttled to once/24h and fully optional
+  (`CLAUDE_TOKEN_USAGE_COST=0` disables cost estimation and the refresh job entirely, leaving raw
+  token counts only). Status nuance (migrated 2026-07-31): accepted
+- **Residual:** `cost_usd` is always a **best-effort local estimate**, never billing-grade — same
+  disclaimer Claude Code's own `/usage` command carries for its dollar figure. Accepted.
+
+
 ### RISK-ULTRAPOWERS-002 — Rebrand is machine-wide and cannot be gated per project
 
 - **Status:** Closed (2026-07-27) — the fork removed the premise, not just the symptom.
@@ -1599,6 +1715,7 @@
 - **Resolution:** a fork is a plugin, enabled and disabled per project like any other, so the
   existing gate reaches it. Nothing needed to be built for this; the limitation was an artefact
   of patching a machine-wide cache.
+
 
 ### RISK-ULTRAPOWERS-003 — Blind replacement would break `superpowers:` skill resolution
 
@@ -1615,19 +1732,3 @@
   The table was reverted in `47db796`; its review had already proven by execution that the
   enumeration could not be completed — four path shapes fell through to `brand` and were
   rewritten into paths that never resolve.
-
-### RISK-MCPKEY-001 — The Context7 API key is visible in `claude.exe`'s argv during `mcp add`
-
-- **Status:** Active (accepted)
-- **Context:** `setup.mjs` registers Context7 with `claude mcp add --scope user --transport http
-  context7 <url> --header "CONTEXT7_API_KEY: <value>"` (`mcp-reconcile.mjs` `mcpAddArgs`). For
-  the duration of that call any local process that can list command lines can read the value.
-  Claude Code then stores it in plaintext in `.claude.json` regardless of how it was passed.
-- **Mitigation:** the value never reaches printed output, summary lines or logs
-  (`describeMcpAction`/`formatMcpPlan` mask it, `claude mcp add` stdout is not printed, stderr goes
-  through `redactValues`); covered by `mcp-reconcile.test.mjs` and the e2e key test. The call runs
-  once per machine: a configured server is never re-added.
-- **Residual:** a same-user process sampling command lines during setup sees the key. Escalate
-  to a `${CONTEXT7_API_KEY}` reference in the stored header once env expansion is confirmed for
-  user-scope `.claude.json` (documented today for `.mcp.json` only), which removes both the argv
-  exposure and the plaintext copy.

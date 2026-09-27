@@ -55,6 +55,18 @@
         "hooks": [
           { "type": "command", "command": "node", "args": ["<HOME>/.claude/hooks/scrapling-raw-gate.mjs"] }
         ]
+      },
+      {
+        "matcher": "Write|Edit|MultiEdit|NotebookEdit|Bash|PowerShell",
+        "hooks": [
+          { "type": "command", "command": "node", "args": ["<HOME>/.claude/hooks/scratchpad-layout-guard.mjs"] }
+        ]
+      },
+      {
+        "matcher": "Bash|PowerShell",
+        "hooks": [
+          { "type": "command", "command": "node", "args": ["<HOME>/.claude/hooks/background-sleep-guard.mjs"] }
+        ]
       }
     ],
     "PostToolUse": [
@@ -81,6 +93,12 @@
         "hooks": [
           { "type": "command", "command": "node", "args": ["<HOME>/.claude/hooks/web-block-nudge.mjs"] }
         ]
+      },
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          { "type": "command", "command": "node", "args": ["<HOME>/.claude/hooks/phase-end-cleanup-nudge.mjs"] }
+        ]
       }
     ],
     "PostToolUseFailure": [
@@ -102,7 +120,8 @@
       {
         "hooks": [
           { "type": "command", "command": "node", "args": ["<HOME>/.claude/hooks/session-init.mjs"] },
-          { "type": "command", "command": "node", "args": ["<HOME>/.claude/hooks/inject-axes.mjs"] }
+          { "type": "command", "command": "node", "args": ["<HOME>/.claude/hooks/inject-axes.mjs"] },
+          { "type": "command", "command": "node", "args": ["<HOME>/.claude/hooks/scratchpad-temp-env.mjs"] }
         ]
       }
     ],

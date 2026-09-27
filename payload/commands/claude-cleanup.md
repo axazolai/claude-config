@@ -52,8 +52,9 @@ Follow these steps:
    ```
 
    This is read-only — it only inspects the filesystem and prints a JSON plan
-   (`{ items, listCheck, totals }`) to stdout. Parse it. `items` are things the engine is
-   ready to propose outright (ephemeral/age/plugin, plus sessions and temp dirs already past
+   (`{ registry, items, listCheck, totals }`) to stdout. Parse it. `registry: "unavailable"`
+   means the session registry could not be read: no temp dir is proposed; say so in the
+   report. `items` are things the engine is ready to propose outright (ephemeral/age/plugin, plus sessions and temp dirs already past
    the 14-day auto threshold). `listCheck` are 7–14-day-old sessions/temp dirs that need a
    human call before they're added to the removal set.
 
@@ -77,13 +78,22 @@ Follow these steps:
 
 5. **Confirm & apply.** Summarize the finalized set (item count, total bytes) and ask for
    explicit yes/no confirmation before touching anything. On yes:
+   - Resolve `<project>` first: `node -e "console.log(process.env.CLAUDE_PROJECT_DIR || process.cwd())"`.
+     If `<project>` is the home directory — case-insensitively / realpath-equal to
+     `node -e "console.log(require('os').homedir())"` — STOP: do not write a plan file, do not
+     proceed. `/claude-cleanup` cleans `~/.claude`; treating the home directory itself as "the
+     project" would write the plan file inside the very tree this command is cleaning. Report
+     this to the user and stop here.
    - Write the finalized plan as JSON — `{ "items": [...] }`, using the exact item objects
-     from the scan/list-checker step — to a temp file (e.g. under the scratchpad,
-     `claude-cleanup-plan.json`). Only `Bash(node *)` is available (no `Write` tool in this
-     command), so do the write via `node -e`, e.g. piping the JSON through stdin:
+     from the scan/list-checker step — to
+     `<project>/.claude/.scratchpad/adhoc/<YYYY-MM-DD>-claude-cleanup/plan.json`, with
+     `<project>` as resolved above and today's date from
+     `node -e "console.log(new Date().toLocaleDateString('sv'))"`. Never
+     the harness session scratchpad. Only `Bash(node *)` is available (no `Write` tool in this
+     command), so do the write via `node -e`, piping the JSON through stdin:
 
      ```
-     node -e "require('fs').writeFileSync(process.argv[1], require('fs').readFileSync(0,'utf8'))" "<plan-file>" <<'JSON'
+     node -e "const fs=require('fs'),p=process.argv[1];fs.mkdirSync(require('path').dirname(p),{recursive:true});fs.writeFileSync(p,fs.readFileSync(0,'utf8'))" "<plan-file>" <<'JSON'
      { "items": [ ... ] }
      JSON
      ```

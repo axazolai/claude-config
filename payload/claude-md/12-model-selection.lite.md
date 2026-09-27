@@ -1,6 +1,3 @@
----
-profiles: [base, full]
----
 # Model Selection Policy
 - DEFAULT executor: claude-sonnet-5. Step UP to claude-opus-5-5 for design and architecture,
   security-sensitive review, hard debugging, and work where a wrong answer is costly;
@@ -14,7 +11,4 @@ profiles: [base, full]
 - Opus 5.5 always thinks (thinking cannot be disabled — lower `effort` instead) and verifies its
   own work: do not add "verify"/"double-check" scaffolding, and revisit any `max_tokens` that
   was sized for a no-thinking budget.
-- Ultrapowers subagent dispatches follow the role map in the `model-selection-policy` skill; it
-  outranks the Model Selection section inside ultrapowers skills.
-- Full routing, the effort ladder, and the per-role GSD effort map → the
-  `model-selection-policy` skill.
+- Full routing and the effort ladder → the `model-selection-policy` skill.
