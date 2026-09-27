@@ -141,7 +141,13 @@ Non-empty status → show the list and ask whether to commit. Stage only the pub
 
 ### 4. Version bump, changelog, release notes
 
-After the merge, before any push. Last released version: `git tag --sort=-creatordate | head -1`.
+After the merge, before any push.
+
+First, before anything is written: nothing to publish (`<remote>/<dev>..<dev>` empty) → report
+and STOP. Otherwise list `git log --oneline <remote>/<dev>..<dev>` and confirm this is what gets
+published. No → STOP; nothing has been committed for the release.
+
+Last released version: `git tag --sort=-creatordate | head -1`.
 
 - Propose one bump from the commit types since that tag; the user confirms (hard rule 1).
   Write it to every `version.files` entry.
@@ -152,9 +158,6 @@ After the merge, before any push. Last released version: `git tag --sort=-creato
   API only, anything someone who knew the old behaviour will notice, and any rollback step the
   release needs (e.g. a migration that must be reverted before the old build returns).
 - Commit as one `chore(release): X.Y.Z`. *Dry run: printed, skipped.*
-
-Nothing to publish (`<remote>/<dev>..<dev>` empty) → report and STOP. Otherwise list
-`git log --oneline <remote>/<dev>..<dev>` and confirm this is what gets published. No → STOP.
 
 ### 5. Tests
 
@@ -344,27 +347,45 @@ release point: two builds must never share a number. Bump the patch on BOTH stre
 number to the stream released first (release point at 1.4.0 with tag taken → snapshot 1.4.1,
 `<dev>` 1.4.2). The snapshot's bump is committed on the snapshot branch, never on `<dev>`. Each
 bump has its own changelog entry; `<dev>` also gets the snapshot's entry below its own, so the
-chain has no gap. The next `<dev>` → `<prod>` merge will conflict on the version files and
-changelog: keep `<dev>`'s number and the union of entries, newest first. The user declines →
-release another point, or cancel and use `/publish dev`.
+chain has no gap. Both bumps are committed in step 2, before the freeze and before the subagent
+exists. The next `<dev>` → `<prod>` merge will conflict on the version files and changelog: keep
+`<dev>`'s number and the union of entries, newest first. The user declines → release another
+point, or cancel and use `/publish dev`.
 
 ### 2. Record the release point
 
 ```bash
-git rev-parse <remote>/<dev>                       # RELEASE_SHA, quoted in every report
+git rev-parse <remote>/<dev>                       # BASE_SHA
 git log --oneline <remote>/<prod>..<remote>/<dev>
 ```
+
+No version collision → `RELEASE_SHA` = `BASE_SHA`. Collision → commit both bumps now, while the
+main session still owns the tree, in this order:
+
+```bash
+git switch -c <snapshot> <BASE_SHA>
+# write the snapshot's version and changelog entry
+git commit -m "chore(release): <snapshot version>"
+git switch <dev>
+# write dev's version, its entry and the snapshot's entry below it
+git commit -m "chore(release): <dev version>"
+git rev-parse <snapshot>                           # RELEASE_SHA = the snapshot's bump commit
+```
+
+*Dry run: printed, skipped.* Stage only the version and changelog files (hard rule 7). The
+session ends this step on `<dev>` with a clean tree; nothing switches branches after it.
+`RELEASE_SHA` is quoted in every later report.
 
 ### 3. Freeze it — the gate for everything below
 
 ```bash
-git branch <snapshot> <RELEASE_SHA>
+git branch <snapshot> <RELEASE_SHA>                # skip when step 2 created it
 git push <remote> <snapshot>
 git rev-parse <remote>/<snapshot>                  # must equal RELEASE_SHA
 ```
 
-*Dry run: printed, skipped.* Refused push, existing branch, or SHA mismatch → STOP; the streams
-are not independent yet.
+*Dry run: printed, skipped.* Refused push, a `<snapshot>` step 2 did not create, or SHA
+mismatch → STOP; the streams are not independent yet.
 
 ### 4. Launch the dev push in a subagent
 
@@ -442,10 +463,10 @@ wait for them to report the result.
   before suspecting a regression; never push a "fix" to `<dev>` for it. Recurs → the runner host
   needs attention outside the repository. Note what already landed (a partially pushed image
   set) before reporting.
-- **Tag pipeline rejects the tag as not on `<prod>`** — it was created before the merge or off a
-  stale ref. Nothing deployed. With the user's confirmation: `git push <remote> :refs/tags/<tag>`,
-  `git tag -d <tag>`, finish the merge, tag the current `<remote>/<prod>` tip.
-  *Dry run: printed, skipped.*
+- **Tag pipeline rejects the tag** — nothing deployed, and the tag is spent: treat it as "tag
+  already taken" (hard rule 5). Never delete or move it. Bump the patch component with its own
+  changelog entry (it reaches `<prod>` the way prod step 1 describes), then re-run the mode from
+  its tag step with the new version.
 - **Anything else** — read the first error in the job log, match it against the project's own
   troubleshooting notes, propose a fix; it goes through `/publish dev`.
 - **Pipeline green, production not updated** — the deploy did not pick up the tag; check the
@@ -459,14 +480,21 @@ wait for them to report the result.
 
 ```bash
 git switch <prod>
-git merge --ff-only <remote>/<dev>      # prod; in step: <remote>/<snapshot>
+git merge --ff-only <remote>/<dev>      # prod and fast
 git push <remote> <prod>
 git switch <dev>
 ```
 
+In step mode the dev-push subagent shares the tree, so the local working tree is not touched:
+push the frozen branch straight into `<prod>` (a non-fast-forward is rejected, never forced):
+
+```bash
+git push <remote> <remote>/<snapshot>:refs/heads/<prod>
+```
+
 *Dry run: printed, skipped.* This merge follows `merge.*` like the MR/PR merge: `user` → hand
-the commands over and wait. Fast-forward impossible → report the divergence and ask; never
-force. No remote at all → merge and tag locally, nothing is pushed, and the report says so.
+the commands over and wait. Fast-forward impossible or push rejected → report the divergence and
+ask; never force. No remote at all → merge and tag locally, nothing is pushed, and the report says so.
 
 ## Dry run
 
