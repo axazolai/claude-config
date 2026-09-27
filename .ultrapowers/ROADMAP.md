@@ -24,7 +24,7 @@ phases:
   - { phase: "20", slug: mcp-servers, status: complete, delivery: merged }
   - { phase: "21", slug: model-policy, status: complete, delivery: merged }
   - { phase: "22", slug: scratchpad-phase-cleanup, status: complete, delivery: merged }
-  - { phase: "23", slug: publish-and-postgres, status: planned, delivery: none }
+  - { phase: "23", slug: publish-and-postgres, status: complete, delivery: branch }
 ---
 
 # Roadmap
@@ -83,6 +83,29 @@ settings.json/.claude.json in any block; the verification-before-completion skil
 exemption is scoped to Opus 5.5+ only. One regression (BUG-004) was found and fixed along the way.
 Full suite at close: 543/543/0 fail. Detail in `phases/22-scratchpad-phase-cleanup/` (`22-SUMMARY.md`'s
 "Pre-deploy fixes" section covers both phases 21 and 22's territory).
+
+Phase 23 (`publish-and-postgres`) — complete: implemented on `worktree-phase-23-publish-postgres`
+(a git worktree, not yet merged), 2026-09-27, via Subagent-Driven Development. Collapses four
+reference release-workflow skills into one depersonalised `/publish` skill (launch keys
+`dev`/`prod`/`fast`/`step`, `.claude/publish.json` project settings written by a first-run
+interview, GitLab/GitHub/no-CI/CD paths, `--dry-run`/`--reconfigure`/`--agent-merge`/`--no-watch`);
+ships in base/full, not lite. Adds a new bundled-skill mechanism: `payload/skill-library/` (a
+top-level directory distinct from `payload/skills/`) holds a cleaned, depersonalised `postgres`
+skill (MIT-derived from PlanetScale's `database-skills`), and `/init-stack` gained
+`install.bundled` alongside the existing `install.cmd` npx mechanism to copy it into a project;
+the DB stack template now ships it this way instead of via npx. Task 1's own review found and
+fixed 4 internal rule contradictions in the `/publish` skill text (a tag-deletion recovery that
+contradicted its own "never move a tag" rule, a dead no-op STOP, a step-mode freeze-ordering bug,
+a working-tree race in the no-CI/CD path). The final whole-branch review found 2 more Important
+issues (bundled skills still described as npx-installed in `/init-stack`'s non-interactive report
+and command file; step mode's own Prerequisites made its documented collision-handling path
+unreachable) plus 3 Minor, all closed in one fix wave and re-reviewed clean. Full suite: 566/566.
+Verification: ACHIEVED — with one open item the user still needs to decide: the plan's own
+Review Focus named "a repo with no remote at all" as a case `/publish dev` must handle
+gracefully, and while the no-CI/CD path states this in one sentence, `dev` mode's own steps
+(`git fetch`, two unconditional pushes) don't actually gate on it — surfaced by the verification
+pass, not caught by any task or whole-branch review, and not fixed (the one fix wave was already
+spent). Detail in `phases/23-publish-and-postgres/`.
 
 Phase 19 (`upstream-6.4.1`) — complete: merged (`7282b58`, together with the Opus 5.5 model
 policy from `feat/opus-5-5-policy`) and deployed 2026-09-23. The fork rebased onto upstream 6.4.1

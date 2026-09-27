@@ -70,7 +70,8 @@
         "hooks/pnpm-phantom-fix-hook*", "bin/pnpm-phantom-*", "bin/lib/pnpm-*",
         "bin/turbopack-gvs-check.mjs", "bin/lib/turbopack-gvs-*", "commands/pnpm-phantom-fix.md",
         "hooks/scrapling-raw-gate*", "hooks/web-block-nudge*",
-        "hooks/phase-end-cleanup-nudge*"
+        "hooks/phase-end-cleanup-nudge*",
+        "skills/publish/**"
       ]
     }
   }

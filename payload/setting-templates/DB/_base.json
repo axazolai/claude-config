@@ -5,10 +5,10 @@
   "plugins": [],
   "skills": [
     {
-      "id": "planetscale/database-skills",
+      "id": "bundled:postgres",
       "name": "postgres",
-      "description": "PlanetScale postgres skill (company-backed, MIT, plain-text/local) - PostgreSQL JUDGMENT that docs/LSP don't give: reading EXPLAIN / EXPLAIN ANALYZE, index-type choice (B-tree/GIN/GiST/BRIN), unused/duplicate-index audit, partitioning, query anti-patterns, VACUUM/bloat/xid-wraparound. Progressive-disclosure (lean SKILL.md + references/). NOT redundant with Context7 (docs) or the thin dual-dialect sql.md rule. PostgreSQL-SPECIFIC - skip for Oracle-only projects (Oracle tuning lives in rules/sql.md). Cherry-picked via --skill; verify the slug at install.",
-      "install": { "cmd": "npx skills add planetscale/database-skills --skill postgres --agent claude-code", "slash": "" }
+      "description": "Bundled postgres skill (MIT, plain-text/local) - PostgreSQL JUDGMENT that docs/LSP don't give: reading EXPLAIN / EXPLAIN ANALYZE, index-type choice (B-tree/GIN/GiST/BRIN), unused/duplicate-index audit, partitioning, query anti-patterns, VACUUM/bloat/xid-wraparound. Progressive-disclosure (lean SKILL.md + references/). NOT redundant with Context7 (docs) or the thin dual-dialect sql.md rule. PostgreSQL-SPECIFIC - skip for Oracle-only projects (Oracle tuning lives in rules/sql.md).",
+      "install": { "bundled": "postgres" }
     }
   ],
   "_notes": [

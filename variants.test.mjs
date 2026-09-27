@@ -114,3 +114,12 @@ test("@important lite ships neither Scrapling hook", () => {
   }
   assert.ok(base.includes("hooks/scrapling-raw-gate.mjs") && base.includes("hooks/web-block-nudge.mjs"));
 });
+
+test("@important /publish ships in base and full, not in lite", () => {
+  const rels = (variant) => resolveVariant({ repoRoot: REPO, variant }).rels;
+  for (const f of ["skills/publish/SKILL.md", "skills/publish/step-subagent-brief.md"]) {
+    assert.ok(rels("base").includes(f) && rels("full").includes(f), `base/full ship ${f}`);
+    assert.ok(!rels("lite").includes(f), `lite ships ${f}`);
+  }
+  assert.ok(!rels("base").includes("skills/publish/publish-skill.test.mjs"));
+});

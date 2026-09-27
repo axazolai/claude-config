@@ -121,7 +121,9 @@ notepad bootstrap.ps1; .\bootstrap.ps1
      `node ~/.claude/bin/init-stack.mjs -i` в СВОЁМ терминале: интерактивный чек-лист
      (arrow-key UI) через Claude провести нельзя; на подтверждении он сам ставит недостающие
      плагины (`claude plugin install`), пишет `./.claude/settings.json`, а следом предлагает
-     `npx skills add` для объявленных стеком скиллов;
+     установку объявленных стеком скиллов — `npx skills add` (обычные) или копию из
+     `skill-library/` в `.claude/skills/` (bundled, механизм `install.bundled` — см.
+     «Дополнительные подсистемы» ниже);
    - **4. fallback** — если нет реального терминала, non-interactive путь (`--enable`/
      `--apply-all`), только активация, без установки;
    - **5. design stack** — только на фронтенд-стеке: `bin/install-design-stack.mjs --root .`
@@ -191,7 +193,7 @@ notepad bootstrap.ps1; .\bootstrap.ps1
     по профилю (`bin/lib/assemble-claude-md.mjs`, фронтматтер `profiles:` в каждом фрагменте);
   - **НЕТ** дополнительно к исключённому в base: `schedulewakeup`-нуджа, `prune-tests-nudge`,
     pnpm-phantom-guard, bg-supervision (`supervise-bg.mjs`), turbopack-проверки, команд
-    `/init-mcp` и `/pnpm-phantom-fix`.
+    `/init-mcp` и `/pnpm-phantom-fix`, скилла `/publish`.
 
 Ни в один профиль не входят (`variants.json → alwaysExclude`): `hooks/task-lifecycle-probe*`
 (probe-логгер схемы `TaskCreated`/`TaskCompleted` — остаётся в репозитории как заготовка, но не
@@ -376,6 +378,29 @@ Claude Code. Живёт в [`axazolai/ultrapowers`](https://github.com/axazolai/
   снят — хук закрытия фазы может позвать skill сам, не только пользователь. На других машинах то
   же ставит `setup.mjs`; там же SessionStart-хук `scratchpad-temp-env.mjs` подсказывает
   `/scratch-prune`, когда завёлся legacy-слой или harness-хвост перевалил 100 МБ.
+- **Релиз-скилл `/publish`** — `skills/publish/SKILL.md`, четыре launch-key вместо четырёх
+  отдельных релизных воркфлоу: `/publish dev` (мёрдж рабочей ветки в dev, бамп версии +
+  changelog, тесты, push, вотч пайплайна), `/publish prod [X.Y.Z]` (подтверждение версии,
+  MR/PR dev→prod, зелёный пайплайн, мёрдж, тег, вотч тег-пайплайна), `/publish fast` (без
+  гейтов — push, MR/PR, мёрджит агент, тег) и `/publish step [X.Y.Z]` (заморозка release-ветки,
+  MR/PR в prod, параллельно новая работа в dev через суб-агента). Общие флаги: `--dry-run`,
+  `--reconfigure`, `--agent-merge`, `--no-watch`. Работает с GitLab (`glab`), GitHub (`gh`) или
+  голым git без CI/CD — тогда публикация идёт только через git (мёрдж веток, push, тег, без
+  шагов пайплайна). Настройки проекта — `.claude/publish.json`
+  (host/remote/branches/cli/ci/version/changelog/tests/merge), пишутся первым запуском-интервью,
+  пересобираются флагом `--reconfigure`. Ставится в base/full, в lite — нет (см. «Варианты
+  бандла» выше).
+- **`skill-library/` и bundled стек-скиллы** — новый верхнеуровневый каталог
+  `payload/skill-library/`, отдельно от `payload/skills/` (те грузятся напрямую из
+  `~/.claude`): здесь лежат скиллы, которые `/init-stack` КОПИРУЕТ в конкретный проект, а не
+  подключает из бандла. Сейчас там один скилл — очищенный, депёрсонализированный `postgres`
+  (MIT, из `planetscale/database-skills`). Стек-шаблон объявляет такой скилл через
+  `install.bundled` (вместо обычного `install.cmd` с `npx skills add`) — `installSkills()` в
+  `bin/init-stack.mjs` копирует `~/.claude/skill-library/<name>/` в
+  `<project>/.claude/skills/<name>/` (`cpSync`, без npx) и отказывается перезаписывать уже
+  существующую цель. DB-шаблон (`setting-templates/DB/_base.json`) объявляет `postgres` именно
+  так. Интерактивный чек-лист `/init-stack -i` помечает каждый пункт по своему механизму —
+  «(copy from the bundle)» или «(npx skills add)».
 
 Права в `settings.partial.json` нормализуются при мёрже: `Write(x)`/`MultiEdit(x)` → `Edit(x)`
 (+ dedup), т.к. Claude Code теперь матчит все file-tools через `Edit(path)`, а `MultiEdit` —
@@ -493,6 +518,9 @@ Claude Code. Живёт в [`axazolai/ultrapowers`](https://github.com/axazolai/
     update-changelog/SKILL.md            # /update-changelog — git-история → changelog.json (RU-записи)
     model-selection-policy/SKILL.md      # routing моделей + effort-лестница, вынесен из CLAUDE.md
     scratch-prune/SKILL.md               # /scratch-prune — раскладка, фазы, harness-сессии; три режима вызова
+    publish/SKILL.md                     # /publish — релиз через launch-keys dev|prod|fast|step (base/full, не lite)
+  skill-library/postgres/                # bundled-скилл для /init-stack install.bundled — копируется
+                                          #   в проект (.claude/skills/), не грузится напрямую из ~/.claude
   rules-src/                             # источник правил стека — НЕ автозагружается Claude Code;
                                           #   компилируется в <проект>/.claude/stack-rules.md (см. ниже)
   setting-templates/                     # наборы плагинов по направлениям, применяет /init-stack

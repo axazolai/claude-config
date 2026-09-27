@@ -126,8 +126,9 @@ changes).
    - **3. interactive install** — asks you to run `node ~/.claude/bin/init-stack.mjs -i`
      yourself, in YOUR OWN terminal: the interactive checklist (arrow-key UI) can't be driven
      through Claude; on confirmation it installs the missing plugins (`claude plugin install`),
-     writes `./.claude/settings.json`, and then offers `npx skills add` for the skills the stack
-     declares;
+     writes `./.claude/settings.json`, and then offers to install the skills the stack declares —
+     `npx skills add` (ordinary) or a copy from `skill-library/` into `.claude/skills/` (bundled,
+     the `install.bundled` mechanism — see "Additional subsystems" below);
    - **4. fallback** — with no real terminal, the non-interactive path (`--enable`/
      `--apply-all`): activation only, no installs;
    - **5. design stack** — frontend stacks only: `bin/install-design-stack.mjs --root .`
@@ -198,7 +199,7 @@ inherits `base` through `extends`; `exclude` wins over `include`).
     (`bin/lib/assemble-claude-md.mjs`, each fragment's `profiles:` frontmatter);
   - **NOT included**, on top of what base already drops: the `schedulewakeup` nudge,
     `prune-tests-nudge`, the pnpm-phantom guard, bg-supervision (`supervise-bg.mjs`), the
-    Turbopack check, and the `/init-mcp` and `/pnpm-phantom-fix` commands.
+    Turbopack check, the `/init-mcp` and `/pnpm-phantom-fix` commands, and the `/publish` skill.
 
 No profile ships (`variants.json → alwaysExclude`): `hooks/task-lifecycle-probe*` (the
 `TaskCreated`/`TaskCompleted` schema probe — kept in the repo as a stub, never installed and
@@ -388,6 +389,29 @@ tests `*.test.mjs`, run via `node run-tests.mjs` — `node --test` with temp dir
   skill itself, not only the user. Other machines get the same via `setup.mjs`; there too the
   SessionStart hook `scratchpad-temp-env.mjs` suggests `/scratch-prune` once a legacy layer
   appears or the harness backlog passes 100 MB.
+- **The `/publish` release skill** — `skills/publish/SKILL.md`, four launch keys standing in
+  for four separate release workflows: `/publish dev` (merge the work branch into dev, bump the
+  version + changelog, run tests, push, watch the pipeline), `/publish prod [X.Y.Z]` (confirm
+  the version, MR/PR dev→prod, wait for a green pipeline, merge, tag, watch the tag pipeline),
+  `/publish fast` (no gates — push, MR/PR, the agent merges, tag), and `/publish step [X.Y.Z]`
+  (freeze a release branch, MR/PR it into prod, push new work into dev in parallel through a
+  subagent). Common flags: `--dry-run`, `--reconfigure`, `--agent-merge`, `--no-watch`. Works
+  with GitLab (`glab`), GitHub (`gh`), or plain git with no CI/CD — then publishing goes through
+  git alone (branch merge, push, tag, no pipeline steps). Project settings live in
+  `.claude/publish.json` (host/remote/branches/cli/ci/version/changelog/tests/merge), written by
+  a first-run interview and rebuilt with `--reconfigure`. Ships in base/full, not lite (see
+  "Bundle variants" above).
+- **`skill-library/` and bundled stack skills** — a new top-level directory,
+  `payload/skill-library/`, separate from `payload/skills/` (which loads straight from
+  `~/.claude`): it holds skills that `/init-stack` COPIES into a specific project instead of
+  wiring in from the bundle. Right now it holds one skill — a cleaned, depersonalised `postgres`
+  (MIT, from `planetscale/database-skills`). A stack template declares such a skill through
+  `install.bundled` (instead of the usual `install.cmd` with `npx skills add`) —
+  `installSkills()` in `bin/init-stack.mjs` copies `~/.claude/skill-library/<name>/` to
+  `<project>/.claude/skills/<name>/` (`cpSync`, no npx) and refuses to overwrite an existing
+  target. The DB template (`setting-templates/DB/_base.json`) declares `postgres` this way. The
+  `/init-stack -i` interactive checklist labels each entry by its own mechanism — "(copy from
+  the bundle)" or "(npx skills add)".
 
 Permissions in `settings.partial.json` are normalized on merge: `Write(x)`/`MultiEdit(x)` →
 `Edit(x)` (+ dedup), since Claude Code now matches all file tools via `Edit(path)`, and
@@ -507,6 +531,9 @@ installed.
     update-changelog/SKILL.md            # /update-changelog — git history → changelog.json (RU entries)
     model-selection-policy/SKILL.md      # model routing + the effort ladder, split out of CLAUDE.md
     scratch-prune/SKILL.md               # /scratch-prune — the layout, phases, harness sessions; three invocation modes
+    publish/SKILL.md                     # /publish — release via launch keys dev|prod|fast|step (base/full, not lite)
+  skill-library/postgres/                # bundled skill for /init-stack's install.bundled — copied into
+                                          #   a project (.claude/skills/), never loaded straight from ~/.claude
   rules-src/                             # stack rule sources — NOT auto-loaded by Claude Code;
                                           #   compiled into <project>/.claude/stack-rules.md (see below)
   setting-templates/                     # per-direction plugin sets, applied by /init-stack

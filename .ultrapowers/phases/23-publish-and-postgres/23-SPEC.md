@@ -45,11 +45,19 @@ Written by the first-run interview, read on every run, rewritten by `--reconfigu
   "cli": "glab | gh | null",
   "ci": { "present": true, "watch": true },
   "version": { "files": [{ "path": "package.json", "key": "version" }], "tagPrefix": "v" },
-  "changelog": { "path": "CHANGELOG.md", "format": "markdown | json" },
-  "tests": { "command": "npm test" },
+  "changelog": { "path": "CHANGELOG.md", "format": "markdown | json", "notesDir": null },
+  "tests": { "commands": ["npm test"] },
   "merge": { "prod": "user", "fast": "agent" }
 }
 ```
+
+- `version.files`: the first entry is the reference file — its version on a branch is that
+  branch's version.
+- `changelog`: one object, or an array when the project keeps several (the first is the release
+  changelog whose top entry must match the version); `null` → no changelog step. `notesDir`:
+  directory for one release-notes file per version, or `null`.
+- `tests.commands`: run in order, each standalone; empty → no tests.
+- `merge.prod` governs both `prod` and `step`; `--agent-merge` overrides it for one run.
 
 Interview — detect first, ask only what detection cannot settle, one question at a time:
 

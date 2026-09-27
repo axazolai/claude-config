@@ -89,9 +89,18 @@ with no input to confirm the current selection, or `q` to cancel. On confirm it:
 `~/.claude/setting-templates/` first (see `STACK_PATHS` in `bin/init-stack.mjs`, or that folder's
 README, for the exact path).
 
-After the plugin step, `-i` also lists the stack's declared **skills** (npx Agent Skills) and
-offers to `npx skills add` the missing ones. Skills are opt-in (none pre-checked), have no
-enable/disable, and their slugs drift - if an install fails, verify the current slug and retry.
+After the plugin step, `-i` also lists the stack's declared **skills** and offers to install the
+missing ones. Each skill names its own mechanism, shown next to it in both the `-i` checklist and
+the report-only listing:
+- **npx skills add** (`install.cmd`) - runs `npx skills add <slug>`. Slugs drift: if it fails,
+  verify the current slug and retry.
+- **copy from the bundle** (`install.bundled`) - copies `~/.claude/skill-library/<bundled>/` into
+  the project's `.claude/skills/<name>/`; no `npx` is involved, so never run `npx skills add` for
+  it (its `bundled:<name>` id is not an npx slug). It refuses to overwrite an existing target: when
+  the report says the target already exists, ask me before touching that folder; any other copy
+  failure means the bundle is missing from `~/.claude/skill-library/` - re-run `node setup.mjs`.
+
+Skills are opt-in (none pre-checked) and have no enable/disable.
 
 ## 4. Non-interactive fallback (if I can't use a TTY)
 `-i` needs a real terminal. If I can't run it, this path does ACTIVATION ONLY (it does not
