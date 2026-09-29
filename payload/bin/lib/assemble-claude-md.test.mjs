@@ -53,18 +53,19 @@ test("@important real fragments: base and full carry web routing and the MCP ser
 // this fragment's own role-map bullet. `# Model Selection Policy` is the section's sole H1 and
 // (per the real fragments) the last one in the document, so slicing from its heading to EOF
 // isolates it without depending on section order elsewhere.
-test("@important real fragments: model selection — Sonnet 5 default, high start; lite drops the ultrapowers role map", () => {
+test("@important real fragments: model selection — Sonnet 5.5 default, medium start; lite drops the ultrapowers role map", () => {
   const full = assembleClaudeMd(REAL, "full"), base = assembleClaudeMd(REAL, "base"), lite = assembleClaudeMd(REAL, "lite");
   for (const o of [full, base]) {
-    assert.match(o, /DEFAULT executor: claude-sonnet-5/);
-    assert.match(o, /Start `high`/);
+    assert.match(o, /DEFAULT executor: claude-sonnet-5-5/);
+    assert.match(o, /Start `medium`/);
+    assert.doesNotMatch(o, /Start `high`/);
     assert.match(o, /role map in the `model-selection-policy` skill/);
   }
   const liteHeading = "# Model Selection Policy";
   assert.ok(lite.includes(liteHeading));
   const liteSection = lite.slice(lite.indexOf(liteHeading));
-  assert.match(liteSection, /DEFAULT executor: claude-sonnet-5/);
-  assert.match(liteSection, /Start `high`/);
+  assert.match(liteSection, /DEFAULT executor: claude-sonnet-5-5/);
+  assert.match(liteSection, /Start `medium`/);
   assert.doesNotMatch(liteSection, /role map/);
   assert.doesNotMatch(liteSection.toLowerCase(), /ultrapowers/);
 });
