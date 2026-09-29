@@ -17,7 +17,6 @@
 - [RISK-GSDSURFACE-002 — The profile flag and marker semantics are verified against one gsd-core version](#risk-gsdsurface-002-the-profile-flag-and-marker-semantics-are-verified-against-one-gsd-core-version)
 - [RISK-GSDSURFACE-003 — Raising the profile restores agent files without this bundle's patches](#risk-gsdsurface-003-raising-the-profile-restores-agent-files-without-this-bundles-patches)
 - [RISK-HARNESS-001 — `Connection closed mid-response` truncates a turn, and the bundle cannot retry it](#risk-harness-001-connection-closed-mid-response-truncates-a-turn-and-the-bundle-cannot-retry-it)
-- [RISK-HOOKSTDIN-001 — `token-usage-log.mjs` throws on a literal `null` on stdin](#risk-hookstdin-001-token-usage-logmjs-throws-on-a-literal-null-on-stdin)
 - [RISK-LADDER-001 — Every rung switch starts a fresh prefix and pays a cache write](#risk-ladder-001-every-rung-switch-starts-a-fresh-prefix-and-pays-a-cache-write)
 - [RISK-LADDER-002 — Attempt counting is a rule for the orchestrator, not enforced](#risk-ladder-002-attempt-counting-is-a-rule-for-the-orchestrator-not-enforced)
 - [RISK-LADDER-003 — Ladder savings against subscription limits are unmeasured](#risk-ladder-003-ladder-savings-against-subscription-limits-are-unmeasured)
@@ -80,6 +79,7 @@
 - [RISK-FALLOW-001 — `fallow.enabled` is set optimistically, not gated on binary presence](#risk-fallow-001-fallowenabled-is-set-optimistically-not-gated-on-binary-presence)
 - [RISK-GRAPHPUSH-003 — graphify export neo4j --push writes every node and then never returns](#risk-graphpush-003-graphify-export-neo4j---push-writes-every-node-and-then-never-returns)
 - [RISK-GRAPHPUSH-004 — every commit prunes and re-pushes the whole graph, leaving Neo4j gutted for the duration](#risk-graphpush-004-every-commit-prunes-and-re-pushes-the-whole-graph-leaving-neo4j-gutted-for-the-duration)
+- [RISK-HOOKSTDIN-001 — `token-usage-log.mjs` throws on a literal `null` on stdin](#risk-hookstdin-001-token-usage-logmjs-throws-on-a-literal-null-on-stdin)
 - [RISK-INITSTACK-001 — `/init-stack` GSD-free rewrite deleted steps 6-11; ~24 stale references + 2 dropped capabilities](#risk-initstack-001-init-stack-gsd-free-rewrite-deleted-steps-6-11-24-stale-references-2-dropped-capabilities)
 - [RISK-STATUSLINE-001 — the context-window size field name is documented, not observed](#risk-statusline-001-the-context-window-size-field-name-is-documented-not-observed)
 - [RISK-TOKENLOG-001 — Scraped model pricing can silently break](#risk-tokenlog-001-scraped-model-pricing-can-silently-break)
@@ -424,21 +424,6 @@
   no turn self-resumed. The name was inferred, not documented. Harmless to keep, not a mitigation.
 
 - **Mitigation:** Status nuance (migrated 2026-07-31): Root-caused 2026-07-28 — a LAN-side proxy timeout, not a Claude Code defect. Mitigated
-
-
-### RISK-HOOKSTDIN-001 — `token-usage-log.mjs` throws on a literal `null` on stdin
-
-- **Status:** Active
-- **Context:** `payload/hooks/token-usage-log.mjs:60-61` reads stdin as
-  `try { d = JSON.parse(safe(() => readFileSync(0, "utf8")) || "{}"); } catch { process.exit(0); }`
-  and later reaches `d.cwd` at line 133. `JSON.parse("null")` does not throw — it returns the
-  primitive `null` — so the `catch` never fires and the property access throws a `TypeError`
-  outside any guard, exiting non-zero. Phase 09's `precompact-observe.mjs` was written from this
-  same idiom, inherited the same defect, and had it caught in review; the guard added there is
-  `d = (d && typeof d === "object") ? d : {};` immediately after the parse. This hook is already
-  deployed on this machine.
-- **Mitigation:** none yet. The one-line guard above is known to work and is already proven in a
-  sibling hook. Status nuance (migrated 2026-07-31): 2026-07-30 — found by phase 09, not caused by it, and deliberately not fixed there
 
 
 ### RISK-LADDER-001 — Every rung switch starts a fresh prefix and pays a cache write
@@ -1645,6 +1630,22 @@
   so a burst of commits produces a single rebuild; or move it off the commit path onto a timer.
   Choosing among them needs a decision record, not an edit — and `RISK-GRAPHPUSH-003` should be
   settled first, since a push that never returns makes any debounce window meaningless.
+
+
+### RISK-HOOKSTDIN-001 — `token-usage-log.mjs` throws on a literal `null` on stdin
+
+- **Status:** Closed (2026-09-29) — the hook it describes was retired in phase 19 (`308dfe4`);
+  `payload/hooks/rung-usage-log.mjs` (phase 24) carries the guard `d = (d && typeof d === "object") ? d : {}`.
+- **Context:** `payload/hooks/token-usage-log.mjs:60-61` reads stdin as
+  `try { d = JSON.parse(safe(() => readFileSync(0, "utf8")) || "{}"); } catch { process.exit(0); }`
+  and later reaches `d.cwd` at line 133. `JSON.parse("null")` does not throw — it returns the
+  primitive `null` — so the `catch` never fires and the property access throws a `TypeError`
+  outside any guard, exiting non-zero. Phase 09's `precompact-observe.mjs` was written from this
+  same idiom, inherited the same defect, and had it caught in review; the guard added there is
+  `d = (d && typeof d === "object") ? d : {};` immediately after the parse. This hook is already
+  deployed on this machine.
+- **Mitigation:** none yet. The one-line guard above is known to work and is already proven in a
+  sibling hook. Status nuance (migrated 2026-07-31): 2026-07-30 — found by phase 09, not caused by it, and deliberately not fixed there
 
 
 ### RISK-INITSTACK-001 — `/init-stack` GSD-free rewrite deleted steps 6-11; ~24 stale references + 2 dropped capabilities
