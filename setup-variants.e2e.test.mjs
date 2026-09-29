@@ -142,6 +142,7 @@ test("@critical a retired hook's entries leave settings.json while the user's ow
   const hooks = JSON.parse(readFileSync(join(dir, "settings.json"), "utf8")).hooks;
   assert.doesNotMatch(JSON.stringify(hooks), /token-usage-log/);
   assert.deepEqual(hooks.Stop, [mine]);
+  assert.match(JSON.stringify(hooks.SubagentStop), /rung-usage-log/);
   rmSync(dir, { recursive: true, force: true });
 });
 
