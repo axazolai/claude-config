@@ -142,6 +142,7 @@ test("@critical a retired hook's entries leave settings.json while the user's ow
   const hooks = JSON.parse(readFileSync(join(dir, "settings.json"), "utf8")).hooks;
   assert.doesNotMatch(JSON.stringify(hooks), /token-usage-log/);
   assert.deepEqual(hooks.Stop, [mine]);
+  assert.match(JSON.stringify(hooks.SubagentStop), /rung-usage-log/);
   rmSync(dir, { recursive: true, force: true });
 });
 
@@ -520,7 +521,7 @@ test("@important dry-run reports session-default conflicts and writes nothing", 
   assert.equal(r.status, 0, r.stderr);
   assert.match(r.stdout, /--- session defaults ---/);
   assert.match(r.stdout, /model: claude-opus-5-5 -> sonnet/);
-  assert.match(r.stdout, /effortLevel: xhigh -> high/);
+  assert.match(r.stdout, /effortLevel: xhigh -> medium/);
   assert.equal(readFileSync(join(dir, "settings.json"), "utf8"), before);
   rmSync(dir, { recursive: true, force: true });
 });
@@ -535,7 +536,7 @@ test("@important --replace-all writes the managed session defaults, keeping othe
   assert.equal(r.status, 0, r.stderr);
   const settings = JSON.parse(readFileSync(join(dir, "settings.json"), "utf8"));
   assert.equal(settings.model, "sonnet");
-  assert.equal(settings.effortLevel, "high");
+  assert.equal(settings.effortLevel, "medium");
   assert.equal(settings.statusLine.command, "echo mine");
   rmSync(dir, { recursive: true, force: true });
 });
@@ -561,7 +562,7 @@ test("@important --merge-all keeps a conflicting session default and adds an abs
   assert.equal(r.status, 0, r.stderr);
   const settings = JSON.parse(readFileSync(join(dir, "settings.json"), "utf8"));
   assert.equal(settings.model, "claude-opus-5-5");
-  assert.equal(settings.effortLevel, "high");
+  assert.equal(settings.effortLevel, "medium");
   assert.match(r.stdout, /kept model: claude-opus-5-5/);
   rmSync(dir, { recursive: true, force: true });
 });
@@ -584,7 +585,7 @@ test("@important session defaults are written when settings.json does not exist 
   assert.equal(r.status, 0, r.stderr);
   const settings = JSON.parse(readFileSync(join(dir, "settings.json"), "utf8"));
   assert.equal(settings.model, "sonnet");
-  assert.equal(settings.effortLevel, "high");
+  assert.equal(settings.effortLevel, "medium");
   rmSync(dir, { recursive: true, force: true });
 });
 
@@ -607,7 +608,7 @@ test("@important interactive n on a session-default conflict still writes the ab
   assert.equal(r.status, 0, r.stderr);
   const after = JSON.parse(readFileSync(join(dir, "settings.json"), "utf8"));
   assert.equal(after.model, "claude-opus-5-5");
-  assert.equal(after.effortLevel, "high");
+  assert.equal(after.effortLevel, "medium");
   rmSync(dir, { recursive: true, force: true });
 });
 
@@ -619,7 +620,7 @@ test("@important a superseded model with a session-default conflict asks one que
   assert.doesNotMatch(r.stdout, /looks superseded/);
   const after = JSON.parse(readFileSync(join(dir, "settings.json"), "utf8"));
   assert.equal(after.model, "sonnet");
-  assert.equal(after.effortLevel, "high");
+  assert.equal(after.effortLevel, "medium");
   rmSync(dir, { recursive: true, force: true });
 });
 

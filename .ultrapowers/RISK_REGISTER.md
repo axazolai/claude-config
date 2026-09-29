@@ -17,7 +17,9 @@
 - [RISK-GSDSURFACE-002 — The profile flag and marker semantics are verified against one gsd-core version](#risk-gsdsurface-002-the-profile-flag-and-marker-semantics-are-verified-against-one-gsd-core-version)
 - [RISK-GSDSURFACE-003 — Raising the profile restores agent files without this bundle's patches](#risk-gsdsurface-003-raising-the-profile-restores-agent-files-without-this-bundles-patches)
 - [RISK-HARNESS-001 — `Connection closed mid-response` truncates a turn, and the bundle cannot retry it](#risk-harness-001-connection-closed-mid-response-truncates-a-turn-and-the-bundle-cannot-retry-it)
-- [RISK-HOOKSTDIN-001 — `token-usage-log.mjs` throws on a literal `null` on stdin](#risk-hookstdin-001-token-usage-logmjs-throws-on-a-literal-null-on-stdin)
+- [RISK-LADDER-001 — Every rung switch starts a fresh prefix and pays a cache write](#risk-ladder-001-every-rung-switch-starts-a-fresh-prefix-and-pays-a-cache-write)
+- [RISK-LADDER-002 — Attempt counting is a rule for the orchestrator, not enforced](#risk-ladder-002-attempt-counting-is-a-rule-for-the-orchestrator-not-enforced)
+- [RISK-LADDER-003 — Ladder savings against subscription limits are unmeasured](#risk-ladder-003-ladder-savings-against-subscription-limits-are-unmeasured)
 - [RISK-MCPKEY-001 — The Context7 API key is visible in `claude.exe`'s argv during `mcp add`](#risk-mcpkey-001-the-context7-api-key-is-visible-in-claudeexes-argv-during-mcp-add)
 - [RISK-NEO4J-003 — Neo4j credentials leaking into the repo or argv](#risk-neo4j-003-neo4j-credentials-leaking-into-the-repo-or-argv)
 - [RISK-NEO4J-004 — graphify upgrade breaks the write path or the agent patch](#risk-neo4j-004-graphify-upgrade-breaks-the-write-path-or-the-agent-patch)
@@ -44,6 +46,7 @@
 - [RISK-ULTRAPOWERS-008 — Upstream may change its licence or its direction](#risk-ultrapowers-008-upstream-may-change-its-licence-or-its-direction)
 - [RISK-ULTRAPOWERS-010 — `/gsd-update` reinstalls gsd-core at any time](#risk-ultrapowers-010-gsd-update-reinstalls-gsd-core-at-any-time)
 - [RISK-ULTRAPOWERS-011 — `/up-update update` cannot land an update that re-authors a delta](#risk-ultrapowers-011-up-update-update-cannot-land-an-update-that-re-authors-a-delta)
+- [RISK-USAGELOG-001 — Reintroducing the token-usage log reverses a phase-19 decision](#risk-usagelog-001-reintroducing-the-token-usage-log-reverses-a-phase-19-decision)
 - [RISK-VARIANT-001 — Variant switch could delete a file the user hand-edited under `~/.claude`](#risk-variant-001-variant-switch-could-delete-a-file-the-user-hand-edited-under-claude)
 - [RISK-VARIANT-002 — `managedPlugins` marketplace ids can drift from the live marketplace](#risk-variant-002-managedplugins-marketplace-ids-can-drift-from-the-live-marketplace)
 - [RISK-VARIANT-003 — The gsd-core detector edits hook entries this bundle does not own](#risk-variant-003-the-gsd-core-detector-edits-hook-entries-this-bundle-does-not-own)
@@ -76,6 +79,7 @@
 - [RISK-FALLOW-001 — `fallow.enabled` is set optimistically, not gated on binary presence](#risk-fallow-001-fallowenabled-is-set-optimistically-not-gated-on-binary-presence)
 - [RISK-GRAPHPUSH-003 — graphify export neo4j --push writes every node and then never returns](#risk-graphpush-003-graphify-export-neo4j---push-writes-every-node-and-then-never-returns)
 - [RISK-GRAPHPUSH-004 — every commit prunes and re-pushes the whole graph, leaving Neo4j gutted for the duration](#risk-graphpush-004-every-commit-prunes-and-re-pushes-the-whole-graph-leaving-neo4j-gutted-for-the-duration)
+- [RISK-HOOKSTDIN-001 — `token-usage-log.mjs` throws on a literal `null` on stdin](#risk-hookstdin-001-token-usage-logmjs-throws-on-a-literal-null-on-stdin)
 - [RISK-INITSTACK-001 — `/init-stack` GSD-free rewrite deleted steps 6-11; ~24 stale references + 2 dropped capabilities](#risk-initstack-001-init-stack-gsd-free-rewrite-deleted-steps-6-11-24-stale-references-2-dropped-capabilities)
 - [RISK-STATUSLINE-001 — the context-window size field name is documented, not observed](#risk-statusline-001-the-context-window-size-field-name-is-documented-not-observed)
 - [RISK-TOKENLOG-001 — Scraped model pricing can silently break](#risk-tokenlog-001-scraped-model-pricing-can-silently-break)
@@ -422,20 +426,40 @@
 - **Mitigation:** Status nuance (migrated 2026-07-31): Root-caused 2026-07-28 — a LAN-side proxy timeout, not a Claude Code defect. Mitigated
 
 
-### RISK-HOOKSTDIN-001 — `token-usage-log.mjs` throws on a literal `null` on stdin
+### RISK-LADDER-001 — Every rung switch starts a fresh prefix and pays a cache write
 
 - **Status:** Active
-- **Context:** `payload/hooks/token-usage-log.mjs:60-61` reads stdin as
-  `try { d = JSON.parse(safe(() => readFileSync(0, "utf8")) || "{}"); } catch { process.exit(0); }`
-  and later reaches `d.cwd` at line 133. `JSON.parse("null")` does not throw — it returns the
-  primitive `null` — so the `catch` never fires and the property access throws a `TypeError`
-  outside any guard, exiting non-zero. Phase 09's `precompact-observe.mjs` was written from this
-  same idiom, inherited the same defect, and had it caught in review; the guard added there is
-  `d = (d && typeof d === "object") ? d : {};` immediately after the parse. This hook is already
-  deployed on this machine.
-- **Mitigation:** none yet. The one-line guard above is known to work and is already proven in a
-  sibling hook. Status nuance (migrated 2026-07-31): 2026-07-30 — found by phase 09, not caused by it, and deliberately not fixed there
+- **Context:** each rung of the phase-24 ladder is a separate subagent with its own prefix; no
+  cache is shared with the parent or the previous rung. Opus 5.5 and Sonnet 5.5 cache reads cost
+  the same ($0.20 per MTok), so Sonnet's saving is limited to cache writes and output. An
+  escalation that repeats a bulky read can cost more than starting on the higher rung.
+  The `claude-api` cost guide advises measuring the strongest model at lower effort before
+  building a cascade.
+- **Mitigation:** the dispatch to the next rung carries the failure evidence so the attempt is
+  not repeated; the per-rung log and the `/usage` bars (phase-24 spec §5) show where tasks end.
+  If most tasks end on rung 4 or 5, the Sonnet-first tracks are revised.
+- **Residual:** subagents cannot share a cache; accepted until measured.
 
+### RISK-LADDER-002 — Attempt counting is a rule for the orchestrator, not enforced
+
+- **Status:** Active
+- **Context:** the failed-attempt count and the current rung live in the orchestrator's
+  narration. Effort cannot be set per dispatch, only by choosing the rung agent, so a drifting
+  orchestrator can skip a rung, keep a task on a rung too long, or forget to reset after success.
+- **Mitigation:** the rung is named in each dispatch line, and the log records `rung`, so drift
+  is visible after the fact.
+- **Residual:** no hook blocks a wrong rung; a hook would need the failure signal, which the
+  harness does not expose.
+
+### RISK-LADDER-003 — Ladder savings against subscription limits are unmeasured
+
+- **Status:** Active
+- **Context:** the user is on a subscription. How tokens and cache reads are weighted inside a
+  usage limit is not documented (code.claude.com/docs/en/costs); per-family Opus and Sonnet
+  limits exist. The 2026-09 baseline in dollars is an API-list-price proxy, not a bill.
+- **Mitigation:** no saving is claimed. One week on the ladder is read from the `/usage` bars
+  and the per-rung log (phase-24 spec §5).
+- **Residual:** the measurement may show no gain; the fallback is Opus `medium` first.
 
 ### RISK-MCPKEY-001 — The Context7 API key is visible in `claude.exe`'s argv during `mcp add`
 
@@ -968,6 +992,17 @@
   `config.json`, so today they are a third thing the human must remember. Status nuance (migrated 2026-09-27): opened 2026-08-18
 - **Owner:** `payload/bin/up-update.mjs`, `payload/bin/lib/up-update-lib.mjs`
 
+
+### RISK-USAGELOG-001 — Reintroducing the token-usage log reverses a phase-19 decision
+
+- **Status:** Active
+- **Context:** phase 19 removed token-usage collection (`RETIRED_RELS`, `setup.mjs`); the reason
+  was not found in the files read for phase 24. The returned log keeps model, effort, rung and
+  token counts, and drops task text and project paths. The old hook carried RISK-HOOKSTDIN-001.
+- **Mitigation:** global file only under `~/.claude/state`; stdin guard
+  `d = (d && typeof d === "object") ? d : {}`; any failure exits 0. The removal reason is
+  confirmed at the phase-24 spec review.
+- **Residual:** no pruning; about 400 bytes per record, 1.6 MB in two months. Reassess at 10 MB.
 
 ### RISK-VARIANT-001 — Variant switch could delete a file the user hand-edited under `~/.claude`
 
@@ -1595,6 +1630,22 @@
   so a burst of commits produces a single rebuild; or move it off the commit path onto a timer.
   Choosing among them needs a decision record, not an edit — and `RISK-GRAPHPUSH-003` should be
   settled first, since a push that never returns makes any debounce window meaningless.
+
+
+### RISK-HOOKSTDIN-001 — `token-usage-log.mjs` throws on a literal `null` on stdin
+
+- **Status:** Closed (2026-09-29) — the hook it describes was retired in phase 19 (`308dfe4`);
+  `payload/hooks/rung-usage-log.mjs` (phase 24) carries the guard `d = (d && typeof d === "object") ? d : {}`.
+- **Context:** `payload/hooks/token-usage-log.mjs:60-61` reads stdin as
+  `try { d = JSON.parse(safe(() => readFileSync(0, "utf8")) || "{}"); } catch { process.exit(0); }`
+  and later reaches `d.cwd` at line 133. `JSON.parse("null")` does not throw — it returns the
+  primitive `null` — so the `catch` never fires and the property access throws a `TypeError`
+  outside any guard, exiting non-zero. Phase 09's `precompact-observe.mjs` was written from this
+  same idiom, inherited the same defect, and had it caught in review; the guard added there is
+  `d = (d && typeof d === "object") ? d : {};` immediately after the parse. This hook is already
+  deployed on this machine.
+- **Mitigation:** none yet. The one-line guard above is known to work and is already proven in a
+  sibling hook. Status nuance (migrated 2026-07-31): 2026-07-30 — found by phase 09, not caused by it, and deliberately not fixed there
 
 
 ### RISK-INITSTACK-001 — `/init-stack` GSD-free rewrite deleted steps 6-11; ~24 stale references + 2 dropped capabilities

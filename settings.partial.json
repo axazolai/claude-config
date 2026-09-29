@@ -109,6 +109,13 @@
         ]
       }
     ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          { "type": "command", "command": "node", "args": ["<HOME>/.claude/hooks/rung-usage-log.mjs"] }
+        ]
+      }
+    ],
     "PreCompact": [
       {
         "hooks": [

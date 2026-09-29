@@ -707,7 +707,7 @@ the diff is already shown). `.mjs` are always updated. To skip/replace instead �
 
 Right after MCP reconciliation, `setup.mjs` also manages two scalar keys in
 `~/.claude/settings.json` — `model` and `effortLevel` — driven by `sessionDefaults` in
-`variants.json` (currently `{ "model": "sonnet", "effortLevel": "high" }`), on every profile,
+`variants.json` (currently `{ "model": "sonnet", "effortLevel": "medium" }`), on every profile,
 base/full/lite alike:
 
 - An absent key is written, no prompt.
@@ -726,7 +726,7 @@ The plan itself is a pure function, `buildSessionDefaultsPlan()` in `session-def
 it's unit-tested directly; `setup.mjs` only reads/writes `settings.json` and applies the plan
 it returns.
 
-`sonnet`/`high` is also the bundle's own model-policy default as of this version (moved from
+`sonnet`/`medium` is also the bundle's own model-policy default as of this version (moved from
 Opus 5.5) — see `model-selection-policy/SKILL.md` and the `12-model-selection.md`/
 `12-model-selection.lite.md` CLAUDE.md fragments for the full policy.
 
