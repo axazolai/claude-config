@@ -1,7 +1,7 @@
 ---
 updated: 2026-09-29
 current: null
-deployed_through: "22"
+deployed_through: "24"
 phases:
   - { phase: "01", slug: graphify-neo4j, status: complete, delivery: merged }
   - { phase: "02", slug: ai-development-mode, status: complete, delivery: merged }
@@ -31,7 +31,7 @@ phases:
 # Roadmap
 
 Phase 24 (`model-ladder`) — complete: implemented inline on `phase-24-model-ladder`, merged into `master`
-(`ddd8fb4`) and pushed 2026-09-29, not deployed; full suite 581/581, verification ACHIEVED. Sonnet 5.5 replaces Sonnet 5 as the default executor and the migrator's Sonnet target;
+(`ddd8fb4`) pushed and deployed 2026-09-29; full suite 581/581, verification ACHIEVED. Sonnet 5.5 replaces Sonnet 5 as the default executor and the migrator's Sonnet target;
 the bundle's session default effort becomes `medium`; the `model-selection-policy` skill carries a
 five-rung escalation ladder (haiku, sonnet medium/high, opus medium/high) with per-role start
 rungs, enforced against five new `rung-*` agents by a table-vs-agents test; a small
