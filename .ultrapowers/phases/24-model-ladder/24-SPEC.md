@@ -144,7 +144,11 @@ lines: per-session byte cursors, a state file, price scraping, two logs) is not 
   are, so a deploy still strips the old registrations (an e2e test asserts it).
 - Subagents only: the rungs are subagents. The main session (75% of the baseline) is read from
   `/usage`, so no `Stop` event, no per-turn cursor.
-- Tokens: the hook sums `usage` over the assistant entries of `agent_transcript_path`. A resumed
+- Tokens: the hook sums `usage` over the assistant entries of `agent_transcript_path`, counting each
+  API response once: entries sharing a `message.id` repeat the same `usage` (measured on 38 real
+  subagent transcripts: summed input x2.00, cache read x1.89, output x1.02), so the last entry per id
+  is used and an entry without an id counts by itself. The hook finds its own entry point through a
+  symlinked or junctioned `~/.claude`. A resumed
   agent (`SendMessage`) logs its whole transcript again; accepted.
 - Global file only, `~/.claude/state/token-usage.jsonl`. No per-project file, no task text, no
   project path.

@@ -19,7 +19,7 @@ pays for itself; tune cost within a tier with `effort`.
 
 ## Effort is the primary cost / latency control
 - Start **`medium`** on Sonnet 5.5 and Opus 5.5. `high` only by the ladder below. `xhigh` and
-  `max` only on the user's ask or a measured gain.
+  `max` only on the user's ask.
 - Do not carry `effort` values over between models — they do not transfer.
 - Always pass `effort` explicitly: omitted, it is `medium` on Opus 5.5 and `high` on Sonnet 5.5.
 - `effort` is inert on claude-haiku-4-5.

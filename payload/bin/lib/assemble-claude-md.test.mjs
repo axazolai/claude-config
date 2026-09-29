@@ -66,6 +66,7 @@ test("@important real fragments: model selection — Sonnet 5.5 default, medium 
   const liteSection = lite.slice(lite.indexOf(liteHeading));
   assert.match(liteSection, /DEFAULT executor: claude-sonnet-5-5/);
   assert.match(liteSection, /Start `medium`/);
+  assert.match(liteSection, /rung-opus-high/);
   assert.doesNotMatch(liteSection, /role map/);
   assert.doesNotMatch(liteSection.toLowerCase(), /ultrapowers/);
 });
