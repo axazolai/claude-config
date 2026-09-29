@@ -27,3 +27,13 @@ test("@important only the full skill carries the role → start rung map", () =>
   assert.match(FULL, /## Ultrapowers dispatch: role → start rung/);
   assert.doesNotMatch(LITE, /role → start rung/);
 });
+
+test("@important heavy reviews start on rung 5, small ones stay on rung 2, and both skills carry the brainstorming rule", () => {
+  for (const row of ["| Task reviewer, logic, security or concurrency | 5 |", '| Verification ("was the goal met") | 5 |', "| Final whole-branch review | 5 |", "| Task reviewer, small mechanical diff | 2 |"]) {
+    assert.ok(FULL.includes(row), `full skill lacks ${row}`);
+  }
+  for (const [name, text] of [["full", FULL], ["lite", LITE]]) {
+    assert.match(text, /recommend `\/effort high`/, name);
+    assert.match(text, /Heavy review/, name);
+  }
+});

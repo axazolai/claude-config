@@ -68,7 +68,8 @@ pays for itself; tune cost within a tier with `effort`.
 |---|---|---|---|
 | Routine (the plan carries the code; classification; summaries) | 1 | 1 failure per rung | after rung 5 fails: stop, report to the user |
 | Implementation | 2 | 1 failure per rung | same |
-| Judgment (design, architecture, security review, hard debugging, verification, final review) | 4 | 2 failures on rung 4, then rung 5 | same |
+| Judgment (design, architecture, hard debugging) | 4 | 2 failures on rung 4, then rung 5 | same |
+| Heavy review (logic, security or concurrency review, verification, final review) | 5 | none: rung 5 is the ceiling | stop, report to the user |
 
 - An attempt is one dispatched round on one task that ends in a failed check: a failing test or
   a reviewer rejection. A task with no check runs on its start rung and is not laddered.
@@ -77,7 +78,9 @@ pays for itself; tune cost within a tier with `effort`.
 - The orchestrator counts and names the rung in the line that narrates each dispatch. The
   dispatch to the next rung carries the failure evidence (test output, reviewer finding).
 - Dispatch by agent: `subagent_type` is the rung agent; it carries model and effort.
-- The main session is not a rung; only the user changes its model and effort.
+- The main session is not a rung; only the user changes its model and effort. For brainstorming and
+  for reviewing a plan or spec in the main session, recommend `/effort high` (one level up) before
+  starting and `medium` afterwards.
 - `xhigh` and `max` only on the user's ask; `fable` only when the user names it.
 
 ## Cost reference
