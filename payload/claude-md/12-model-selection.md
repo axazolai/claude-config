@@ -8,8 +8,11 @@ profiles: [base, full]
   known. claude-fable-5-1 only when the user names it (2.5x Opus 5.5 cost).
 - Start `medium`. Dispatched work climbs the ladder one rung per failed check (a failing test
   or a reviewer rejection): rung-haiku, rung-sonnet-medium, rung-sonnet-high, rung-opus-medium,
-  rung-opus-high. Judgment roles start on rung-opus-medium with two attempts. After
+  rung-opus-high. Design and hard-debugging judgment start on rung-opus-medium with two attempts;
+  logic or security review, verification and final review start on rung-opus-high. After
   rung-opus-high fails, stop and report. `xhigh` and `max` only on the user's ask.
+- Brainstorming and plan or spec review in the main session: recommend the user set `/effort high`
+  (one level up) and return to `medium` afterwards; only the user changes the main session's effort.
 - Always set `effort` explicitly where an API call takes it: an omitted `effort` is `medium` on
   Opus 5.5, `high` on Sonnet 5.5. `effort` is inert on claude-haiku-4-5. Do not carry `effort`
   values over between models.
