@@ -698,7 +698,7 @@ node setup.mjs --uninstall-gsd # base/lite: убрать чужой gsd-core в 
 
 Сразу после сверки MCP `setup.mjs` также управляет двумя скалярными ключами в
 `~/.claude/settings.json` — `model` и `effortLevel` — по `sessionDefaults` из `variants.json`
-(сейчас `{ "model": "sonnet", "effortLevel": "high" }`), на любом профиле — full/base/lite:
+(сейчас `{ "model": "sonnet", "effortLevel": "medium" }`), на любом профиле — full/base/lite:
 
 - Отсутствующий ключ дописывается, без вопроса.
 - Ключ, уже равный управляемому значению, не трогается — без вывода.
@@ -716,7 +716,7 @@ node setup.mjs --uninstall-gsd # base/lite: убрать чужой gsd-core в 
 поэтому тестируется напрямую юнит-тестами; `setup.mjs` только читает/пишет `settings.json` и
 применяет план, который она возвращает.
 
-`sonnet`/`high` — это и есть собственный дефолт модели-политики бандла начиная с этой версии
+`sonnet`/`medium` — это и есть собственный дефолт модели-политики бандла начиная с этой версии
 (раньше был Opus 5.5) — см. `model-selection-policy/SKILL.md` и фрагменты CLAUDE.md
 `12-model-selection.md`/`12-model-selection.lite.md`.
 

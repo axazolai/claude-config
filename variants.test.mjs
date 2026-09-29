@@ -123,3 +123,7 @@ test("@important /publish ships in base and full, not in lite", () => {
   }
   assert.ok(!rels("base").includes("skills/publish/publish-skill.test.mjs"));
 });
+
+test("@important the bundle's session defaults are sonnet at medium effort", () => {
+  assert.deepEqual(loadVariants(REPO).sessionDefaults, { model: "sonnet", effortLevel: "medium" });
+});
