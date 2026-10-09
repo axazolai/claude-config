@@ -79,9 +79,13 @@ error shape `{ok:false, reason:"timeout|unavailable|bad_output", ...}`.
   Anthropic Messages API → OpenAI `chat/completions` proxy on `127.0.0.1`. Thinking on; splits the
   model's reasoning (text before the last `</think>`) from the answer and emits Anthropic
   `thinking` blocks. The raw gateway `/v1/messages` is broken, so this translator is required.
-- **Launcher**: sets `ANTHROPIC_BASE_URL` to the local translator and starts Claude Code. It builds
-  on the existing `payload/bin/claude-tunnel.ps1` (Cisco bypass), so one command brings up the
-  proxy and the translator together. Windows-first, matching the Cisco work.
+- **Launcher** (`payload/bin/claude-deepseek.ps1`): requires `LLM_KEY`, confirms the corp gateway is
+  reachable (metadata GET), starts the translator if it is not already up (thinking on), sets
+  `ANTHROPIC_BASE_URL` to it, and launches Claude Code. It is **standalone**, not composed with
+  `claude-tunnel.ps1`: in mode B Claude Code only ever talks to `127.0.0.1`, and the translator
+  reaches the gateway `10.81.0.13`, which lives on the corp network — so mode B needs the Cisco VPN
+  **up**, the opposite of the home-tunnel bypass (which exists to reach api.anthropic.com in normal
+  mode). Windows-first. `-CheckOnly` prints the plan without launching.
 
 ### 4.3 Command `/deep-model-effort`
 
