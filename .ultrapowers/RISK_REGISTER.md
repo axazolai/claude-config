@@ -10,6 +10,9 @@
 - [RISK-CLAUDEMD-002 — the shipped rules name commands, skills and paths that nothing verifies](#risk-claudemd-002-the-shipped-rules-name-commands-skills-and-paths-that-nothing-verifies)
 - [RISK-DESIGNSTACK-003 — Pro Max search requires Python 3](#risk-designstack-003-pro-max-search-requires-python-3)
 - [RISK-DESIGNSTACK-006 — Pinned npm package ids can drift or rename](#risk-designstack-006-pinned-npm-package-ids-can-drift-or-rename)
+- [RISK-DSOFFLOAD-001 — Offloaded project code leaves the machine for a corporate server without owner consent](#risk-dsoffload-001-offloaded-project-code-leaves-the-machine-for-a-corporate-server-without-owner-consent)
+- [RISK-DSOFFLOAD-002 — The DeepSeek health monitor is a long-lived daemon that can orphan](#risk-dsoffload-002-the-deepseek-health-monitor-is-a-long-lived-daemon-that-can-orphan)
+- [RISK-DSOFFLOAD-003 — The shared DeepSeek backend is fragile and unmetered](#risk-dsoffload-003-the-shared-deepseek-backend-is-fragile-and-unmetered)
 - [RISK-GRAPHPUSH-001 — Automatic push drags a full global MERGE behind every commit](#risk-graphpush-001-automatic-push-drags-a-full-global-merge-behind-every-commit)
 - [RISK-GRAPHPUSH-002 — Driver recovery installs a package as a side effect of a commit](#risk-graphpush-002-driver-recovery-installs-a-package-as-a-side-effect-of-a-commit)
 - [RISK-GSDEXEC-001 — `gsd-executor-decomposing.md` is a full fork with no inheritance, will drift](#risk-gsdexec-001-gsd-executor-decomposingmd-is-a-full-fork-with-no-inheritance-will-drift)
@@ -241,6 +244,36 @@
 - **Residual:** a silent rename leaves the components un-updated until the ids are corrected;
   detection is manual. Accepted / low.
 
+
+### RISK-DSOFFLOAD-001 — Offloaded project code leaves the machine for a corporate server without owner consent
+
+- **Status:** Accepted
+- **Context:** any offload level other than `off` sends project code (summaries, file dumps, diffs)
+  to the corporate DeepSeek gateway, whose owners have not agreed to this use. The default level is
+  non-`off` per installed profile (lite→light, base→medium, full→heavy), so offloading is on right
+  after install.
+- **Mitigation:** the user accepts this with eyes open (phase 25). A project opts out by writing
+  `.claude/deepseek.json` `{"level":"off"}`, which overrides the profile default. `LLM_KEY` absent
+  disables all tools regardless of level.
+
+### RISK-DSOFFLOAD-002 — The DeepSeek health monitor is a long-lived daemon that can orphan
+
+- **Status:** Active
+- **Context:** the statusline reads a health cache written by a machine-global monitor started by
+  `/deep-model-effort`. A persistent background poller can be forgotten and run forever.
+- **Mitigation:** a single per-machine pidfile/lock, a stop-file, and a self-exit after 2 hours
+  with no active Claude session bound the daemon so it cannot orphan. The statusline never starts a
+  network call itself.
+
+### RISK-DSOFFLOAD-003 — The shared DeepSeek backend is fragile and unmetered
+
+- **Status:** Active
+- **Context:** the backend at `:8051` is shared across all gateway users, has no auth, and crashed
+  twice during recon (recovering in hours). Oversized or concurrent load can take it down for
+  everyone.
+- **Mitigation:** a 100k-token working input cap per call (a small fraction of the 1M window),
+  ≤2–3 concurrency with a 30 s queue refusal, a degradation off-window after repeated failures, and
+  a statusline that polls metadata only and never from the render path.
 
 ### RISK-GRAPHPUSH-001 — Automatic push drags a full global MERGE behind every commit
 - **Status:** Active
