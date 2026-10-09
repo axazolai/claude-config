@@ -37,14 +37,22 @@
       "url": "https://mcp.context7.com/mcp",
       "headerFromEnv": { "CONTEXT7_API_KEY": "CONTEXT7_API_KEY" },
       "missingEnvNote": "CONTEXT7_API_KEY not set - registered without a key (lower rate limit)"
+    },
+    "deepseek": {
+      "command": "node",
+      "args": ["{{CLAUDE_DIR}}/mcp-servers/deepseek/server.mjs"],
+      "requires": "node",
+      "missingEnvNote": "LLM_KEY not set - DeepSeek tools register but return unavailable until it is set"
     }
   },
+  "$deepseekDefaults": "Default offload level written to ~/.claude/deepseek-defaults.json per installed profile; the per-project .claude/deepseek.json overrides it, down to off. {{CLAUDE_DIR}} in a managedMcpServers arg is substituted by setup.mjs to the absolute config dir. See phase 25.",
+  "deepseekDefaults": { "full": "heavy", "base": "medium", "lite": "light" },
   "profiles": {
-    "full": { "plugins": ["ultrapowers", "context-mode"], "mcpServers": ["scrapling", "context7"] },
+    "full": { "plugins": ["ultrapowers", "context-mode"], "mcpServers": ["scrapling", "context7", "deepseek"] },
 
     "base": {
       "plugins": ["ultrapowers", "context-mode"],
-      "mcpServers": ["scrapling", "context7"],
+      "mcpServers": ["scrapling", "context7", "deepseek"],
       "exclude": [
         "agents/gsd-*.md", "apply-gsd-agent-patches.mjs", "gsd-defaults-sync.mjs",
         "sync-gsd-context-mode-tool.mjs", "commands/init-session.md",
@@ -59,7 +67,7 @@
     "lite": {
       "extends": "base",
       "plugins": ["context-mode"],
-      "mcpServers": [],
+      "mcpServers": ["deepseek"],
       "overlay": "payload-lite",
       "maxPluginTier": "core",
       "exclude": [
