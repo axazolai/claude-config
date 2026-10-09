@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-29
+updated: 2026-10-10
 current: null
 deployed_through: "24"
 phases:
@@ -26,6 +26,7 @@ phases:
   - { phase: "22", slug: scratchpad-phase-cleanup, status: complete, delivery: merged }
   - { phase: "23", slug: publish-and-postgres, status: complete, delivery: merged }
   - { phase: "24", slug: model-ladder, status: complete, delivery: merged }
+  - { phase: "25", slug: deepseek-offload, status: complete, delivery: branch }
 ---
 
 # Roadmap

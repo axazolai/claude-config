@@ -486,11 +486,12 @@ function mcpRun(claudeJson, args, extraEnv = {}) {
 }
 const mcpSection = (out) => out.slice(out.indexOf("--- mcp reconciliation ---")).split("\n---")[0];
 
-test("@important base dry-run plans both MCP servers and changes nothing", () => {
+test("@important base dry-run plans all three MCP servers and changes nothing", () => {
   const out = mcpRun({}, ["--variant=base", "--dry-run"]);
   const sec = mcpSection(out);
   assert.match(sec, /add\s+claude mcp add --scope user scrapling -- uvx/);
   assert.match(sec, /add\s+claude mcp add --scope user --transport http context7/);
+  assert.match(sec, /add\s+claude mcp add --scope user deepseek -- node/);
   assert.match(sec, /\(dry-run: no MCP changes\)/);
 });
 
@@ -500,16 +501,18 @@ test("@critical the Context7 key never appears in setup output", () => {
   assert.match(mcpSection(out), /CONTEXT7_API_KEY: \*\*\*/);
 });
 
-test("@important lite plans removal of a configured managed server and adds nothing", () => {
+test("@important lite plans removal of an unneeded managed server and adds deepseek", () => {
   const sec = mcpSection(mcpRun({ mcpServers: { scrapling: { command: "uvx" } } }, ["--variant=lite", "--dry-run"]));
   assert.match(sec, /remove\s+claude mcp remove --scope user scrapling/);
-  assert.doesNotMatch(sec, /\badd\s+claude/);
+  assert.match(sec, /add\s+claude mcp add --scope user deepseek -- node/);
+  assert.doesNotMatch(sec, /add\s+claude mcp add --scope user context7/);
 });
 
 test("@important a relocated config dir without .claude.json plans every server, never reading HOME's", () => {
   const sec = mcpSection(mcpRun(null, ["--variant=base", "--dry-run"]));
   assert.match(sec, /add\s+claude mcp add --scope user scrapling/);
   assert.match(sec, /add\s+claude mcp add --scope user --transport http context7/);
+  assert.match(sec, /add\s+claude mcp add --scope user deepseek -- node/);
   assert.match(sec, /then\s+uvx --from "scrapling\[ai\]" scrapling install/);
 });
 

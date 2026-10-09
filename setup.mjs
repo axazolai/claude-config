@@ -1402,7 +1402,11 @@ async function main() {
   const cj = cjPath ? readJsonOrNull(cjPath) : {};
   if (cj === null) log("\n--- mcp reconciliation ---\n  cannot read .claude.json — MCP step skipped");
   else {
-    const managed = loadVariants(REPO_ROOT).managedMcpServers || {};
+    const rawManaged = loadVariants(REPO_ROOT).managedMcpServers || {};
+    // {{CLAUDE_DIR}} in a managed server's args resolves to the installed config dir: Claude Code
+    // spawns the server command with no shell, so "~" would never expand.
+    const managed = Object.fromEntries(Object.entries(rawManaged).map(([n, d]) =>
+      [n, Array.isArray(d.args) ? { ...d, args: d.args.map((x) => x.split("{{CLAUDE_DIR}}").join(CDIR)) } : d]));
     const skip = process.env.CLAUDE_SETUP_SKIP_MCP === "1";
     const hasCommand = (c) => skip || safe(() => (process.platform === "win32"
       ? spawnSync("where", [c], { encoding: "utf8" })
@@ -1484,6 +1488,21 @@ async function main() {
           if (write(SETTINGS, JSON.stringify(s, null, 2) + "\n"))
             summary.push(`updated  ${SETTINGS} (session defaults: ${apply.map((c) => c.key).join(", ")})`);
         }
+      }
+    }
+  }
+
+  /* ---------- deepseek offload default (per profile) ---------- */
+  // Fallback level read by the per-project resolver when a project has no .claude/deepseek.json.
+  {
+    const level = (loadVariants(REPO_ROOT).deepseekDefaults || {})[VARIANT];
+    if (level) {
+      const p = join(CDIR, "deepseek-defaults.json");
+      const cur = DRY ? null : readJsonOrNull(p);
+      if (!cur || cur.level !== level) {
+        if (DRY) log(`\n--- deepseek default ---\n  (dry-run) would set ${p} level=${level}`);
+        else if (write(p, JSON.stringify({ level }, null, 2) + "\n"))
+          summary.push(`updated  ${p} (deepseek default: ${level})`);
       }
     }
   }

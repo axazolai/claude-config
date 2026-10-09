@@ -85,10 +85,10 @@ test("@important resolvedExclude: unions the extends chain, child last", () => {
 // repo. So every marketplace a managed plugin lives in must have its source recorded here.
 const REPO = new URL(".", import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, "$1");
 
-test("@important mcpServers: base and full get scrapling and context7, lite gets none", () => {
-  assert.deepEqual(resolveVariant({ repoRoot: REPO, variant: "full" }).mcpServers, ["scrapling", "context7"]);
-  assert.deepEqual(resolveVariant({ repoRoot: REPO, variant: "base" }).mcpServers, ["scrapling", "context7"]);
-  assert.deepEqual(resolveVariant({ repoRoot: REPO, variant: "lite" }).mcpServers, []);
+test("@important mcpServers: base and full get scrapling, context7 and deepseek, lite gets only deepseek", () => {
+  assert.deepEqual(resolveVariant({ repoRoot: REPO, variant: "full" }).mcpServers, ["scrapling", "context7", "deepseek"]);
+  assert.deepEqual(resolveVariant({ repoRoot: REPO, variant: "base" }).mcpServers, ["scrapling", "context7", "deepseek"]);
+  assert.deepEqual(resolveVariant({ repoRoot: REPO, variant: "lite" }).mcpServers, ["deepseek"]);
 });
 
 test("@important mcpServers: absent is inherited through extends, an own list replaces it, no parent gives none", () => {
@@ -126,4 +126,37 @@ test("@important /publish ships in base and full, not in lite", () => {
 
 test("@important the bundle's session defaults are sonnet at medium effort", () => {
   assert.deepEqual(loadVariants(REPO).sessionDefaults, { model: "sonnet", effortLevel: "medium" });
+});
+
+test("@important managedMcpServers.deepseek is a node server with a CLAUDE_DIR-relative path", () => {
+  const d = loadVariants(REPO).managedMcpServers.deepseek;
+  assert.equal(d.command, "node");
+  assert.equal(d.requires, "node");
+  assert.ok(d.args[0].includes("{{CLAUDE_DIR}}"), "arg uses the {{CLAUDE_DIR}} placeholder, not ~");
+  assert.ok(d.args[0].endsWith("mcp-servers/deepseek/server.mjs"));
+});
+
+test("@important every profile resolves deepseek into its mcpServers", () => {
+  for (const name of ["full", "base", "lite"]) {
+    const v = resolveVariant({ repoRoot: REPO, variant: name });
+    assert.ok(v.mcpServers.includes("deepseek"), `${name} must include deepseek`);
+  }
+});
+
+test("@important deepseekDefaults covers each profile with a light/medium/heavy level", () => {
+  const d = loadVariants(REPO).deepseekDefaults;
+  assert.deepEqual(Object.keys(d).sort(), ["base", "full", "lite"]);
+  for (const [profile, level] of Object.entries(d))
+    assert.ok(["light", "medium", "heavy"].includes(level), `${profile} -> ${level} must be a non-off A-mode level`);
+});
+
+test("@critical no profile excludes the deepseek MCP server files", () => {
+  const cfg = loadVariants(REPO);
+  const sample = "mcp-servers/deepseek/server.mjs";
+  for (const name of ["full", "base", "lite"]) {
+    const excluded = resolvedExclude(cfg, name).some((g) => globToRe(g).test(sample));
+    assert.ok(!excluded, `${name} must not exclude ${sample}`);
+  }
+  assert.ok(!(loadVariants(REPO).alwaysExclude || []).some((g) => globToRe(g).test(sample)),
+    "alwaysExclude must not match the deepseek server");
 });

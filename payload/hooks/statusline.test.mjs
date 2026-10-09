@@ -241,3 +241,9 @@ test("@important the alarm segment reaches the rendered line", () => {
   const line = render({ model: "Opus", hookPatches: { x: "diverged" } });
   assert.match(line, /diverged/);
 });
+
+test("@important the ds segment renders between context and project", () => {
+  const line = render({ model: "M", context: "CTX", ds: "DSX", project: "PROJ" });
+  assert.ok(line.indexOf("CTX") < line.indexOf("DSX"), "ds after context");
+  assert.ok(line.indexOf("DSX") < line.indexOf("PROJ"), "ds before project");
+});
