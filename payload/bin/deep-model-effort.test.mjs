@@ -7,6 +7,8 @@ import { join } from "node:path";
 // Hermetic CLAUDE_CONFIG_DIR so the profile-default fallback cannot read a real install.
 const CLAUDE = mkdtempSync(join(tmpdir(), "ds-cmd-claude-"));
 process.env.CLAUDE_CONFIG_DIR = CLAUDE;
+// Never spawn the real background monitor from a test.
+process.env.DS_NO_MONITOR = "1";
 
 let main;
 before(async () => { ({ main } = await import("./deep-model-effort.mjs")); });
