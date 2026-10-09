@@ -5,7 +5,7 @@ status: complete
 tasks_done: 10
 tasks_total: 10
 branch: phase-25-deepseek-offload
-integration: branch
+integration: merged
 updated: 2026-10-10
 ---
 

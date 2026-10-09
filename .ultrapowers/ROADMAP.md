@@ -26,7 +26,7 @@ phases:
   - { phase: "22", slug: scratchpad-phase-cleanup, status: complete, delivery: merged }
   - { phase: "23", slug: publish-and-postgres, status: complete, delivery: merged }
   - { phase: "24", slug: model-ladder, status: complete, delivery: merged }
-  - { phase: "25", slug: deepseek-offload, status: complete, delivery: branch }
+  - { phase: "25", slug: deepseek-offload, status: complete, delivery: merged }
 ---
 
 # Roadmap
