@@ -64,6 +64,33 @@ export function fromOpenAI(choice, { emitThinking = false } = {}) {
   return { content, stop_reason: STOP[choice.finish_reason] ?? "end_turn" };
 }
 
+// Streaming reasoning/answer splitter. Buffers while inside a think block and only commits the
+// reasoning once "</think>" is seen (one-shot), so a stream that NEVER closes the tag flushes its
+// whole buffer as the ANSWER at end() — matching the non-stream lastIndexOf behaviour, instead of
+// stranding the answer inside a thinking block.
+export function createThinkSplitter({ thinking }) {
+  let inThink = !!thinking, buf = "";
+  return {
+    push(s) {
+      if (!inThink) return s ? [{ type: "text", text: s }] : [];
+      buf += s ?? "";
+      const i = buf.indexOf("</think>");
+      if (i === -1) return [];
+      const ev = [];
+      const reasoning = buf.slice(0, i);
+      if (reasoning) ev.push({ type: "thinking", text: reasoning });
+      inThink = false;
+      const rest = buf.slice(i + 8); buf = "";
+      if (rest) ev.push({ type: "text", text: rest });
+      return ev;
+    },
+    // A tool call means the buffered content so far was reasoning; commit it and leave think mode.
+    toolStart() { const ev = inThink && buf ? [{ type: "thinking", text: buf }] : []; buf = ""; inThink = false; return ev; },
+    // Stream end: a non-empty buffer only survives when no "</think>" was ever seen, so it is the answer.
+    end() { if (!buf) return []; const ev = [{ type: "text", text: buf }]; buf = ""; return ev; },
+  };
+}
+
 // ---- thin HTTP server (not unit-tested; exercised end-to-end) ----
 function cfg() {
   return { key: process.env.LLM_KEY, thinking: process.env.DS_THINKING === "1", emitThinking: process.env.DS_EMIT_THINKING === "1" };
@@ -88,17 +115,11 @@ async function handleStream(req, res, oa, key, emitThinking) {
   let idx = -1, open = null;
   const close = () => { if (open) { ev("content_block_stop", { index: idx }); open = null; } };
   const openBlock = (kind, block) => { close(); idx++; open = kind; ev("content_block_start", { index: idx, content_block: block }); };
-  let inThink = process.env.DS_THINKING === "1", buf = "", finish = "stop", usage = {};
-  const tools = new Map();
+  let finish = "stop", usage = {};
   const emitText = (s) => { if (!s) return; if (open !== "text") openBlock("text", { type: "text", text: "" }); ev("content_block_delta", { index: idx, delta: { type: "text_delta", text: s } }); };
   const emitThink = (s) => { if (!s || !emitThinking) return; if (open !== "thinking") openBlock("thinking", { type: "thinking", thinking: "" }); ev("content_block_delta", { index: idx, delta: { type: "thinking_delta", thinking: s } }); };
-  const onText = (s) => {
-    if (!inThink) return emitText(s);
-    buf += s;
-    const i = buf.indexOf("</think>");
-    if (i !== -1) { emitThink(buf.slice(0, i)); inThink = false; const rest = buf.slice(i + 8); buf = ""; emitText(rest); }
-    else if (buf.length > 16) { emitThink(buf.slice(0, -16)); buf = buf.slice(-16); }
-  };
+  const splitter = createThinkSplitter({ thinking: process.env.DS_THINKING === "1" });
+  const pump = (events) => { for (const e of events) (e.type === "thinking" ? emitThink : emitText)(e.text); };
   const dec = new TextDecoder(); let pending = "";
   for await (const chunk of r.body) {
     pending += dec.decode(chunk, { stream: true });
@@ -111,11 +132,10 @@ async function handleStream(req, res, oa, key, emitThinking) {
       let j; try { j = JSON.parse(data); } catch { continue; }
       if (j.usage) usage = j.usage;
       const ch = j.choices?.[0]; if (!ch) continue;
-      if (ch.delta?.content) onText(ch.delta.content);
+      if (ch.delta?.content) pump(splitter.push(ch.delta.content));
       for (const tc of ch.delta?.tool_calls ?? []) {
         if (tc.function?.name) {
-          if (inThink && buf) { emitThink(buf); buf = ""; } inThink = false;
-          tools.set(tc.index, { name: tc.function.name });
+          pump(splitter.toolStart());
           openBlock("tool", { type: "tool_use", id: tc.id ?? `toolu_${Date.now()}_${tc.index}`, name: tc.function.name, input: {} });
         }
         if (tc.function?.arguments) ev("content_block_delta", { index: idx, delta: { type: "input_json_delta", partial_json: tc.function.arguments } });
@@ -123,7 +143,7 @@ async function handleStream(req, res, oa, key, emitThinking) {
       if (ch.finish_reason) finish = ch.finish_reason;
     }
   }
-  if (buf) { if (inThink) emitThink(buf); else emitText(buf); }
+  pump(splitter.end());
   close();
   ev("message_delta", { delta: { stop_reason: STOP[finish] ?? "end_turn", stop_sequence: null }, usage: { input_tokens: usage.prompt_tokens ?? 0, output_tokens: usage.completion_tokens ?? 0 } });
   ev("message_stop", {});

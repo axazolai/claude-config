@@ -1,6 +1,37 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { toOpenAI, fromOpenAI } from "./translator.mjs";
+import { toOpenAI, fromOpenAI, createThinkSplitter } from "./translator.mjs";
+
+const drain = (sp, deltas) => { const ev = []; for (const d of deltas) ev.push(...sp.push(d)); ev.push(...sp.end()); return ev; };
+
+test("@critical createThinkSplitter: no </think> ever seen -> whole stream is the ANSWER (text), not thinking", () => {
+  // The exact mode-B bug: thinking on, model emits no closing tag. Must not strand the answer.
+  const ev = drain(createThinkSplitter({ thinking: true }), ["Hello ", "world"]);
+  assert.deepEqual(ev, [{ type: "text", text: "Hello world" }]);
+});
+
+test("@critical createThinkSplitter: splits reasoning before </think> from the answer after", () => {
+  const ev = drain(createThinkSplitter({ thinking: true }), ["reason", " here</think>the ", "answer"]);
+  assert.deepEqual(ev, [{ type: "thinking", text: "reason here" }, { type: "text", text: "the " }, { type: "text", text: "answer" }]);
+});
+
+test("createThinkSplitter: </think> split across chunk boundaries still resolves", () => {
+  const ev = drain(createThinkSplitter({ thinking: true }), ["rea", "son</thi", "nk>an", "s"]);
+  // reasoning emitted once at the tag; the answer streams per-delta after it
+  assert.deepEqual(ev, [{ type: "thinking", text: "reason" }, { type: "text", text: "an" }, { type: "text", text: "s" }]);
+});
+
+test("createThinkSplitter: thinking off streams each delta straight through as text", () => {
+  const ev = drain(createThinkSplitter({ thinking: false }), ["plain ", "text"]);
+  assert.deepEqual(ev, [{ type: "text", text: "plain " }, { type: "text", text: "text" }]);
+});
+
+test("createThinkSplitter: a tool call commits buffered reasoning and leaves think mode", () => {
+  const sp = createThinkSplitter({ thinking: true });
+  assert.deepEqual(sp.push("thinking about it"), []);
+  assert.deepEqual(sp.toolStart(), [{ type: "thinking", text: "thinking about it" }]);
+  assert.deepEqual(sp.end(), []);
+});
 
 test("@important toOpenAI: system string becomes a leading system message", () => {
   const b = toOpenAI({ system: "be terse", messages: [{ role: "user", content: "hi" }], max_tokens: 10 }, { model: "M", thinking: false });
