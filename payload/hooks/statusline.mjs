@@ -11,6 +11,7 @@ import { severityOf } from "./lib/context-severity.mjs";
 import { resolveAutocompact, promotePending, autoCompactEnabledFrom } from "./lib/autocompact.mjs";
 import { pendingNames } from "./lib/component-registry.mjs";
 import { readPhaseState, renderPhaseSegment } from "./lib/phase-segment.mjs";
+import { dsSegment } from "./lib/deepseek-segment.mjs";
 
 const CLAUDE_DIR = process.env.CLAUDE_CONFIG_DIR || join(homedir(), ".claude");
 const YELLOW = (s) => `\x1b[33m${s}\x1b[0m`;
@@ -61,8 +62,8 @@ export function installedProfile(claudeDir) {
   return (m && (m.profile || m.variant)) || null;
 }
 
-export function render({ updates, hookPatches, model, context, project, gsd, up } = {}) {
-  return [renderUpdates(updates), renderHookPatches(hookPatches), model, context, project, gsd, up]
+export function render({ updates, hookPatches, model, context, ds, project, gsd, up } = {}) {
+  return [renderUpdates(updates), renderHookPatches(hookPatches), model, context, ds, project, gsd, up]
     .filter(Boolean)
     .join(DIM(" │ "));
 }
@@ -157,6 +158,7 @@ async function main(raw) {
     hookPatches: await hookPatchStatuses(),
     model: (data.model && data.model.display_name) || "",
     context: safe(() => contextSegment(data), "") || "",
+    ds: safe(() => dsSegment({ root, claudeDir: CLAUDE_DIR }), "") || "",
     project: basename(root),
     gsd: gsdActive(root) ? (safe(() => gsdState(root)) || "") : "",
     up: installedProfile(CLAUDE_DIR) === "lite" ? "" : (safe(() => upState(root)) || ""),
