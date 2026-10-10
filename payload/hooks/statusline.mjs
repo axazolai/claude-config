@@ -12,6 +12,7 @@ import { resolveAutocompact, promotePending, autoCompactEnabledFrom } from "./li
 import { pendingNames } from "./lib/component-registry.mjs";
 import { readPhaseState, renderPhaseSegment } from "./lib/phase-segment.mjs";
 import { dsSegment } from "./lib/deepseek-segment.mjs";
+import { progressEnabled } from "./lib/status-project-progress.mjs";
 
 const CLAUDE_DIR = process.env.CLAUDE_CONFIG_DIR || join(homedir(), ".claude");
 const YELLOW = (s) => `\x1b[33m${s}\x1b[0m`;
@@ -153,6 +154,7 @@ async function main(raw) {
   const ws = data.workspace || {};
   const root = resolve(ws.current_dir || ws.project_dir || process.cwd());
   const state = safe(() => JSON.parse(readFileSync(join(CLAUDE_DIR, "state", "component-updates.json"), "utf8")), null);
+  const progress = safe(() => progressEnabled(CLAUDE_DIR), true);
   process.stdout.write(render({
     updates: pendingNames(state),
     hookPatches: await hookPatchStatuses(),
@@ -160,8 +162,8 @@ async function main(raw) {
     context: safe(() => contextSegment(data), "") || "",
     ds: safe(() => dsSegment({ root, claudeDir: CLAUDE_DIR }), "") || "",
     project: basename(root),
-    gsd: gsdActive(root) ? (safe(() => gsdState(root)) || "") : "",
-    up: installedProfile(CLAUDE_DIR) === "lite" ? "" : (safe(() => upState(root)) || ""),
+    gsd: progress && gsdActive(root) ? (safe(() => gsdState(root)) || "") : "",
+    up: !progress || installedProfile(CLAUDE_DIR) === "lite" ? "" : (safe(() => upState(root)) || ""),
   }));
 }
 

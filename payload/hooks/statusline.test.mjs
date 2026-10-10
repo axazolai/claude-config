@@ -247,3 +247,14 @@ test("@important the ds segment renders between context and project", () => {
   assert.ok(line.indexOf("CTX") < line.indexOf("DSX"), "ds after context");
   assert.ok(line.indexOf("DSX") < line.indexOf("PROJ"), "ds before project");
 });
+
+test("@important entry point: status-project-progress off hides the phase segment, on restores it", () => {
+  const root = dir("progress-toggle");
+  write(join(root, ".ultrapowers", "ROADMAP.md"), ["---", "current: null", "phases:",
+    '  - { phase: "01", slug: my-plan, status: complete }', "---", "", "# Roadmap"].join("\n"));
+  const cd = dir("cd-progress");
+  write(join(cd, "state", "status-project-progress.json"), JSON.stringify({ enabled: false }));
+  assert.doesNotMatch(strip(runEntry(payload(root), { claudeDir: cd }).stdout), /my-plan/);
+  write(join(cd, "state", "status-project-progress.json"), JSON.stringify({ enabled: true }));
+  assert.match(strip(runEntry(payload(root), { claudeDir: cd }).stdout), /my-plan/);
+});
