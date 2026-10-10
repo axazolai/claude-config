@@ -17,3 +17,5 @@ node_modules/
 .planning/
 /.idea/
 
+# Draft letter to service owners: internal addresses, never commit
+/docs/deepseek-letter-to-owners.md
