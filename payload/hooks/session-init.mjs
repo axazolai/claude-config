@@ -464,6 +464,10 @@ if (process.env.CLAUDE_COMPONENT_AUTOUPDATE !== "0") {
   }
 }
 
+// ---- DeepSeek health monitor: keep it running while offload is in use (the statusline DS colour
+// reads its cache). Best-effort; never blocks. ----
+try { await (await import("./lib/deepseek-monitor-start.mjs")).startMonitorIfUsed({ root, claudeDir: CLAUDE_DIR }); } catch { /* never block the session */ }
+
 // record/update state (the risk step is allowed to run again on later sessions)
 if (firstTime) { state[root].initialized = new Date().toISOString(); state[root].actions = actions.slice(); state[root].notes = notes.slice(); }
 if (riskAdded > 0) state[root].lastRisk = new Date().toISOString();
