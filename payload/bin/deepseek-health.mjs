@@ -47,15 +47,20 @@ export function newestActivityMs(claudeDir, now = Date.now()) {
   return newest === 0 ? Infinity : Math.max(0, now - newest);
 }
 
-export async function checkOnce({ claudeDir, fetchImpl = fetch, now = Date.now(), detect = detectCisco, backend = dsConfig().backend, level = "medium" }) {
+export async function checkOnce({ claudeDir, fetchImpl = fetch, now = Date.now(), detect = detectCisco,
+  gateway = dsConfig().gateway, backend = dsConfig().backend, level = "medium" }) {
   const haveKey = Boolean(dsConfig().key);
   const cisco = detect();
   let status;
+  // Default signal is gateway reachability (one configured URL, no model load). A configured
+  // backend (DS_BACKEND) is probed instead, to catch a crashed backend behind a healthy gateway.
+  const url = backend ? `${backend}/v1/models` : (gateway ? `${gateway}/health/readiness` : null);
   if (!haveKey) status = "grey";
   else if (!cisco.up) status = "blue";
+  else if (!url) status = "grey"; // nothing to probe -> monitor cannot determine
   else {
     let reachable = false;
-    try { reachable = (await fetchImpl(`${backend}/v1/models`, { signal: AbortSignal.timeout(6000) })).status === 200; }
+    try { reachable = (await fetchImpl(url, { signal: AbortSignal.timeout(6000) })).status === 200; }
     catch { reachable = false; }
     status = classify({ ciscoUp: true, reachable, haveKey: true });
   }

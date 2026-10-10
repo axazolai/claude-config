@@ -38,7 +38,7 @@ test("@important checkOnce: reachable backend -> green cache file", async () => 
   const dir = mkdtempSync(join(tmpdir(), "ds-health-"));
   try {
     const c = await checkOnce({ claudeDir: dir, detect: () => ({ present: true, up: true }),
-      fetchImpl: async () => ({ status: 200 }), now: 1000 });
+      backend: "http://be.test", fetchImpl: async () => ({ status: 200 }), now: 1000 });
     assert.equal(c.status, "green");
     const onDisk = JSON.parse(readFileSync(join(dir, "state", "deepseek-health.json"), "utf8"));
     assert.equal(onDisk.status, "green");
@@ -51,13 +51,35 @@ test("@important checkOnce: unreachable backend -> red; cisco down -> blue (no f
   const dir = mkdtempSync(join(tmpdir(), "ds-health-"));
   try {
     const red = await checkOnce({ claudeDir: dir, detect: () => ({ present: true, up: true }),
-      fetchImpl: async () => { throw new Error("refused"); } });
+      backend: "http://be.test", fetchImpl: async () => { throw new Error("refused"); } });
     assert.equal(red.status, "red");
     let fetched = false;
     const blue = await checkOnce({ claudeDir: dir, detect: () => ({ present: true, up: false }),
-      fetchImpl: async () => { fetched = true; return { status: 200 }; } });
+      backend: "http://be.test", fetchImpl: async () => { fetched = true; return { status: 200 }; } });
     assert.equal(blue.status, "blue");
     assert.equal(fetched, false);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test("@important checkOnce: no backend configured -> probes the gateway readiness instead", async () => {
+  withKey("sk-test");
+  const dir = mkdtempSync(join(tmpdir(), "ds-health-"));
+  try {
+    let hit = null;
+    const c = await checkOnce({ claudeDir: dir, detect: () => ({ present: true, up: true }),
+      gateway: "http://gw.test", backend: undefined, fetchImpl: async (u) => { hit = u; return { status: 200 }; } });
+    assert.equal(hit, "http://gw.test/health/readiness");
+    assert.equal(c.status, "green");
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test("checkOnce: cisco up but neither gateway nor backend configured -> grey", async () => {
+  withKey("sk-test");
+  const dir = mkdtempSync(join(tmpdir(), "ds-health-"));
+  try {
+    const c = await checkOnce({ claudeDir: dir, detect: () => ({ present: true, up: true }),
+      gateway: undefined, backend: undefined, fetchImpl: async () => ({ status: 200 }) });
+    assert.equal(c.status, "grey");
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 

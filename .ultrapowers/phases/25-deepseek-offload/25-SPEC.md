@@ -118,9 +118,10 @@ When not to offload: refactors across files, architecture, non-obvious debugging
 
 - One per machine. PID/lock and cache in `~/.claude/state/` (`deepseek-health.pid`,
   `deepseek-health.json`).
-- Polls gateway/backend health + Cisco state (reuses `detectCisco` from
-  `cisco-proxy-advisor.mjs`); writes the cache. `GET /v1/models` only — metadata, no generation,
-  no load.
+- Polls reachability + Cisco state (reuses `detectCisco` from `cisco-proxy-advisor.mjs`); writes the
+  cache. By default it hits the gateway's `/health/readiness` (one configured URL, no model load);
+  if `DS_BACKEND` is set it probes the backend's `/v1/models` instead, to catch a crashed backend
+  behind a still-healthy gateway. No generation either way.
 - Interval: level ≠ off and active (<30 min since last session activity) → 10 min; level ≠ off and
   idle → 30 min; level `off` → 30 min always. Activity read from the session transcript mtime.
 - Self-exit after **2 hours** with no active Claude session, plus a stop-file. This bounds the

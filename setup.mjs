@@ -1515,10 +1515,9 @@ async function main() {
       const gw = (await ask("\n  DeepSeek gateway URL (blank to skip; e.g. http://HOST:4002) > ")).trim();
       if (gw) {
         const key = (await ask("  DeepSeek API key (stored locally in deepseek.config.json, never in the repo) > ")).trim();
-        const be = (await ask("  DeepSeek backend URL for health checks (blank = none) > ")).trim();
         const cfg = { gateway: gw };
         if (key) cfg.key = key;
-        if (be) cfg.backend = be;
+        // Health uses the gateway by default; set DS_BACKEND to probe the model backend precisely.
         if (write(p, JSON.stringify(cfg, null, 2) + "\n")) {
           safe(() => chmodSync(p, 0o600)); // best-effort: key at rest, POSIX only
           summary.push(`wrote    ${p} (deepseek gateway${key ? " + key" : ""})`); // key value never logged
