@@ -1517,9 +1517,9 @@ async function main() {
     if (DRY) { /* dry-run never writes */ }
     else if (INTERACTIVE) {
       const cur = prev && prev.gateway ? normalizeGateway(prev.gateway) : null;
-      const gw = (await ask(`\n  DeepSeek gateway IP (port ${DEFAULT_PORT} is assumed; enter IP:port to override; blank to ${cur ? `keep ${cur}` : "skip"}) > `)).trim();
+      const gw = (await askRaw(`\n  DeepSeek gateway IP (port ${DEFAULT_PORT} is assumed; enter IP:port to override; blank to ${cur ? `keep ${cur}` : "skip"}) > `)).trim();
       if (gw || cur) {
-        const key = (await ask(`  DeepSeek API key (stored locally in deepseek.config.json, never in the repo${prev && prev.key ? "; blank keeps the stored key" : ""}) > `)).trim();
+        const key = (await askRaw(`  DeepSeek API key (stored locally in deepseek.config.json, never in the repo${prev && prev.key ? "; blank keeps the stored key" : ""}) > `)).trim();
         const cfg = { ...(prev || {}), gateway: normalizeGateway(gw) || cur };
         if (key) cfg.key = key;
         // Health uses the gateway by default; set DS_BACKEND to probe the model backend precisely.
