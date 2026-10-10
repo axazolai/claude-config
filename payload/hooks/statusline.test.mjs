@@ -215,7 +215,7 @@ test("@important entry point: a pending observation is promoted and cleared", ()
   const claudeDir = dir("claude-promote");
   const statePath = join(claudeDir, "state", "autocompact.json");
   write(statePath, JSON.stringify({
-    pending: { tokens: 835000, model: "claude-opus-5", at: "2026-07-30T18:00:00Z" },
+    pending: { tokens: 400000, model: "claude-opus-5", at: "2026-07-30T18:00:00Z" },
   }));
   const out = runEntry(payload(dir("proj-promote"), {
     model: { id: "claude-opus-5[1m]", display_name: "Opus 5 (1M context)" },
@@ -226,7 +226,7 @@ test("@important entry point: a pending observation is promoted and cleared", ()
   assert.equal(out.status, 0);
   const after = JSON.parse(readFileSync(statePath, "utf8"));
   assert.equal(after.pending, undefined);
-  assert.equal(after.models["claude-opus-5[1m]"].tokens, 835000);
+  assert.equal(after.models["claude-opus-5[1m]"].tokens, 400000);
 });
 
 /* ---------- gsd hook-patch alarm: only the states that need a human ---------- */

@@ -8,10 +8,10 @@ test("@important resolveAutocompact: an explicit env override wins", () => {
   assert.deepEqual(r, { tokens: 800000, source: "env" });
 });
 
-test("@important resolveAutocompact: an observation for this model beats the assumption", () => {
-  const state = { models: { m: { tokens: 835000, windowSize: 1_000_000 } } };
+test("@important resolveAutocompact: a recorded observation never moves the point, the window does", () => {
+  const state = { models: { m: { tokens: 282866, windowSize: 1_000_000 } } };
   assert.deepEqual(resolveAutocompact({ windowSize: 1_000_000, modelId: "m", state, env: {}, enabled: true }),
-    { tokens: 835000, source: "observed" });
+    { tokens: 1_000_000, source: "assumed" });
 });
 
 test("@important resolveAutocompact: an observation for another model is not borrowed", () => {
@@ -73,18 +73,4 @@ test("@important promotePending: does not mutate the caller's original state obj
   const before = JSON.parse(JSON.stringify(state));
   promotePending(state, { modelId: "claude-opus-5[1m]", windowSize: 1_000_000 });
   assert.deepEqual(state, before);
-});
-
-test("@important resolveAutocompact: an auto-compaction far below the window (idle-triggered) is not a trigger point", () => {
-  const state = { models: { m: { tokens: 282866, windowSize: 1_000_000 } } };
-  assert.deepEqual(resolveAutocompact({ windowSize: 1_000_000, modelId: "m", state, env: {}, enabled: true }),
-    { tokens: 1_000_000, source: "assumed" });
-});
-
-test("@important promotePending: a figure under 75% of the window clears the pending without becoming an observation", () => {
-  const state = { pending: { tokens: 282866, model: "claude-sonnet-5-5", at: "2026-10-09T07:15:45Z" } };
-  const { next, changed } = promotePending(state, { modelId: "claude-sonnet-5-5", windowSize: 1_000_000 });
-  assert.equal(changed, true);
-  assert.equal(next.pending, undefined);
-  assert.equal(next.models, undefined);
 });

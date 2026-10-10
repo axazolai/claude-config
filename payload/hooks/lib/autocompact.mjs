@@ -2,10 +2,6 @@
 // context_window, so the hook records an unkeyed observation in tokens and the statusline
 // promotes it once it knows the model id and window. Keying on the transcript's own model
 // id would collide: its 200K and 1M variants share it.
-// An auto-compaction below this share of the window did not hit the threshold (an idle-triggered
-// one fires at any fill level), so it is not a learned trigger point.
-export const MIN_TRIGGER_SHARE = 0.75;
-
 export function resolveAutocompact(arg) {
   const { windowSize, modelId, state, env = process.env, enabled = true } = arg || {};
   const w = Number(windowSize);
@@ -17,9 +13,8 @@ export function resolveAutocompact(arg) {
   const capacity = Number.isFinite(cw) && cw > 0 ? Math.min(cw, w) : w;
   const pct = Number(env && env.CLAUDE_AUTOCOMPACT_PCT_OVERRIDE);
   if (Number.isFinite(pct) && pct > 0 && pct <= 100) return { tokens: (capacity * pct) / 100, source: "env" };
-  const seen = state && state.models && state.models[modelId];
-  const tokens = seen && Number(seen.tokens);
-  if (Number.isFinite(tokens) && tokens >= capacity * MIN_TRIGGER_SHARE && tokens <= capacity) return { tokens, source: "observed" };
+  // state.models holds observed compaction points for investigation only; the ladder never reads
+  // them, because an idle-triggered auto-compaction fires at any fill level.
   return { tokens: capacity, source: "assumed" };
 }
 
@@ -48,7 +43,7 @@ export function promotePending(state, arg) {
   const next = { ...state };
   delete next.pending;
   const w = Number(windowSize);
-  if (Number.isFinite(w) && w > 0 && Number(p.tokens) >= w * MIN_TRIGGER_SHARE && Number(p.tokens) <= w) {
+  if (Number.isFinite(w) && w > 0 && Number(p.tokens) <= w) {
     next.models = { ...(next.models || {}),
       [modelId]: { tokens: Number(p.tokens), windowSize: w, observedAt: p.at } };
   }
