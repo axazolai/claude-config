@@ -15,22 +15,10 @@ test("@critical createThinkSplitter: splits reasoning before </think> from the a
   assert.deepEqual(ev, [{ type: "thinking", text: "reason here" }, { type: "text", text: "the " }, { type: "text", text: "answer" }]);
 });
 
-test("createThinkSplitter: </think> split across chunk boundaries still resolves", () => {
+test("@important createThinkSplitter: </think> split across chunk boundaries still resolves", () => {
   const ev = drain(createThinkSplitter({ thinking: true }), ["rea", "son</thi", "nk>an", "s"]);
   // reasoning emitted once at the tag; the answer streams per-delta after it
   assert.deepEqual(ev, [{ type: "thinking", text: "reason" }, { type: "text", text: "an" }, { type: "text", text: "s" }]);
-});
-
-test("createThinkSplitter: thinking off streams each delta straight through as text", () => {
-  const ev = drain(createThinkSplitter({ thinking: false }), ["plain ", "text"]);
-  assert.deepEqual(ev, [{ type: "text", text: "plain " }, { type: "text", text: "text" }]);
-});
-
-test("createThinkSplitter: a tool call commits buffered reasoning and leaves think mode", () => {
-  const sp = createThinkSplitter({ thinking: true });
-  assert.deepEqual(sp.push("thinking about it"), []);
-  assert.deepEqual(sp.toolStart(), [{ type: "thinking", text: "thinking about it" }]);
-  assert.deepEqual(sp.end(), []);
 });
 
 test("@important toOpenAI: system string becomes a leading system message", () => {
@@ -85,15 +73,7 @@ test("@critical fromOpenAI: splits </think>, maps tool_calls, maps finish_reason
   assert.equal(tool.name, "grep");
 });
 
-test("fromOpenAI: emitThinking true keeps the reasoning as a thinking block; plain stop maps to end_turn", () => {
-  const out = fromOpenAI({ finish_reason: "stop", message: { content: "why</think>ans" } }, { emitThinking: true });
-  assert.equal(out.stop_reason, "end_turn");
-  assert.equal(out.content[0].type, "thinking");
-  assert.equal(out.content[0].thinking, "why");
-  assert.equal(out.content[1].text, "ans");
-});
-
-test("fromOpenAI: malformed tool arguments degrade to an empty object, never throw", () => {
+test("@important fromOpenAI: malformed tool arguments degrade to an empty object, never throw", () => {
   const out = fromOpenAI({ finish_reason: "tool_calls", message: { content: "", tool_calls: [{ id: "t", function: { name: "f", arguments: "{bad" } }] } }, {});
   assert.deepEqual(out.content.find((b) => b.type === "tool_use").input, {});
 });

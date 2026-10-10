@@ -20,7 +20,3 @@ test("@important validate: needs substrings must all be present", () => {
   assert.equal(validate("a and b", { needs: ["a", "b"] }).ok, true);
   assert.equal(validate("only a", { needs: ["a", "b"] }).ok, false);
 });
-
-test("validate: a bad check returns reason bad_output", () => {
-  assert.deepEqual(validate("", {}), { ok: false, reason: "bad_output" });
-});

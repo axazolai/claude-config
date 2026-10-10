@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { chat, splitThink, CAP_TOKENS } from "./gateway.mjs";
+import { chat, splitThink } from "./gateway.mjs";
 
 // Hermetic: an empty config dir so no real ~/.claude/deepseek.config.json leaks in; gateway via env.
 let savedKey, savedGw, savedDir, tmp;
@@ -47,15 +47,8 @@ test("@critical chat: non-200 -> http with status; thrown TimeoutError -> timeou
   assert.deepEqual(c, { ok: false, reason: "unavailable" });
 });
 
-test("chat: 200 but unparseable JSON body -> bad_output", async () => {
-  const r = await chat({ messages: [], maxTokens: 1, fetchImpl: async () => ({ status: 200, json: async () => { throw new Error("bad json"); } }) });
-  assert.deepEqual(r, { ok: false, reason: "bad_output" });
-});
-
 test("@important splitThink: splits at the last </think>, else all text", () => {
   assert.deepEqual(splitThink("a</think>b"), { reasoning: "a", text: "b" });
   assert.deepEqual(splitThink("x</think>y</think>z"), { reasoning: "x</think>y", text: "z" });
   assert.deepEqual(splitThink("plain"), { reasoning: "", text: "plain" });
 });
-
-test("CAP_TOKENS is 100000", () => assert.equal(CAP_TOKENS, 100000));

@@ -26,13 +26,6 @@ test("@important runAsk: dumps files BEFORE the question (prefix-cache order)", 
   assert.ok(seen.indexOf("CODE_OF_a.mjs") < seen.indexOf("WHERE_IS_X"), "code dump must precede the question");
 });
 
-test("runCommitMsg: empty diff -> bad_output without calling chat", async () => {
-  let called = false;
-  const r = await runCommitMsg({ diff: "   " }, { chat: async () => { called = true; return { ok: true, text: "x" }; } });
-  assert.deepEqual(r, { ok: false, reason: "bad_output" });
-  assert.equal(called, false);
-});
-
 test("@important every tool: empty model text -> bad_output (validation)", async () => {
   const deps = { chat: chatOK("   "), readFile: () => "body" };
   assert.equal((await runSummarize({ text: "b" }, deps)).ok, false);

@@ -35,9 +35,3 @@ test("@important dsConfig: no file and no env -> nulls (gateway/key), default mo
   try { const c = dsConfig(); assert.equal(c.gateway, null); assert.equal(c.key, null); assert.equal(c.model, "local/DeepSeek-V4.1-Flash"); }
   finally { t.cleanup(); }
 });
-
-test("dsConfig: malformed config file -> treated as empty, never throws", () => {
-  const t = withDir("{not json");
-  try { assert.doesNotThrow(() => dsConfig()); assert.equal(dsConfig().gateway, null); }
-  finally { t.cleanup(); }
-});

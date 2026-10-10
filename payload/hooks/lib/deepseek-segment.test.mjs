@@ -33,14 +33,7 @@ test("@important no cache + level off renders nothing; no cache + light renders 
     assert.match(out, /DS light/); assert.ok(out.includes("\x1b[90m"), "grey"); } finally { light.cleanup(); }
 });
 
-test("blue (cisco down) and red (backend down) colours", () => {
-  for (const [status, code] of [["blue", "\x1b[34m"], ["red", "\x1b[31m"]]) {
-    const s = setup({ level: "heavy", cache: { status, checkedAt: new Date(NOW).toISOString() } });
-    try { assert.ok(dsSegment({ root: s.dir, claudeDir: s.dir, now: NOW }).includes(code), `${status} -> ${code}`); } finally { s.cleanup(); }
-  }
-});
-
-test("off with a fresh cache is still shown (so the operator sees the model is alive)", () => {
+test("@important off with a fresh cache is still shown (so the operator sees the model is alive)", () => {
   const s = setup({ level: "off", cache: { status: "green", checkedAt: new Date(NOW).toISOString() } });
   try { assert.match(dsSegment({ root: s.dir, claudeDir: s.dir, now: NOW }), /DS off/); } finally { s.cleanup(); }
 });

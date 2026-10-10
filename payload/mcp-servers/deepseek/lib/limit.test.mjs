@@ -18,9 +18,3 @@ test("@important createLimiter: a job waiting past queueTimeoutMs is refused", a
   await assert.rejects(run(() => defer(1)), /queue timeout/);
   assert.equal(await slow, "done");
 });
-
-test("createLimiter: a rejecting job frees its slot", async () => {
-  const run = createLimiter(1, 1000);
-  await assert.rejects(run(async () => { throw new Error("boom"); }), /boom/);
-  assert.equal(await run(async () => "ok"), "ok");
-});

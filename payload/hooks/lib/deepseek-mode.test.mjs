@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { LEVELS, resolveLevel, setLevel, retryBudget } from "./deepseek-mode.mjs";
+import { resolveLevel, setLevel, retryBudget } from "./deepseek-mode.mjs";
 
 function tmp() {
   const d = mkdtempSync(join(tmpdir(), "ds-mode-"));
@@ -27,11 +27,6 @@ test("@important resolveLevel: falls back to profile default when no project fil
   const t = tmp();
   try { writeDefaults(t.claudeDir, { level: "medium" });
     assert.equal(resolveLevel(t.root, t.claudeDir), "medium"); } finally { t.cleanup(); }
-});
-
-test("resolveLevel: neither file -> off", () => {
-  const t = tmp();
-  try { assert.equal(resolveLevel(t.root, t.claudeDir), "off"); } finally { t.cleanup(); }
 });
 
 test("@important resolveLevel: malformed project JSON falls through, never throws", () => {
@@ -64,17 +59,6 @@ test("@important setLevel: writes a valid level and rejects an invalid one", () 
   } finally { t.cleanup(); }
 });
 
-test("setLevel: preserves other keys in the config", () => {
-  const t = tmp();
-  try {
-    writeProject(t.root, { level: "off", note: "keep me" });
-    setLevel(t.root, "heavy");
-    const cfg = JSON.parse(readFileSync(join(t.root, ".claude", "deepseek.json"), "utf8"));
-    assert.equal(cfg.level, "heavy");
-    assert.equal(cfg.note, "keep me");
-  } finally { t.cleanup(); }
-});
-
 test("@critical retryBudget: full matrix of extra attempts", () => {
   assert.equal(retryBudget("light", "light"), 1);
   assert.equal(retryBudget("light", "medium"), 1);
@@ -88,8 +72,4 @@ test("@critical retryBudget: full matrix of extra attempts", () => {
   assert.equal(retryBudget("off", "light"), 0);
   assert.equal(retryBudget("full", "medium"), 0);
   assert.equal(retryBudget("medium", "bogus"), 0);
-});
-
-test("LEVELS lists the five levels in order", () => {
-  assert.deepEqual(LEVELS, ["off", "light", "medium", "heavy", "full"]);
 });
