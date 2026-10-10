@@ -74,3 +74,17 @@ test("@important promotePending: does not mutate the caller's original state obj
   promotePending(state, { modelId: "claude-opus-5[1m]", windowSize: 1_000_000 });
   assert.deepEqual(state, before);
 });
+
+test("@important resolveAutocompact: an auto-compaction far below the window (idle-triggered) is not a trigger point", () => {
+  const state = { models: { m: { tokens: 282866, windowSize: 1_000_000 } } };
+  assert.deepEqual(resolveAutocompact({ windowSize: 1_000_000, modelId: "m", state, env: {}, enabled: true }),
+    { tokens: 1_000_000, source: "assumed" });
+});
+
+test("@important promotePending: a figure under 75% of the window clears the pending without becoming an observation", () => {
+  const state = { pending: { tokens: 282866, model: "claude-sonnet-5-5", at: "2026-10-09T07:15:45Z" } };
+  const { next, changed } = promotePending(state, { modelId: "claude-sonnet-5-5", windowSize: 1_000_000 });
+  assert.equal(changed, true);
+  assert.equal(next.pending, undefined);
+  assert.equal(next.models, undefined);
+});
