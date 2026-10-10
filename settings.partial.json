@@ -146,6 +146,7 @@
   },
   "statusLine": {
     "type": "command",
-    "command": "node \"<HOME>/.claude/hooks/statusline.mjs\""
+    "command": "node \"<HOME>/.claude/hooks/statusline.mjs\"",
+    "refreshInterval": 2
   }
 }

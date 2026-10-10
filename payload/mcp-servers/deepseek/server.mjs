@@ -2,7 +2,10 @@
 // DeepSeek offload MCP server (mode A). Dependency-free MCP stdio transport: newline-delimited
 // JSON-RPC 2.0. Offers the local_* tools; which to call at which level is Claude's job (see the
 // deepseek rules fragment), so every tool is offered here unconditionally.
+import { homedir } from "node:os";
+import { join } from "node:path";
 import { runSummarize, runAsk, runCommitMsg, runDraft } from "./lib/tools.mjs";
+import { createActivity } from "./lib/activity.mjs";
 
 const TOOLS = [
   { name: "local_summarize", description: "Summarize a file or text with the local DeepSeek model. Give path OR text.",
@@ -23,10 +26,12 @@ export function listTools() {
   return TOOLS.map(({ name, description, inputSchema }) => ({ name, description, inputSchema }));
 }
 
-export async function callTool(name, args = {}, deps) {
+export async function callTool(name, args = {}, deps, activity) {
   const t = TOOLS.find((x) => x.name === name);
   if (!t) return { content: [{ type: "text", text: `unknown tool: ${name}` }], isError: true };
-  const res = await t.run(args, deps);
+  const id = activity?.start(name);
+  let res = { ok: false };
+  try { res = await t.run(args, deps); } finally { activity?.end(id, name, res.ok === true); }
   if (res.ok) return { content: [{ type: "text", text: res.text }] };
   return { content: [{ type: "text", text: `DeepSeek unavailable (${res.reason})` }], isError: true };
 }
@@ -35,7 +40,7 @@ const ok = (id, result) => ({ jsonrpc: "2.0", id, result });
 const err = (id, code, message) => ({ jsonrpc: "2.0", id, error: { code, message } });
 
 // Returns a JSON-RPC response object, or null for notifications (no id / initialized).
-export async function handle(msg, deps) {
+export async function handle(msg, deps, activity) {
   if (!msg || msg.jsonrpc !== "2.0") return null;
   const { id, method, params } = msg;
   if (id === undefined || id === null) return null; // notification
@@ -49,7 +54,7 @@ export async function handle(msg, deps) {
     case "ping": return ok(id, {});
     case "tools/list": return ok(id, { tools: listTools() });
     case "tools/call": {
-      const res = await callTool(params?.name, params?.arguments || {}, deps);
+      const res = await callTool(params?.name, params?.arguments || {}, deps, activity);
       return ok(id, res);
     }
     default: return err(id, -32601, `method not found: ${method}`);
@@ -57,6 +62,10 @@ export async function handle(msg, deps) {
 }
 
 function main() {
+  const claudeDir = process.env.CLAUDE_CONFIG_DIR || join(homedir(), ".claude");
+  const activity = createActivity({ claudeDir });
+  process.on("exit", () => activity.close());
+  process.stdin.on("end", () => process.exit(0));
   let buf = "";
   process.stdin.setEncoding("utf8");
   process.stdin.on("data", (chunk) => {
@@ -68,7 +77,7 @@ function main() {
       if (!line) continue;
       let msg;
       try { msg = JSON.parse(line); } catch { continue; }
-      handle(msg).then((resp) => { if (resp) process.stdout.write(JSON.stringify(resp) + "\n"); })
+      handle(msg, undefined, activity).then((resp) => { if (resp) process.stdout.write(JSON.stringify(resp) + "\n"); })
         .catch(() => { /* a handler must never crash the server */ });
     }
   });
