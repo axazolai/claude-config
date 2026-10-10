@@ -1511,20 +1511,24 @@ async function main() {
   /* ---------- deepseek connection (gateway + key), machine-local, never in the repo ---------- */
   {
     const p = join(CDIR, "deepseek.config.json");
-    if (existsSync(p) || DRY) { /* keep an existing config; dry-run never writes */ }
+    // An existing config is re-prompted interactively: blank keeps the stored value, so only the
+    // IP needs typing again and the saved key carries over.
+    const prev = existsSync(p) ? safe(() => JSON.parse(readFileSync(p, "utf8").replace(/^﻿/, ""))) || {} : null;
+    if (DRY) { /* dry-run never writes */ }
     else if (INTERACTIVE) {
-      const gw = (await ask(`\n  DeepSeek gateway IP (port ${DEFAULT_PORT} is assumed; enter IP:port to override; blank to skip) > `)).trim();
-      if (gw) {
-        const key = (await ask("  DeepSeek API key (stored locally in deepseek.config.json, never in the repo) > ")).trim();
-        const cfg = { gateway: normalizeGateway(gw) };
+      const cur = prev && prev.gateway ? normalizeGateway(prev.gateway) : null;
+      const gw = (await ask(`\n  DeepSeek gateway IP (port ${DEFAULT_PORT} is assumed; enter IP:port to override; blank to ${cur ? `keep ${cur}` : "skip"}) > `)).trim();
+      if (gw || cur) {
+        const key = (await ask(`  DeepSeek API key (stored locally in deepseek.config.json, never in the repo${prev && prev.key ? "; blank keeps the stored key" : ""}) > `)).trim();
+        const cfg = { ...(prev || {}), gateway: normalizeGateway(gw) || cur };
         if (key) cfg.key = key;
         // Health uses the gateway by default; set DS_BACKEND to probe the model backend precisely.
         if (write(p, JSON.stringify(cfg, null, 2) + "\n")) {
           safe(() => chmodSync(p, 0o600)); // best-effort: key at rest, POSIX only
-          summary.push(`wrote    ${p} (deepseek gateway${key ? " + key" : ""})`); // key value never logged
+          summary.push(`wrote    ${p} (deepseek gateway${cfg.key ? " + key" : ""})`); // key value never logged
         }
       } else log(`  deepseek: no gateway set (configure later by editing ${p})`);
-    } else {
+    } else if (!prev) {
       log(`\n--- deepseek connection ---\n  not configured - re-run interactively to set the gateway + key, or create ${p}`);
     }
   }
