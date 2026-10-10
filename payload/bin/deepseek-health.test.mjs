@@ -5,8 +5,14 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pickInterval, shouldExit, classify, checkOnce, MIN10, MIN30, HR2 } from "./deepseek-health.mjs";
 
+// Empty config dir so dsConfig() reads no real deepseek.config.json — only env LLM_KEY drives haveKey.
+const savedDir = process.env.CLAUDE_CONFIG_DIR;
+const emptyCfg = mkdtempSync(join(tmpdir(), "ds-health-cfg-"));
+process.env.CLAUDE_CONFIG_DIR = emptyCfg;
+
 let savedKey;
 afterEach(() => { if (savedKey === undefined) delete process.env.LLM_KEY; else process.env.LLM_KEY = savedKey; });
+test.after(() => { rmSync(emptyCfg, { recursive: true, force: true }); if (savedDir === undefined) delete process.env.CLAUDE_CONFIG_DIR; else process.env.CLAUDE_CONFIG_DIR = savedDir; });
 function withKey(v) { savedKey = process.env.LLM_KEY; if (v === undefined) delete process.env.LLM_KEY; else process.env.LLM_KEY = v; }
 
 test("@important pickInterval: 10min when non-off and active, else 30min", () => {

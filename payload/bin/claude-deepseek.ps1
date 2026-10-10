@@ -1,6 +1,6 @@
 # Mode B: launch Claude Code running ENTIRELY on the corporate DeepSeek model, for when Claude's
 # own limits are spent. Claude Code talks only to a local Anthropic->OpenAI translator; the
-# translator talks to the corp gateway (10.81.0.13), which is reachable only while the Cisco VPN is
+# translator talks to the corp gateway (configured at setup), reachable only while the Cisco VPN is
 # UP. So mode B needs Cisco connected — it does NOT use the home-tunnel bypass (that is for reaching
 # api.anthropic.com in normal mode; here Claude Code never contacts Anthropic). Personal use only.
 #
@@ -14,15 +14,23 @@ param(
 $ErrorActionPreference = 'Stop'
 $cfgDir = if ($env:CLAUDE_CONFIG_DIR) { $env:CLAUDE_CONFIG_DIR } else { Join-Path $HOME '.claude' }
 $translator = Join-Path $cfgDir 'mcp-servers/deepseek/translator.mjs'
-$gateway = if ($env:DS_GATEWAY) { $env:DS_GATEWAY } else { 'http://10.81.0.13:4002' }
 $model = 'deepseek-v4.1-flash'
+
+# Gateway + key are machine-local (entered at `node setup.mjs`, stored in deepseek.config.json),
+# never in the repo. Env overrides the file.
+$cfgFile = Join-Path $cfgDir 'deepseek.config.json'
+$dsCfg = if (Test-Path $cfgFile) { Get-Content $cfgFile -Raw | ConvertFrom-Json } else { $null }
+$gateway = if ($env:DS_GATEWAY) { $env:DS_GATEWAY } elseif ($dsCfg.gateway) { $dsCfg.gateway } else { $null }
+if (-not $env:LLM_KEY -and $dsCfg.key) { $env:LLM_KEY = $dsCfg.key }
 
 function Write-Note([string]$m) { Write-Host "[deepseek] $m" -ForegroundColor Cyan }
 function Stop-Launch([string]$m) { Write-Host "[deepseek] BLOCKED: $m" -ForegroundColor Red; exit 1 }
 
-# 1. Key required.
-if (-not $env:LLM_KEY) { Stop-Launch "LLM_KEY is not set. Set it (the gateway virtual key) and relaunch." }
+# 1. Gateway + key required (from config or env).
+if (-not $gateway) { Stop-Launch "DeepSeek gateway not configured. Run 'node setup.mjs' to set the gateway address and key." }
+if (-not $env:LLM_KEY) { Stop-Launch "LLM_KEY not set and not in deepseek.config.json. Run 'node setup.mjs' or set it, then relaunch." }
 if (-not (Test-Path $translator)) { Stop-Launch "translator not found at $translator — run 'node setup.mjs' first." }
+$env:DS_GATEWAY = $gateway
 
 # 2. Gateway reachable? (needs Cisco up; metadata GET, no generation.)
 $gwCode = & curl.exe -s -o NUL -m 8 -w '%{http_code}' "$gateway/health/readiness" 2>$null

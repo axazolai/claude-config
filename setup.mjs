@@ -1507,6 +1507,28 @@ async function main() {
     }
   }
 
+  /* ---------- deepseek connection (gateway + key), machine-local, never in the repo ---------- */
+  {
+    const p = join(CDIR, "deepseek.config.json");
+    if (existsSync(p) || DRY) { /* keep an existing config; dry-run never writes */ }
+    else if (INTERACTIVE) {
+      const gw = (await ask("\n  DeepSeek gateway URL (blank to skip; e.g. http://HOST:4002) > ")).trim();
+      if (gw) {
+        const key = (await ask("  DeepSeek API key (stored locally in deepseek.config.json, never in the repo) > ")).trim();
+        const be = (await ask("  DeepSeek backend URL for health checks (blank = none) > ")).trim();
+        const cfg = { gateway: gw };
+        if (key) cfg.key = key;
+        if (be) cfg.backend = be;
+        if (write(p, JSON.stringify(cfg, null, 2) + "\n")) {
+          safe(() => chmodSync(p, 0o600)); // best-effort: key at rest, POSIX only
+          summary.push(`wrote    ${p} (deepseek gateway${key ? " + key" : ""})`); // key value never logged
+        }
+      } else log(`  deepseek: no gateway set (configure later by editing ${p})`);
+    } else {
+      log(`\n--- deepseek connection ---\n  not configured - re-run interactively to set the gateway + key, or create ${p}`);
+    }
+  }
+
   /* ---------- opt-in: daily background check for new claude-config releases ---------- */
   // Deliberately NOT part of settings.partial.json's additive merge above (that would silently
   // flip a background network check on for everyone) - this is a one-time y/N decision, written

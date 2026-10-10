@@ -1,10 +1,24 @@
 import { test, beforeEach, afterEach } from "node:test";
 import assert from "node:assert/strict";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { chat, splitThink, CAP_TOKENS } from "./gateway.mjs";
 
-let savedKey;
-beforeEach(() => { savedKey = process.env.LLM_KEY; process.env.LLM_KEY = "sk-test"; });
-afterEach(() => { if (savedKey === undefined) delete process.env.LLM_KEY; else process.env.LLM_KEY = savedKey; });
+// Hermetic: an empty config dir so no real ~/.claude/deepseek.config.json leaks in; gateway via env.
+let savedKey, savedGw, savedDir, tmp;
+beforeEach(() => {
+  savedKey = process.env.LLM_KEY; savedGw = process.env.DS_GATEWAY; savedDir = process.env.CLAUDE_CONFIG_DIR;
+  tmp = mkdtempSync(join(tmpdir(), "ds-gw-"));
+  process.env.CLAUDE_CONFIG_DIR = tmp;
+  process.env.LLM_KEY = "sk-test";
+  process.env.DS_GATEWAY = "http://gw.test";
+});
+afterEach(() => {
+  const restore = (k, v) => { if (v === undefined) delete process.env[k]; else process.env[k] = v; };
+  restore("LLM_KEY", savedKey); restore("DS_GATEWAY", savedGw); restore("CLAUDE_CONFIG_DIR", savedDir);
+  rmSync(tmp, { recursive: true, force: true });
+});
 
 const okResp = (content, usage = { prompt_tokens: 3 }) => ({ status: 200, json: async () => ({ choices: [{ message: { content } }], usage }) });
 

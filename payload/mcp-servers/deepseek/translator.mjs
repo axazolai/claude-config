@@ -5,14 +5,13 @@
 // Env: LLM_KEY (required), DS_PORT (4100), DS_THINKING (1=on), DS_EMIT_THINKING (1=emit thinking blocks).
 import http from "node:http";
 import { splitThink } from "./lib/gateway.mjs";
+import { dsConfig } from "./lib/config.mjs";
 
-const GW = (process.env.DS_GATEWAY || "http://10.81.0.13:4002") + "/v1/chat/completions";
-const MODEL = process.env.DS_MODEL || "local/DeepSeek-V4.1-Flash";
 const STOP = { stop: "end_turn", length: "max_tokens", tool_calls: "tool_use" };
 
 export const textOf = (c) => (typeof c === "string" ? c : (c ?? []).map((b) => (b.type === "text" ? b.text : "")).join(""));
 
-export function toOpenAI(req, { model = MODEL, thinking = false } = {}) {
+export function toOpenAI(req, { model = "local/DeepSeek-V4.1-Flash", thinking = false } = {}) {
   const msgs = [];
   const sys = textOf(req.system);
   if (sys) msgs.push({ role: "system", content: sys });
@@ -93,11 +92,12 @@ export function createThinkSplitter({ thinking }) {
 
 // ---- thin HTTP server (not unit-tested; exercised end-to-end) ----
 function cfg() {
-  return { key: process.env.LLM_KEY, thinking: process.env.DS_THINKING === "1", emitThinking: process.env.DS_EMIT_THINKING === "1" };
+  const { gateway, model, key } = dsConfig();
+  return { gateway, model, key, thinking: process.env.DS_THINKING === "1", emitThinking: process.env.DS_EMIT_THINKING === "1" };
 }
 
-async function handleNonStream(req, res, oa, key, emitThinking) {
-  const r = await fetch(GW, { method: "POST", headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" }, body: JSON.stringify(oa) });
+async function handleNonStream(req, res, oa, gateway, key, emitThinking) {
+  const r = await fetch(`${gateway}/v1/chat/completions`, { method: "POST", headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" }, body: JSON.stringify(oa) });
   const j = await r.json();
   if (r.status !== 200) return fail(res, r.status, j);
   const { content, stop_reason } = fromOpenAI(j.choices[0], { emitThinking });
@@ -106,8 +106,8 @@ async function handleNonStream(req, res, oa, key, emitThinking) {
   res.writeHead(200, { "Content-Type": "application/json" }).end(JSON.stringify(out));
 }
 
-async function handleStream(req, res, oa, key, emitThinking) {
-  const r = await fetch(GW, { method: "POST", headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" }, body: JSON.stringify(oa) });
+async function handleStream(req, res, oa, gateway, key, emitThinking) {
+  const r = await fetch(`${gateway}/v1/chat/completions`, { method: "POST", headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" }, body: JSON.stringify(oa) });
   if (r.status !== 200) return fail(res, r.status, await r.json().catch(() => ({})));
   res.writeHead(200, { "Content-Type": "text/event-stream", "Cache-Control": "no-cache", Connection: "keep-alive" });
   const ev = (type, data) => res.write(`event: ${type}\ndata: ${JSON.stringify({ type, ...data })}\n\n`);
@@ -159,14 +159,14 @@ export function startServer(port = Number(process.env.DS_PORT) || 4100) {
   const server = http.createServer(async (rq, res) => {
     const url = rq.url.split("?")[0];
     let raw = ""; for await (const c of rq) raw += c;
-    const { key, thinking, emitThinking } = cfg();
+    const { gateway, model, key, thinking, emitThinking } = cfg();
     try {
       if (rq.method === "POST" && url === "/v1/messages/count_tokens")
         return res.writeHead(200, { "Content-Type": "application/json" }).end(JSON.stringify({ input_tokens: Math.ceil(raw.length / 3.5) }));
       if (rq.method === "POST" && url === "/v1/messages") {
-        if (!key) return fail(res, 401, { error: "LLM_KEY not set on the translator" });
-        const req = JSON.parse(raw), oa = toOpenAI(req, { thinking });
-        return req.stream ? await handleStream(req, res, oa, key, emitThinking) : await handleNonStream(req, res, oa, key, emitThinking);
+        if (!gateway || !key) return fail(res, 401, { error: "DeepSeek gateway/key not configured (run node setup.mjs)" });
+        const req = JSON.parse(raw), oa = toOpenAI(req, { model, thinking });
+        return req.stream ? await handleStream(req, res, oa, gateway, key, emitThinking) : await handleNonStream(req, res, oa, gateway, key, emitThinking);
       }
       res.writeHead(200, { "Content-Type": "application/json" }).end("{}");
     } catch (e) {
@@ -186,6 +186,7 @@ function isMain() {
   try { return a === self || realpathSync(a) === self; } catch { return a === self; }
 }
 if (isMain()) {
-  if (!process.env.LLM_KEY) { console.error("LLM_KEY is not set"); process.exit(2); }
+  const { gateway, key } = dsConfig();
+  if (!gateway || !key) { console.error("DeepSeek gateway/key not configured — run node setup.mjs"); process.exit(2); }
   startServer();
 }

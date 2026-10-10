@@ -25,7 +25,7 @@ From the recon in `.claude/.scratchpad/adhoc/2026-10-08-vpn-llm-gateway/` and
 
 | Fact | Value |
 |---|---|
-| Gateway | LiteLLM 1.100.1 at `10.81.0.13:4002`, only via Cisco VPN; model `local/DeepSeek-V4.1-Flash` |
+| Gateway | LiteLLM 1.100.1 at the corporate gateway host (set at `node setup.mjs`, stored in `deepseek.config.json`), only via Cisco VPN; model `local/DeepSeek-V4.1-Flash` |
 | Working protocol | `/v1/chat/completions` only (stream, tools, json_object, json_schema). `/v1/messages`, `/v1/responses` broken (400); no embeddings |
 | Context window | **1M, confirmed**. Single-needle correct across the whole range; last clean success 1,027,688 tokens; a 1,048k request → 400 `ContextWindowExceededError`. Hard limit = declared `context_length` 1,048,576 |
 | Prefill speed | ~7,800 tok/s (time ≈ input_tokens / 7,800) |
@@ -83,7 +83,7 @@ error shape `{ok:false, reason:"timeout|unavailable|bad_output", ...}`.
   reachable (metadata GET), starts the translator if it is not already up (thinking on), sets
   `ANTHROPIC_BASE_URL` to it, and launches Claude Code. It is **standalone**, not composed with
   `claude-tunnel.ps1`: in mode B Claude Code only ever talks to `127.0.0.1`, and the translator
-  reaches the gateway `10.81.0.13`, which lives on the corp network — so mode B needs the Cisco VPN
+  reaches the gateway, which lives on the corp network — so mode B needs the Cisco VPN
   **up**, the opposite of the home-tunnel bypass (which exists to reach api.anthropic.com in normal
   mode). Windows-first. `-CheckOnly` prints the plan without launching.
 
@@ -154,7 +154,9 @@ When not to offload: refactors across files, architecture, non-obvious debugging
 - Default level per profile, user-scope so the per-project reader can fall back to it:
   `lite`→`light`, `base`→`medium`, `full`→`heavy`. Carried in `variants.json` per profile
   (alongside `sessionDefaults`) and written by `setup.mjs`.
-- `LLM_KEY` lives only in the environment, never in bundle files.
+- Gateway/backend/key are machine-local in `<CLAUDE_CONFIG_DIR>/deepseek.config.json` (entered at
+  `node setup.mjs`), overridable by env (`DS_GATEWAY`/`DS_BACKEND`, `LLM_KEY`). Never in bundle
+  files or the repo, so nothing internal is published; the key file gets `0600` on POSIX.
 - The command, statusline segment, health monitor, translator and launcher deploy as ordinary
   `payload/` files; the statusline change ships in `statusline.mjs`.
 

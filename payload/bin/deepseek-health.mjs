@@ -10,9 +10,9 @@ import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { realpathSync } from "node:fs";
 import { detectCisco } from "../hooks/cisco-proxy-advisor.mjs";
+import { dsConfig } from "../mcp-servers/deepseek/lib/config.mjs";
 
 export const MIN10 = 600000, MIN30 = 1800000, HR2 = 7200000;
-const BACKEND = process.env.DS_BACKEND || "http://10.81.0.13:8051";
 
 export function pickInterval({ level, idleMs }) {
   return (level !== "off" && idleMs < MIN30) ? MIN10 : MIN30;
@@ -47,8 +47,8 @@ export function newestActivityMs(claudeDir, now = Date.now()) {
   return newest === 0 ? Infinity : Math.max(0, now - newest);
 }
 
-export async function checkOnce({ claudeDir, fetchImpl = fetch, now = Date.now(), detect = detectCisco, backend = BACKEND, level = "medium" }) {
-  const haveKey = Boolean(process.env.LLM_KEY);
+export async function checkOnce({ claudeDir, fetchImpl = fetch, now = Date.now(), detect = detectCisco, backend = dsConfig().backend, level = "medium" }) {
+  const haveKey = Boolean(dsConfig().key);
   const cisco = detect();
   let status;
   if (!haveKey) status = "grey";

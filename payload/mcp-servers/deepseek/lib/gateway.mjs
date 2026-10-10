@@ -1,7 +1,6 @@
-// Thin client for the corporate gateway's /v1/chat/completions. Key only from env LLM_KEY.
-// Never throws: every failure becomes {ok:false, reason}.
-const GW = process.env.DS_GATEWAY || "http://10.81.0.13:4002";
-const MODEL = process.env.DS_MODEL || "local/DeepSeek-V4.1-Flash";
+// Thin client for the corporate gateway's /v1/chat/completions. Gateway + key come from
+// dsConfig() (machine-local setup, never this repo). Never throws: every failure becomes {ok:false}.
+import { dsConfig } from "./config.mjs";
 export const CAP_TOKENS = 100000;
 
 export function splitThink(s) {
@@ -11,14 +10,14 @@ export function splitThink(s) {
 }
 
 export async function chat({ messages, maxTokens, thinking = false, timeoutMs = 120000, fetchImpl = fetch }) {
-  const key = process.env.LLM_KEY;
-  if (!key) return { ok: false, reason: "unavailable" };
+  const { gateway, key, model } = dsConfig();
+  if (!gateway || !key) return { ok: false, reason: "unavailable" };
   let r;
   try {
-    r = await fetchImpl(`${GW}/v1/chat/completions`, {
+    r = await fetchImpl(`${gateway}/v1/chat/completions`, {
       method: "POST",
       headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ model: MODEL, max_tokens: maxTokens, chat_template_kwargs: { thinking }, messages }),
+      body: JSON.stringify({ model, max_tokens: maxTokens, chat_template_kwargs: { thinking }, messages }),
       signal: AbortSignal.timeout(timeoutMs),
     });
   } catch (e) {

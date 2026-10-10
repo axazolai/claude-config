@@ -13,7 +13,7 @@
 ## Global Constraints
 
 - Source lives in `payload/`; never edit `~/.claude/`. Deploy with `node setup.mjs`. (project CLAUDE.md)
-- Gateway `http://10.81.0.13:4002`, model `local/DeepSeek-V4.1-Flash`, only `/v1/chat/completions`. Backend `http://10.81.0.13:8051`.
+- Gateway + backend hosts are machine-local (set at `node setup.mjs`, stored in `deepseek.config.json`), model `local/DeepSeek-V4.1-Flash`, only `/v1/chat/completions`.
 - `LLM_KEY` is read from the environment only; it is never written to any bundle file, log, or argv.
 - Working input cap: **100,000 tokens per call**. The 1M window is the model's maximum, not sent per call.
 - Mode A sends `chat_template_kwargs:{thinking:false}`; mode B sends `{thinking:true}` and splits reasoning at the last `</think>`.
@@ -306,7 +306,7 @@ In `setup.mjs`, after the session-defaults block (near line 1490), add a pass th
 ```javascript
 // Thin client for the corporate gateway's /v1/chat/completions. Key only from env LLM_KEY.
 // Never throws: every failure becomes {ok:false, reason}.
-const GW = process.env.DS_GATEWAY || "http://10.81.0.13:4002";
+const GW = process.env.DS_GATEWAY || "<gateway from deepseek.config.json>";
 const MODEL = process.env.DS_MODEL || "local/DeepSeek-V4.1-Flash";
 export const CAP_TOKENS = 100000;
 
