@@ -6,6 +6,18 @@ import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
+export const DEFAULT_PORT = 4002;
+
+// "10.81.0.13" -> http://10.81.0.13:4002; "10.81.0.13:5000" -> http://10.81.0.13:5000; a value with a
+// scheme is kept (trailing slash dropped). Blank -> null.
+export function normalizeGateway(v) {
+  const s = String(v ?? "").trim();
+  if (!s) return null;
+  if (/^[a-z][a-z0-9+.-]*:\/\//i.test(s)) return s.replace(/\/+$/, "");
+  const host = s.replace(/\/+$/, "");
+  return `http://${/:\d+$/.test(host) ? host : `${host}:${DEFAULT_PORT}`}`;
+}
+
 function readFile() {
   const dir = process.env.CLAUDE_CONFIG_DIR || join(homedir(), ".claude");
   try { return JSON.parse(readFileSync(join(dir, "deepseek.config.json"), "utf8").replace(/^﻿/, "")); }
@@ -15,8 +27,8 @@ function readFile() {
 export function dsConfig() {
   const c = readFile();
   return {
-    gateway: process.env.DS_GATEWAY || c.gateway || null,
-    backend: process.env.DS_BACKEND || c.backend || null,
+    gateway: normalizeGateway(process.env.DS_GATEWAY || c.gateway),
+    backend: normalizeGateway(process.env.DS_BACKEND || c.backend),
     model: process.env.DS_MODEL || c.model || "local/DeepSeek-V4.1-Flash",
     key: process.env.LLM_KEY || c.key || null,
   };

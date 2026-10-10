@@ -35,3 +35,18 @@ test("@important dsConfig: no file and no env -> nulls (gateway/key), default mo
   try { const c = dsConfig(); assert.equal(c.gateway, null); assert.equal(c.key, null); assert.equal(c.model, "local/DeepSeek-V4.1-Flash"); }
   finally { t.cleanup(); }
 });
+
+test("@important normalizeGateway: bare IP gets http and the default port; IP:port keeps its port; a URL is kept", async () => {
+  const { normalizeGateway } = await import("./config.mjs");
+  assert.equal(normalizeGateway("10.81.0.13"), "http://10.81.0.13:4002");
+  assert.equal(normalizeGateway(" 10.81.0.13:5000 "), "http://10.81.0.13:5000");
+  assert.equal(normalizeGateway("https://gw.example/"), "https://gw.example");
+  assert.equal(normalizeGateway("http://10.0.0.1:81"), "http://10.0.0.1:81");
+  assert.equal(normalizeGateway(""), null);
+  assert.equal(normalizeGateway(undefined), null);
+});
+
+test("@important dsConfig: a bare IP in the file resolves to the full gateway URL", () => {
+  const t = withDir({ gateway: "10.81.0.13", key: "k" });
+  try { assert.equal(dsConfig().gateway, "http://10.81.0.13:4002"); } finally { t.cleanup(); }
+});

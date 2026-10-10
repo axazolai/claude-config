@@ -55,6 +55,7 @@ import { BUNDLE_RELS as GRAPHIFY_BUNDLE_RELS, PROJECT_RELS as GRAPHIFY_PROJECT_R
   stripProjectInitGraphify, stripPostCommit, stripGraphifyClaudeSection, formatPurge } from "./graphify-purge.mjs";
 import { parsePwshMajor, powerShellToolPlan, MIN_PWSH_MAJOR, ENV_KEY as PWSH_ENV_KEY } from "./powershell-tool.mjs";
 import { knownMarketplaces } from "./payload/bin/init-stack.mjs";
+import { normalizeGateway, DEFAULT_PORT } from "./payload/mcp-servers/deepseek/lib/config.mjs";
 import { reconcileBundleInstall } from "./payload/hooks/lib/config-update-check-run.mjs";
 
 // REPO_ROOT = where setup.mjs itself lives (installer meta: setup.mjs, README.md,
@@ -1512,10 +1513,10 @@ async function main() {
     const p = join(CDIR, "deepseek.config.json");
     if (existsSync(p) || DRY) { /* keep an existing config; dry-run never writes */ }
     else if (INTERACTIVE) {
-      const gw = (await ask("\n  DeepSeek gateway URL (blank to skip; e.g. http://HOST:4002) > ")).trim();
+      const gw = (await ask(`\n  DeepSeek gateway IP (port ${DEFAULT_PORT} is assumed; enter IP:port to override; blank to skip) > `)).trim();
       if (gw) {
         const key = (await ask("  DeepSeek API key (stored locally in deepseek.config.json, never in the repo) > ")).trim();
-        const cfg = { gateway: gw };
+        const cfg = { gateway: normalizeGateway(gw) };
         if (key) cfg.key = key;
         // Health uses the gateway by default; set DS_BACKEND to probe the model backend precisely.
         if (write(p, JSON.stringify(cfg, null, 2) + "\n")) {
