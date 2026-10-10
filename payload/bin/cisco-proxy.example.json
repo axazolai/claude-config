@@ -1,0 +1,8 @@
+{
+  "_comment": "Copy to <CLAUDE_CONFIG_DIR>/cisco-proxy.json (machine-local, never in the bundle). Read by claude-tunnel.ps1 and the cisco-proxy-advisor SessionStart hook. The launcher seeds this file automatically on first run when you pass -Port. Personal use only.",
+  "proxyHost": "192.168.8.100",
+  "proxyPort": 1099,
+  "proxyUser": null,
+  "vpnMatch": "Cisco|AnyConnect",
+  "remindWhenDown": true
+}

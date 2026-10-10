@@ -128,7 +128,8 @@
         "hooks": [
           { "type": "command", "command": "node", "args": ["<HOME>/.claude/hooks/session-init.mjs"] },
           { "type": "command", "command": "node", "args": ["<HOME>/.claude/hooks/inject-axes.mjs"] },
-          { "type": "command", "command": "node", "args": ["<HOME>/.claude/hooks/scratchpad-temp-env.mjs"] }
+          { "type": "command", "command": "node", "args": ["<HOME>/.claude/hooks/scratchpad-temp-env.mjs"] },
+          { "type": "command", "command": "node", "args": ["<HOME>/.claude/hooks/cisco-proxy-advisor.mjs"] }
         ]
       }
     ],
