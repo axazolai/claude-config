@@ -45,6 +45,12 @@
         ]
       },
       {
+        "matcher": "Read|Bash",
+        "hooks": [
+          { "type": "command", "command": "node", "args": ["<HOME>/.claude/hooks/deepseek-offload-nudge.mjs"] }
+        ]
+      },
+      {
         "matcher": "ScheduleWakeup",
         "hooks": [
           { "type": "command", "command": "node", "args": ["<HOME>/.claude/hooks/schedulewakeup-loop-only-nudge.mjs"] }
