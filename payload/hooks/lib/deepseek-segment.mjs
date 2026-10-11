@@ -17,17 +17,18 @@ const shortName = (tool) => String(tool).replace(/^local_/, "");
 
 function alive(pid) { try { process.kill(pid, 0); return true; } catch (e) { return e.code === "EPERM"; } }
 
-// Calls in flight and the latest finished call across every running deepseek server.
+// Calls in flight, the latest finished call and the finished-call total across every running deepseek server.
 function readActivity(claudeDir, now) {
   const dir = join(claudeDir, "state", "deepseek-activity");
-  const active = []; let last = null;
+  const active = []; let last = null; let calls = 0;
   for (const f of safe(() => readdirSync(dir), [])) {
     const rec = safe(() => JSON.parse(readFileSync(join(dir, f), "utf8")));
     if (!rec || !alive(rec.pid)) continue;
+    calls += Number(rec.calls) || 0;
     for (const a of Object.values(rec.active || {})) if (now - a.startedAt <= ACTIVE_MAX) active.push(a);
     if (rec.last && (!last || rec.last.endedAt > last.endedAt)) last = rec.last;
   }
-  return { active, last };
+  return { active, last, calls };
 }
 
 function activitySegment(claudeDir, now) {
@@ -56,5 +57,6 @@ export function dsSegment({ root, claudeDir, now = Date.now() }) {
     const age = now - Date.parse(cache.checkedAt || 0);
     colour = Number.isFinite(age) && age <= interval + STALE_GRACE ? C[cache.status] : C.grey;
   }
-  return paint(`DS ${level}`, colour);
+  const calls = level === "off" ? "" : ` ${readActivity(claudeDir, now).calls}`;
+  return paint(`DS ${level}${calls}`, colour);
 }

@@ -14,6 +14,12 @@ task yourself and do not retry.
 - `full`: the whole session runs on DeepSeek — relaunch only (`bin/claude-deepseek.ps1`), never
   switched in-session.
 
+At `light` and above, offloading is the default for every task type the level lists:
+- Before reading a file or log over ~300 lines to learn what it holds, call `local_summarize`.
+- Before a Bash command that may print over ~100 lines, pipe it to a file and call `local_summarize` on the file.
+- Write commit messages with `local_commit_msg`.
+- Load the `local_*` schemas with `ToolSearch` `select:mcp__deepseek__local_ask,mcp__deepseek__local_summarize,mcp__deepseek__local_commit_msg,mcp__deepseek__local_draft` at the first such task of the session.
+
 Never offload: refactors across files, architecture, non-obvious debugging, final review.
 
 ## Tools

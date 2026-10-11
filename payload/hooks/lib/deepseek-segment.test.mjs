@@ -57,6 +57,15 @@ test("@important a record from a dead pid or older than 5 min is ignored", () =>
     assert.match(dsSegment({ root: s.dir, claudeDir: s.dir, now: NOW }), /DS medium/); } finally { s.cleanup(); }
 });
 
+test("@important the idle segment ends with the finished-call total of live servers; off shows none", () => {
+  const s = setup({ level: "medium" });
+  try { assert.match(dsSegment({ root: s.dir, claudeDir: s.dir, now: NOW }), /DS medium 0/);
+    withActivity(s, { pid: process.pid, active: {}, last: null, calls: 3 });
+    assert.match(dsSegment({ root: s.dir, claudeDir: s.dir, now: NOW }), /DS medium 3/); } finally { s.cleanup(); }
+  const off = setup({ level: "off", cache: { status: "green", checkedAt: new Date(NOW).toISOString() } });
+  try { assert.match(dsSegment({ root: off.dir, claudeDir: off.dir, now: NOW }), /DS off\x1b/); } finally { off.cleanup(); }
+});
+
 test("@important a finished call shows ✓ or ✗ for 15s, then the level returns", () => {
   const s = setup({ level: "medium" });
   try { withActivity(s, { pid: process.pid, active: {}, last: { tool: "local_draft", endedAt: NOW - 5000, ok: true } });
