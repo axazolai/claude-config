@@ -20,6 +20,10 @@ At `light` and above, offloading is the default for every task type the level li
 - Write commit messages with `local_commit_msg`.
 - Load the `local_*` schemas with `ToolSearch` `select:mcp__deepseek__local_ask,mcp__deepseek__local_summarize,mcp__deepseek__local_commit_msg,mcp__deepseek__local_draft` at the first such task of the session.
 
+Routine summary, classification and extraction work goes to `local_*` instead of `rung-haiku`; at
+`medium` and above, rung-2 work that neither reads nor edits code does too (see
+`model-selection-policy`, "DeepSeek before rung 1 and rung 2").
+
 Never offload: refactors across files, architecture, non-obvious debugging, final review.
 
 ## Tools

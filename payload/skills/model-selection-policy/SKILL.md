@@ -101,6 +101,19 @@ Selection section inside ultrapowers skills.
 
 - Orchestrator in the cheaper-orchestration mode: `sonnet` (session-level, not a rung).
 
+## DeepSeek before rung 1 and rung 2
+- Condition: the gateway status in `~/.claude/state/deepseek-health.json` is `green` and the
+  project's DeepSeek level covers the work:
+  - `light` and above: rung-1 work — summary writer, classification, extraction.
+  - `medium` and above: also rung-2 work that neither reads nor edits code — prose, documentation,
+    release notes, translation, drafts from text the caller supplies.
+- Never: any task that reads or edits code, including the implementer role.
+- Do it: call `local_summarize` (summaries), `local_ask` (classification, extraction) or
+  `local_draft` (prose, documentation; medium and above) instead of dispatching `rung-haiku` or
+  `rung-sonnet-medium`; the DeepSeek retry budget applies.
+- Fallback: when the condition fails, the tool returns `unavailable`, or the budget is spent,
+  dispatch the rung the task would have started on and continue on the ladder.
+
 ## Cost reference
 | Model | ID | $/1M in | $/1M out | Context | Notes |
 |---|---|---|---|---|---|
