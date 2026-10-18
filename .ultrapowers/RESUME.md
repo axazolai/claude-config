@@ -8,10 +8,15 @@ status is — this file answers what is owed, what was ruled, and what must not 
 
 ## Summary
 
-As of 2026-10-18, latest: B — phase 26 (`26-remove-gsd`) — is complete and merged into `master`
+As of 2026-10-18, latest: phase 25, A, C and phase 26 are **deployed** (`node setup.mjs
+--replace-all` at `42c88f4`, waterline 26; `docs/2026-10-18-deploy-impact-through-phase-26.md`).
+The session default model is now `sonnet` by the user's choice of 2026-10-18; `scrapling`,
+`context7` and `deepseek` are registered at user scope. Owed: `git push origin master` (20+ commits;
+it needs the user's `axazolai` credential — `gh` is logged in as `Axazol`) and a restart.
+
+Earlier: B — phase 26 (`26-remove-gsd`) — is complete and merged into `master`
 at `80230d9` (merge commit, chosen by the user), full suite 625/625 on the merged result,
-verification ACHIEVED. A, C and phase 26 are on `master`, **unpushed and undeployed**. Owed: one
-deploy carrying all three, then a restart. `BUG-005`
+verification ACHIEVED. `BUG-005`
 (protected-guard roots at the raw cwd) is open and outside phase 26.
 
 Earlier the same day: A (model routing for Haiku 5.5) and C (save points) are committed on `master`
@@ -30,7 +35,11 @@ migration shipped as phase 10's first task.
 
 ## Open
 
-- **Deploy A, C and phase 26 together.** From `master`: `node setup.mjs` (answer `r`
+- **Push `master` and restart Claude Code.** `git push origin master` from a terminal holding the
+  `axazolai` credential; then a restart so the deployed hooks, `CLAUDE.md` and MCP servers load.
+  `/hooks` should show PreToolUse x11, PostToolUse x4, PostToolUseFailure x1, SubagentStop x1,
+  PreCompact x1, SessionStart x1, SubagentStart x1. After the push, the post-push test prune is due.
+- ~~**Deploy A, C and phase 26 together.**~~ Done 2026-10-18 (see Done). Was: from `master`: `node setup.mjs` (answer `r`
   on `CLAUDE.md`), then a restart. On this machine the purge should find nothing (no GSD traces
   were measured on 2026-10-18); `--dry-run` first shows it.
 - **`BUG-005`: protected-guard roots at the raw cwd.** Logged in `.ultrapowers/BUGS.md`; outside
@@ -133,6 +142,10 @@ fixed on 2026-07-31, the second still stands:
 Compressed once paid: name, one line, the date. The reasoning that got each one done is in
 its commit — these lines exist so a reader can see it happened at all.
 
+- **Deploy through phase 26, 2026-10-18.** Phase 25, A, C and 26 in one `--replace-all` run at
+  `42c88f4`, chosen after the user answered both open choices: model `sonnet` (superseding the
+  `opus[1m]` ruling of 2026-07-31) and all three MCP servers. The purge removed `add-risk.mjs` and
+  `bin/lib/gsd-core-detect.mjs`; the follow-up dry run was empty.
 - **Phase 26 merged, 2026-10-18.** Regular merge commit `80230d9`, branch deleted; six branch
   commits keep a Sonnet 5.5 `Co-Authored-By` trailer (`26-VERIFICATION.md`), accepted with the
   merge method.

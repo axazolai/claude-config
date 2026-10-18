@@ -1,7 +1,7 @@
 ---
 updated: 2026-10-18
 current: null
-deployed_through: "24"
+deployed_through: "26"
 phases:
   - { phase: "01", slug: graphify-neo4j, status: complete, delivery: merged }
   - { phase: "02", slug: ai-development-mode, status: complete, delivery: merged }
@@ -33,10 +33,10 @@ phases:
 # Roadmap
 
 Phase 26 (`remove-gsd`) — complete: `phase-26-remove-gsd` (`58d0980..18bca2e`) merged into
-`master` at `80230d9`, not pushed, not deployed, 2026-10-18. The bundle ships `base` and `lite` only; a recorded or requested `full` installs
+`master` at `80230d9`, not pushed; deployed 2026-10-18 (waterline 26). The bundle ships `base` and `lite` only; a recorded or requested `full` installs
 as `base`. Every `node setup.mjs` run purges GSD traces automatically and permanently
 (`gsd-purge.mjs`, one `settings.json.pre-gsd-purge` backup). Full suite 625/625, verification
-ACHIEVED; 625/625 again on the merged result. Owed: one deploy carrying A, C and phase 26.
+ACHIEVED; 625/625 again on the merged result. Deployed with A, C and phase 25 in one run (`docs/2026-10-18-deploy-impact-through-phase-26.md`); owed: the push and a restart.
 
 Phase 24 (`model-ladder`) — complete: implemented inline on `phase-24-model-ladder`, merged into `master`
 (`ddd8fb4`) pushed and deployed 2026-09-29; full suite 581/581, verification ACHIEVED. Sonnet 5.5 replaces Sonnet 5 as the default executor and the migrator's Sonnet target;

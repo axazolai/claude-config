@@ -60,3 +60,12 @@ No plugin actions. `superpowers@claude-plugins-official` stays installed, disabl
 ## DeepSeek
 
 `deepseek-defaults.json` is written with `level=medium` (the `base` default).
+
+## Result
+
+Ran `node setup.mjs --replace-all` at `42c88f4`, exit 0. 2 created, 213 updated, `CLAUDE.md`
+replaced, `settings.json` written with the merge result (two new hook registrations, `model`
+`opus[1m]` → `sonnet`), GSD purge removed the 2 listed paths, MCP `scrapling` (plus
+`scrapling install`: 49 packages and the browsers), `context7` and `deepseek` added at user scope.
+A dry run immediately afterwards reports every category unchanged, no GSD section and no MCP
+action. `settings.json` holds no `gsd` string. Hooks and MCP servers bind after a restart.
