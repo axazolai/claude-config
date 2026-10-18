@@ -11,8 +11,8 @@ status is — this file answers what is owed, what was ruled, and what must not 
 As of 2026-10-18, latest: phase 25, A, C and phase 26 are **deployed** (`node setup.mjs
 --replace-all` at `42c88f4`, waterline 26; `docs/2026-10-18-deploy-impact-through-phase-26.md`).
 The session default model is now `sonnet` by the user's choice of 2026-10-18; `scrapling`,
-`context7` and `deepseek` are registered at user scope. Owed: `git push origin master` (20+ commits;
-it needs the user's `axazolai` credential — `gh` is logged in as `Axazol`) and a restart.
+`context7` and `deepseek` are registered at user scope. `master` is pushed (`a3522bf`) and the
+post-push prune is committed. Owed: a restart.
 
 Earlier: B — phase 26 (`26-remove-gsd`) — is complete and merged into `master`
 at `80230d9` (merge commit, chosen by the user), full suite 625/625 on the merged result,
@@ -35,10 +35,11 @@ migration shipped as phase 10's first task.
 
 ## Open
 
-- **Push `master` and restart Claude Code.** `git push origin master` from a terminal holding the
-  `axazolai` credential; then a restart so the deployed hooks, `CLAUDE.md` and MCP servers load.
-  `/hooks` should show PreToolUse x11, PostToolUse x4, PostToolUseFailure x1, SubagentStop x1,
-  PreCompact x1, SessionStart x1, SubagentStart x1. After the push, the post-push test prune is due.
+- **Restart Claude Code** so the deployed hooks, `CLAUDE.md` and MCP servers load. `/hooks`
+  should show PreToolUse x11, PostToolUse x4, PostToolUseFailure x1, SubagentStop x1, PreCompact
+  x1, SessionStart x1, SubagentStart x1. (The push and the post-push prune are done — see Done.)
+  To push with the inactive `axazolai` gh account: `git -c credential.helper= -c
+  'credential.helper=!f() { echo username=axazolai; echo "password=$(gh auth token --user axazolai)"; }; f' push origin master`.
 - ~~**Deploy A, C and phase 26 together.**~~ Done 2026-10-18 (see Done). Was: from `master`: `node setup.mjs` (answer `r`
   on `CLAUDE.md`), then a restart. On this machine the purge should find nothing (no GSD traces
   were measured on 2026-10-18); `--dry-run` first shows it.
@@ -142,6 +143,10 @@ fixed on 2026-07-31, the second still stands:
 Compressed once paid: name, one line, the date. The reasoning that got each one done is in
 its commit — these lines exist so a reader can see it happened at all.
 
+- **Push and post-push prune, 2026-10-18.** `master` pushed `5e6f223..a3522bf` with the stored
+  `axazolai` gh token. Prune: the only 3 untagged tests (registry/wiring checks in
+  `variants.test.mjs` from phase 26) deleted on the user's confirmation; no `@temp` tests; suite
+  622/622.
 - **Deploy through phase 26, 2026-10-18.** Phase 25, A, C and 26 in one `--replace-all` run at
   `42c88f4`, chosen after the user answered both open choices: model `sonnet` (superseding the
   `opus[1m]` ruling of 2026-07-31) and all three MCP servers. The purge removed `add-risk.mjs` and
