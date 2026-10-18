@@ -51,9 +51,12 @@ test("@critical GSD hooks, statusLine, permissions and env are removed and the r
       ] }],
       PostToolUse: [{ hooks: [{ command: "node", args: ["C:\\Users\\x\\.claude\\hooks\\db-live-access-gate.mjs"] }] }],
       Notification: [{ hooks: [{ command: "node", args: ["~/.claude/hooks/secrets-gate.mjs"] }] }],
+      SessionStart: [{ hooks: [{ command: "node", args: ["C:\\Users\\x\\.claude\\add-risk.mjs"] }] }],
     },
     statusLine: { type: "command", command: "node C:\\Users\\x\\.claude\\hooks\\gsd-statusline.js" },
-    permissions: { allow: ["Bash(npm test)", "Read(C:/Users/x/.claude/gsd-core/**)"], deny: ["Bash(rm:*)"] },
+    permissions: { allow: ["Bash(npm test)", "Read(C:/Users/x/.claude/gsd-core/**)",
+      "Bash(node C:/Users/x/.claude/add-risk.mjs:*)", "Read(~/.claude/gsd-user-files-backup/**)",
+      "Read(C:/Users/x/.claude/hooks/my-gsd-helper.mjs)"], deny: ["Bash(rm:*)"] },
     env: { GSD_HOME: "C:\\Users\\x\\.gsd", EDITOR: "vim" },
   };
   const snapshot = JSON.parse(JSON.stringify(settings));
@@ -65,11 +68,13 @@ test("@critical GSD hooks, statusLine, permissions and env are removed and the r
     { command: "node", args: ["C:/Users/x/.claude/hooks/my-hook.mjs"] },
   ] }]);
   assert.deepEqual(next.hooks.Notification, settings.hooks.Notification);
+  assert.equal(next.hooks.SessionStart, undefined);
   assert.equal(next.statusLine, undefined);
-  assert.deepEqual(next.permissions, { allow: ["Bash(npm test)"], deny: ["Bash(rm:*)"] });
+  assert.deepEqual(next.permissions, { allow: ["Bash(npm test)", "Read(C:/Users/x/.claude/hooks/my-gsd-helper.mjs)"],
+    deny: ["Bash(rm:*)"] });
   assert.deepEqual(next.env, { EDITOR: "vim" });
   assert.deepEqual(removed, ["Stop: 1 hook(s)", "PreToolUse: 1 hook(s)", "PostToolUse: 1 hook(s)",
-    "statusLine", "permissions.allow: 1", "env.GSD_HOME"]);
+    "SessionStart: 1 hook(s)", "statusLine", "permissions.allow: 3", "env.GSD_HOME"]);
 });
 
 test("@important references is listed only when the pilot doc is its sole file", () => {
@@ -80,6 +85,8 @@ test("@important references is listed only when the pilot doc is its sole file",
   const plan = planGsdPurge({ claudeDir: CD, homeDir: HOME, ...shared });
   assert.ok(!plan.paths.includes(at("references")));
   assert.ok(plan.paths.includes(pilot));
+  const alreadyEmpty = fakeFs([at("references")]);
+  assert.ok(!planGsdPurge({ claudeDir: CD, homeDir: HOME, ...alreadyEmpty }).paths.includes(at("references")));
 });
 
 test("@important project-init GSD keys are removed, other keys kept, and each removal is named", () => {

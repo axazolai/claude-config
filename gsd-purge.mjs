@@ -21,12 +21,21 @@ const PATTERNS = [ // [dir under claudeDir ("" = claudeDir), entry-name test]
   ["hooks/lib", (n) => n.startsWith("gsd-")],
 ];
 // gsd-core registers `"…/node" "…/hooks/gsd-x.js"` as one command; this bundle uses command + args.
-const GSD_HOOK_REF = /(^|[\s\\/"'])hooks[\\/]gsd-[^\\/"'\s]+/;
-const RETIRED_REF = new RegExp(`(^|[\\s\\\\/"'])(${RETIRED_HOOK_FILES.map((f) => f.replace(/\./g, "\\.")).join("|")})($|[\\s"'])`);
+// A settings string names a purged path when a path segment starts there (after a separator, quote,
+// whitespace or string start) and the name is one the purge removes. Both separators match.
+const SEG = String.raw`(?:^|[\s"'\\/])`;
+const SEP = String.raw`[\\/]`;
+const NAME_END = String.raw`(?![\w.-])`;
+const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const relRe = (rel) => rel.split("/").map(esc).join(SEP);
+const PURGED_RE = new RegExp(`${SEG}(?:${[
+  "gsd-", "get-shit-done", `\\.gsd${NAME_END}`, `commands${SEP}gsd${NAME_END}`,
+  ...BUNDLE_RELS.map((r) => relRe(r) + NAME_END),
+  ...RETIRED_HOOK_FILES.map((f) => esc(f) + NAME_END),
+].join("|")})`);
 const GSD_STATUSLINE = /gsd-statusline\.js|gsd-context-meter/;
-const GSD_PATH = /gsd-core|get-shit-done|(^|[\\/])\.gsd([\\/]|$)|hooks[\\/]gsd-/;
 const strs = (o) => [o?.command, ...(Array.isArray(o?.args) ? o.args : [])].map((s) => String(s ?? ""));
-const namesGsdHook = (h) => strs(h).some((s) => GSD_HOOK_REF.test(s) || RETIRED_REF.test(s));
+const namesGsdHook = (h) => strs(h).some((s) => PURGED_RE.test(s));
 
 export function stripGsdSettings(settings) {
   const out = JSON.parse(JSON.stringify(settings || {}));
@@ -53,13 +62,13 @@ export function stripGsdSettings(settings) {
   for (const kind of ["allow", "deny", "ask"]) {
     const list = out.permissions?.[kind];
     if (!Array.isArray(list)) continue;
-    const kept = list.filter((p) => !GSD_PATH.test(String(p)));
+    const kept = list.filter((p) => !PURGED_RE.test(String(p)));
     if (kept.length === list.length) continue;
     removed.push(`permissions.${kind}: ${list.length - kept.length}`);
     out.permissions[kind] = kept;
   }
   for (const [k, v] of Object.entries(out.env && typeof out.env === "object" ? out.env : {}))
-    if (GSD_PATH.test(String(v))) { delete out.env[k]; removed.push(`env.${k}`); }
+    if (PURGED_RE.test(String(v))) { delete out.env[k]; removed.push(`env.${k}`); }
   return { settings: out, removed };
 }
 
@@ -78,8 +87,10 @@ export function planGsdPurge({ claudeDir, homeDir, list, exists, settings = null
   const rels = new Set();
   for (const [dir, match] of PATTERNS) for (const n of list(at(dir))) if (match(n)) rels.add(dir ? `${dir}/${n}` : n);
   for (const rel of BUNDLE_RELS) if (exists(at(rel))) rels.add(rel);
-  for (const dir of EMPTIED_DIRS)
-    if (exists(at(dir)) && list(at(dir)).every((n) => rels.has(`${dir}/${n}`))) rels.add(dir);
+  for (const dir of EMPTIED_DIRS) {
+    const names = list(at(dir));
+    if (names.length && names.every((n) => rels.has(`${dir}/${n}`))) rels.add(dir);
+  }
   const paths = [...rels].sort().map(at);
   if (exists(join(homeDir, ".gsd"))) paths.push(join(homeDir, ".gsd"));
   const s = settings ? stripGsdSettings(settings) : { settings, removed: [] };
