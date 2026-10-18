@@ -56,7 +56,7 @@ export function resolveVariant({ repoRoot, variant, cfg = null }) {
   const isAlways = (rel) => matchAny(rel, alwaysRes);
   const srcForPayload = (rel) => join(payloadDir, ...rel.split("/"));
 
-  // identity (full): ship everything except alwaysExclude
+  // identity (base): ship everything except alwaysExclude
   if (!def.include && !def.exclude && !def.extends) {
     const rels = payloadRels.filter((r) => !isAlways(r));
     return { name: variant, rels, srcFor: srcForPayload,

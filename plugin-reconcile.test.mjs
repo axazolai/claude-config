@@ -2,24 +2,24 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { buildPluginPlan } from "./plugin-reconcile.mjs";
 
-const MANAGED = { superpowers: "superpowers@m", gsd: "gsd@m", "context-mode": "cm@m", context7: "c7@m" };
+const MANAGED = { superpowers: "superpowers@m", extra: "extra@m", "context-mode": "cm@m", context7: "c7@m" };
 const LITE = ["superpowers", "context-mode", "context7"];
 
-test("@important surplus gsd: uninstall + disable when installed and enabled", () => {
+test("@important surplus plugin: uninstall + disable when installed and enabled", () => {
   const { actions } = buildPluginPlan({ required: LITE, managed: MANAGED,
-    enabledPlugins: { "superpowers@m": true, "gsd@m": true, "cm@m": true, "c7@m": true },
-    installedIds: ["superpowers@m", "gsd@m", "cm@m", "c7@m"] });
+    enabledPlugins: { "superpowers@m": true, "extra@m": true, "cm@m": true, "c7@m": true },
+    installedIds: ["superpowers@m", "extra@m", "cm@m", "c7@m"] });
   assert.deepEqual(actions, [
-    { type: "uninstall", name: "gsd", id: "gsd@m" },
-    { type: "disable",  name: "gsd", id: "gsd@m" },
+    { type: "uninstall", name: "extra", id: "extra@m" },
+    { type: "disable",  name: "extra", id: "extra@m" },
   ]);
 });
 
 test("@important CLI unavailable: enabledPlugins edits still planned, install/uninstall become notes", () => {
   const { actions, notes } = buildPluginPlan({ required: LITE, managed: MANAGED,
-    enabledPlugins: { "gsd@m": true }, installedIds: null });
+    enabledPlugins: { "extra@m": true }, installedIds: null });
   assert.ok(actions.every((a) => a.type === "enable" || a.type === "disable"));
-  assert.ok(notes.some((n) => n.includes("claude plugin uninstall gsd@m")));
+  assert.ok(notes.some((n) => n.includes("claude plugin uninstall extra@m")));
   assert.ok(notes.some((n) => n.includes("claude plugin install cm@m")));
 });
 
@@ -34,7 +34,7 @@ test("@important unknown user plugins untouched; empty enabledPlugins object pre
 // upstream must stay INSTALLED so rollback is one command. Two enabled plugins sharing 14
 // skill names is undocumented behaviour we do not run in production, so it is still disabled.
 const FORKED = { ultrapowers: "ultrapowers@ultrapowers", superpowers: "superpowers@claude-plugins-official",
-                 gsd: "gsd@m", "context-mode": "cm@m", context7: "c7@m" };
+                 extra: "extra@m", "context-mode": "cm@m", context7: "c7@m" };
 
 test("@critical upstream superpowers is disabled but never uninstalled", () => {
   const { actions } = buildPluginPlan({

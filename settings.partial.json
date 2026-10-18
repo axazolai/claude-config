@@ -1,5 +1,5 @@
 {
-  "_comment": "Reference only. Prefer `node setup.mjs` (merges these keys into your existing ~/.claude/settings.json and fills absolute paths). Manual merge: ADD these keys, keep your model/enabledPlugins/language. Replace <HOME> with your real home dir (Linux/macOS: /home/you ; Windows JSON: C:\\\\Users\\\\you). NOTE: no global claudeMdExcludes here on purpose — .planning/CLAUDE.md may be your curated file. If a specific project's .planning/CLAUDE.md is GSD-owned and unwanted at load, add  \"claudeMdExcludes\": [\"**/.planning/CLAUDE.md\"]  to THAT project's .claude/settings.json only.",
+  "_comment": "Reference only. Prefer `node setup.mjs` (merges these keys into your existing ~/.claude/settings.json and fills absolute paths). Manual merge: ADD these keys, keep your model/enabledPlugins/language. Replace <HOME> with your real home dir (Linux/macOS: /home/you ; Windows JSON: C:\\\\Users\\\\you).",
   "hooks": {
     "PreToolUse": [
       {
@@ -24,12 +24,6 @@
         "matcher": "Bash",
         "hooks": [
           { "type": "command", "command": "node", "args": ["<HOME>/.claude/hooks/decision-records-nudge.mjs"] }
-        ]
-      },
-      {
-        "matcher": "Bash|^mcp__.*",
-        "hooks": [
-          { "type": "command", "command": "node", "args": ["<HOME>/.claude/hooks/db-live-access-gate.mjs"] }
         ]
       },
       {
@@ -76,12 +70,6 @@
       }
     ],
     "PostToolUse": [
-      {
-        "matcher": "Write|Edit|MultiEdit|Bash",
-        "hooks": [
-          { "type": "command", "command": "node", "args": ["<HOME>/.claude/hooks/gsd-config-patch.mjs"] }
-        ]
-      },
       {
         "matcher": "Bash",
         "hooks": [

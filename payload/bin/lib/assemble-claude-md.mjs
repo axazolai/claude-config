@@ -2,7 +2,7 @@
 // Self-contained (only node:* imports) so setup.mjs can import it directly.
 //
 // Fragment naming: `NN-stem.md` (shared) and/or `NN-stem.<profile>.md` (per-profile override,
-// profile in full|base|lite). A profile's assembled output picks, per stem, the override file
+// profile in base|lite). A profile's assembled output picks, per stem, the override file
 // for that profile if one exists, else the shared file gated by its optional frontmatter
 // `profiles: [..]` list (absent list = applies to all profiles). Sections are emitted in NN
 // order. Output always starts with the CURATED:NOEDIT marker (installer invariant) followed by
@@ -33,7 +33,7 @@ export function assembleClaudeMd(fragmentsDir, profile) {
   const files = readdirSync(fragmentsDir).filter((f) => /^\d\d-.*\.md$/.test(f));
   const bySection = new Map(); // stem -> { shared, overrides:Map<profile,file> }
   for (const f of files) {
-    const mo = f.match(/^(\d\d-[a-z0-9-]+?)(?:\.(full|base|lite))?\.md$/);
+    const mo = f.match(/^(\d\d-[a-z0-9-]+?)(?:\.(base|lite))?\.md$/);
     if (!mo) continue;
     const [, stem, ovr] = mo;
     if (!bySection.has(stem)) bySection.set(stem, { shared: null, overrides: new Map() });

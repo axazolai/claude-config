@@ -10,36 +10,37 @@ function fixture() {
   const d = mkdtempSync(join(tmpdir(), "cmd-"));
   const w = (n, s) => writeFileSync(join(d, n), s);
   w("05-language.md", "## LANGUAGE\nshared-lang\n");
-  w("06-collab.md", "---\nprofiles: [full, base]\n---\n## COLLAB\nkeeps-bg-elapsed\n");
+  w("06-collab.md", "---\nprofiles: [base]\n---\n## COLLAB\nkeeps-bg-elapsed\n");
   w("06-collab.lite.md", "## COLLAB\nno-bg-elapsed\n");
-  w("10-gsd.md", "---\nprofiles: [full]\n---\n## GSD\nmethodology\n");
+  w("10-extra.md", "---\nprofiles: [lite]\n---\n## EXTRA\nlite-only-section\n");
   return d;
 }
 test("@important parseFragment strips frontmatter, returns profiles + body", () => {
-  const r = parseFragment("---\nprofiles: [full, lite]\n---\n## X\nbody\n");
-  assert.deepEqual(r.profiles, ["full", "lite"]);
+  const r = parseFragment("---\nprofiles: [base, lite]\n---\n## X\nbody\n");
+  assert.deepEqual(r.profiles, ["base", "lite"]);
   assert.equal(r.body.trimEnd(), "## X\nbody");
   assert.equal(parseFragment("## Y\nz").profiles, null);
 });
-test("@important full: GSD + shared + full/base side of split", () => {
-  const o = assembleClaudeMd(fixture(), "full");
-  assert.match(o, /## GSD/); assert.match(o, /keeps-bg-elapsed/); assert.doesNotMatch(o, /no-bg-elapsed/);
+test("@important base: shared + base side of split, lite-only section absent", () => {
+  const o = assembleClaudeMd(fixture(), "base");
+  assert.match(o, /keeps-bg-elapsed/); assert.doesNotMatch(o, /no-bg-elapsed/); assert.doesNotMatch(o, /lite-only-section/);
 });
 const REAL = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "claude-md");
-test("@important real fragments: GSD full-only; base keeps bg-elapsed; lite drops it + says 'lite variant'", () => {
-  const full = assembleClaudeMd(REAL, "full"), base = assembleClaudeMd(REAL, "base"), lite = assembleClaudeMd(REAL, "lite");
-  assert.match(full, /rules-src\/gsd\.md/);
-  assert.doesNotMatch(base, /rules-src\/gsd\.md/);
-  assert.doesNotMatch(lite, /rules-src\/gsd\.md/);
+test("@important real fragments: no GSD in base or lite; base keeps bg-elapsed; lite drops it + says 'lite variant'", () => {
+  const base = assembleClaudeMd(REAL, "base"), lite = assembleClaudeMd(REAL, "lite");
+  for (const o of [base, lite]) {
+    assert.doesNotMatch(o, /rules-src\/gsd\.md/);
+    assert.doesNotMatch(o, /\bgsd\b/i);
+  }
   assert.match(base, /Elapsed time of a background/);
   assert.doesNotMatch(lite, /Elapsed time of a background/);
   assert.match(lite, /lite variant/);
-  for (const o of [full, base, lite]) { assert.match(o, /CURATED:NOEDIT/); assert.doesNotMatch(o, /^---$/m); }
+  for (const o of [base, lite]) { assert.match(o, /CURATED:NOEDIT/); assert.doesNotMatch(o, /^---$/m); }
 });
 
-test("@important real fragments: base and full carry web routing and the MCP servers; lite neither", () => {
-  const full = assembleClaudeMd(REAL, "full"), base = assembleClaudeMd(REAL, "base"), lite = assembleClaudeMd(REAL, "lite");
-  for (const o of [full, base]) {
+test("@important real fragments: base carries web routing and the MCP servers; lite neither", () => {
+  const base = assembleClaudeMd(REAL, "base"), lite = assembleClaudeMd(REAL, "lite");
+  for (const o of [base]) {
     assert.match(o, /## WEB ACCESS/);
     assert.match(o, /Context7 and Scrapling are user-scope MCP servers/);
   }
@@ -54,11 +55,11 @@ test("@important real fragments: base and full carry web routing and the MCP ser
 // (per the real fragments) the last one in the document, so slicing from its heading to EOF
 // isolates it without depending on section order elsewhere.
 test("@important real fragments: model selection — Sonnet 5.5 default, medium start; lite drops the ultrapowers role map", () => {
-  const full = assembleClaudeMd(REAL, "full"), base = assembleClaudeMd(REAL, "base"), lite = assembleClaudeMd(REAL, "lite");
-  for (const o of [full, base]) {
+  const base = assembleClaudeMd(REAL, "base"), lite = assembleClaudeMd(REAL, "lite");
+  for (const o of [base]) {
     assert.match(o, /DEFAULT executor: claude-sonnet-5-5/);
     assert.match(o, /Every track starts on `medium`/);
-    assert.ok(o.includes("/effort high"), "full/base fragment lacks the brainstorming effort rule");
+    assert.ok(o.includes("/effort high"), "base fragment lacks the brainstorming effort rule");
     assert.doesNotMatch(o, /Start `high`/);
     assert.match(o, /role map in the `model-selection-policy` skill/);
   }
@@ -73,52 +74,45 @@ test("@important real fragments: model selection — Sonnet 5.5 default, medium 
   assert.doesNotMatch(liteSection.toLowerCase(), /ultrapowers/);
 });
 
-// Narrow, non-brittle scope: base/lite must ship neither the `rules-src/gsd.md` pointer (04-
-// reading-order.full.md, full-only — already covered above) nor the "gsd" entry in the base-
-// plugins list (09-plugins.full.md
-// vs the shared base/lite version, which lists ultrapowers/context-mode/context7 only). A
-// blanket case-insensitive "gsd" scan is deliberately NOT used here: 04-reading-order and 06-
-// collaboration legitimately mention "GSD project" (a `.planning/` directory convention, not
-// gsd-plugin machinery) in fragments shared by every profile per the delta table.
 // Regression: repo has core.autocrlf=true, so a fresh Windows checkout materializes
 // payload/claude-md/*.md with CRLF even though they're authored/stored as LF. parseFragment's
 // frontmatter regex anchors on bare \n and must still match a \r\n-terminated fragment, or the
 // raw "---\r\nprofiles: [...]\r\n---" block leaks into the assembled output and profile gating
-// silently breaks (a full-only section would leak into base/lite). This fixture uses EXPLICIT
+// silently breaks (a profile-gated section would leak into the wrong profile). This fixture uses EXPLICIT
 // \r\n throughout so it fails on a checkout-dependent working tree exactly like a real one would.
 function crlfFixture() {
   const d = mkdtempSync(join(tmpdir(), "cmd-crlf-"));
   const w = (n, s) => writeFileSync(join(d, n), s);
   w("05-language.md", "## LANGUAGE\r\nshared-lang\r\n");
-  w("10-gsd.md", "---\r\nprofiles: [full]\r\n---\r\n## GSD\r\nmethodology\r\n");
+  w("10-extra.md", "---\r\nprofiles: [lite]\r\n---\r\n## EXTRA\r\nlite-only-section\r\n");
   return d;
 }
 test("@important parseFragment handles CRLF frontmatter (fresh Windows checkout, core.autocrlf=true)", () => {
-  const r = parseFragment("---\r\nprofiles: [full, lite]\r\n---\r\n## X\r\nbody\r\n");
-  assert.deepEqual(r.profiles, ["full", "lite"]);
+  const r = parseFragment("---\r\nprofiles: [base, lite]\r\n---\r\n## X\r\nbody\r\n");
+  assert.deepEqual(r.profiles, ["base", "lite"]);
   assert.doesNotMatch(r.body, /^---/m);
   assert.doesNotMatch(r.body, /^profiles:/m);
   assert.match(r.body, /## X/);
 });
-test("@important assembleClaudeMd on a CRLF fixture: no profiles:[full] leak into base, no raw frontmatter", () => {
+test("@important assembleClaudeMd on a CRLF fixture: no profiles:[lite] leak into base, no raw frontmatter", () => {
   const o = assembleClaudeMd(crlfFixture(), "base");
-  assert.doesNotMatch(o, /## GSD/);
+  assert.doesNotMatch(o, /## EXTRA/);
   assert.doesNotMatch(o, /^---$/m);
   assert.doesNotMatch(o, /^profiles:/m);
   assert.match(o, /## LANGUAGE/);
 });
 
 test("@important real fragments: every profile has the scratchpad layout bullet and the tools-index bullet", () => {
-  const full = assembleClaudeMd(REAL, "full"), base = assembleClaudeMd(REAL, "base"), lite = assembleClaudeMd(REAL, "lite");
-  for (const o of [full, base, lite]) {
+  const base = assembleClaudeMd(REAL, "base"), lite = assembleClaudeMd(REAL, "lite");
+  for (const o of [base, lite]) {
     assert.match(o, /phase-<NN>\/\{scripts,data,logs\}\//);
     assert.match(o, /read `<project>\/\.claude\/tools\/INDEX\.md`/);
   }
 });
 
 test("@important real fragments: no profile still carries the old .scratchpad/tmp/ wording", () => {
-  const full = assembleClaudeMd(REAL, "full"), base = assembleClaudeMd(REAL, "base"), lite = assembleClaudeMd(REAL, "lite");
-  for (const o of [full, base, lite]) {
+  const base = assembleClaudeMd(REAL, "base"), lite = assembleClaudeMd(REAL, "lite");
+  for (const o of [base, lite]) {
     assert.doesNotMatch(o, /\.scratchpad\/tmp\//);
     assert.doesNotMatch(o, /two tiers/);
     assert.doesNotMatch(o, /older than 7 days may be deleted/);
@@ -126,15 +120,15 @@ test("@important real fragments: no profile still carries the old .scratchpad/tm
 });
 
 test("@important real fragments: the no-scaffolding rule is scoped to Opus 5.5+ only, in every profile", () => {
-  const full = assembleClaudeMd(REAL, "full"), base = assembleClaudeMd(REAL, "base"), lite = assembleClaudeMd(REAL, "lite");
-  for (const o of [full, base, lite]) {
+  const base = assembleClaudeMd(REAL, "base"), lite = assembleClaudeMd(REAL, "lite");
+  for (const o of [base, lite]) {
     assert.match(o, /Opus 5\.5 always thinks[\s\S]*?do not add "verify"\/"double-check" scaffolding/);
   }
 });
 
-test("@important real fragments: base and full carry the SCRATCHPAD CLEANUP phase-cleanup bullet; lite does not", () => {
-  const full = assembleClaudeMd(REAL, "full"), base = assembleClaudeMd(REAL, "base"), lite = assembleClaudeMd(REAL, "lite");
-  for (const o of [full, base]) {
+test("@important real fragments: base carries the SCRATCHPAD CLEANUP phase-cleanup bullet; lite does not", () => {
+  const base = assembleClaudeMd(REAL, "base"), lite = assembleClaudeMd(REAL, "lite");
+  for (const o of [base]) {
     assert.match(o, /## SCRATCHPAD CLEANUP/);
     assert.match(o, /the `scratch-prune` skill/);
   }
