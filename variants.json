@@ -14,7 +14,7 @@
     "claude-plugins-official": "anthropics/claude-plugins-official",
     "context-mode":            "mksglu/context-mode"
   },
-  "$gsd": "Forbidden because GSD left the bundle in phase 26. `gsd` stays in managedPlugins so plugin-reconcile uninstalls it from a machine that still has it; no profile lists it.",
+  "$gsd": "`gsd` stays in managedPlugins and forbiddenPlugins so plugin reconciliation uninstalls it; no profile lists it.",
   "$context7": "Forbidden, not merely unrequired. Context7 is reached through its MCP server; the marketplace plugin of the same name shadows that, so it is removed on sight rather than left disabled. It stays in managedPlugins because a plugin nobody manages is a plugin nobody can find and remove.",
   "$forbiddenPlugins": "Must not exist on the machine at all. Stronger than absence from a profile: plugin-reconcile refuses to install or enable these no matter what a profile asks for, ignores keepInstalled for them, and uninstalls (removes files) rather than disabling. Every name here must also be in managedPlugins, and no profile may list one - both are asserted in variants.test.mjs.",
   "forbiddenPlugins": ["context7", "gsd"],

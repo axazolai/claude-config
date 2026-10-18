@@ -585,7 +585,7 @@ updated, M unchanged`, `rules-src: ...` и т.д.) — чтобы не прих�
   относительно `payload/` (т.е. `payload/hooks/foo.mjs` → `~/.claude/hooks/foo.mjs`).
 - **Корень репозитория** — мета самого установщика, никогда не копируется: `setup.mjs`,
   `bootstrap.sh`/`bootstrap.ps1`, `README.md`, `settings.partial.json`,
-  `RISK_REGISTER.snippet.md`, собственный реестр этого репозитория
+  собственный реестр этого репозитория
   `.ultrapowers/RISK_REGISTER.md` (не путать с установленным `~/.claude/state/...`),
   `docs/` и `.ultrapowers/` (справочные материалы, дизайн-спеки/планы, история планирования —
   вне дистрибуции).
@@ -602,7 +602,7 @@ updated, M unchanged`, `rules-src: ...` и т.д.) — чтобы не прих�
 ### Следы GSD удаляются при каждой установке
 
 Каждый запуск `node setup.mjs` автоматически и безвозвратно удаляет следы GSD с машины:
-`gsd-core` и все записи `gsd-*` в `~/.claude` (агенты, скиллы, хуки, библиотеки), файлы бандла,
+`gsd-core` и записи `gsd-*` в `~/.claude` (верхний уровень, `agents/`, `skills/`, `hooks/`, `hooks/lib/`), `commands/gsd/`, файлы бандла,
 обслуживавшие GSD, регистрации GSD в `settings.json` (хуки, statusLine, permissions, env), ключи
 GSD в `state/project-init.json` и `~/.gsd/`. Вопросов нет, корзины нет. Единственная копия —
 `settings.json.pre-gsd-purge` рядом с `settings.json`, пишется до его правки.
@@ -1123,7 +1123,7 @@ docs.claude.com, но это **preview-фича, ещё «rolling out progressiv
   единственный источник истины для хуков/permissions в `settings.json` (подставляя `<HOME>` на
   реальный домашний каталог). Правь хуки только тут — трогать сгенерированный мёрж внутри
   `setup.mjs` вручную не нужно и не надо. Годится и для ручной вставки, если не хочешь полагаться
-  на установщик. `RISK_REGISTER.snippet.md` — чисто справочный, для ручной вставки.
+  на установщик.
 
 ---
 

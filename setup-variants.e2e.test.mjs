@@ -360,6 +360,22 @@ test("@important GSD traces with an unparsable settings.json: paths removed, set
   rmSync(dir, { recursive: true, force: true });
 });
 
+test("@critical a BOM-prefixed settings.json is still purged of GSD registrations, and the backup keeps the original bytes", () => {
+  const dir = mkdtempSync(join(tmpdir(), "cc-sd-bom-"));
+  plantGsdMachine(dir);
+  const bomSettings = "﻿" + JSON.stringify(gsdSettings(dir), null, 2) + "\n";
+  writeFileSync(join(dir, "settings.json"), bomSettings);
+  const r = runWithHome(dir, ["--variant=base", "--merge-all"]);
+  assert.equal(r.status, 0, r.stderr);
+  const text = readFileSync(join(dir, "settings.json"), "utf8");
+  assert.doesNotMatch(text, /gsd|db-live-access-gate/i);
+  const s = JSON.parse(text.replace(/^﻿/, ""));
+  assert.match(s.statusLine.command, /hooks\/statusline\.mjs/);
+  assert.match(JSON.stringify(s.hooks.Notification), /mine-notify/);
+  assert.equal(readFileSync(join(dir, "settings.json.pre-gsd-purge"), "utf8"), bomSettings);
+  rmSync(dir, { recursive: true, force: true });
+});
+
 function mcpRun(claudeJson, args, extraEnv = {}) {
   const dir = mkdtempSync(join(tmpdir(), "cc-mcp-"));
   if (claudeJson) writeFileSync(join(dir, ".claude.json"), JSON.stringify(claudeJson));

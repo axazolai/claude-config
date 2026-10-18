@@ -42,7 +42,6 @@ import { validateConfigDir } from "./payload/bin/lib/config-dir-validate.mjs";
 import { assembleClaudeMd } from "./payload/bin/lib/assemble-claude-md.mjs";
 import { migrateSettingsModel } from "./payload/bin/lib/model-migration.mjs";
 import { planGsdPurge, isEmptyPlan, formatGsdPurge, RETIRED_HOOK_FILES as GSD_RETIRED_HOOK_FILES } from "./gsd-purge.mjs";
-import { applyPlan, purgeRetention, trashRoot } from "./payload/bin/lib/claude-cleanup-lib.mjs";
 import { resolveVariant, filterPartialHooks, loadVariants, profilesOf, globToRe } from "./variants.mjs";
 import { buildPluginPlan, formatPlan, selectActions, describeAction } from "./plugin-reconcile.mjs";
 import { buildMcpPlan, formatMcpPlan, describeMcpAction, mcpAddArgs, mcpRemoveArgs, redactValues, postAddArgv,
@@ -697,9 +696,9 @@ async function main() {
   // .claude/settings.json). Evidence is collected before anything is deleted: the state that proves
   // which MCP server was graphify's backend is state this same pass removes.
   //
-  // CLAUDE_SETUP_SKIP_PURGE=1 is the test escape hatch, and it is not optional there: the removals
-  // below are the only ones in this installer anchored to HOME rather than CDIR, so a harness that
-  // sandboxes CLAUDE_CONFIG_DIR alone would purge the real machine.
+  // CLAUDE_SETUP_SKIP_PURGE=1 skips this block only; the GSD purge runs regardless. The removals
+  // here and the GSD purge's HOME/.gsd are anchored to HOME rather than CDIR, so a harness must
+  // sandbox HOME/USERPROFILE as well as CLAUDE_CONFIG_DIR.
   if (process.env.CLAUDE_SETUP_SKIP_PURGE !== "1") {
     const purged = [];
     const rmPath = (target, label = target) => {
@@ -827,13 +826,13 @@ async function main() {
   // Unconditional: no profile ships GSD. Automatic and permanent by design (RISK-GSDPURGE-001).
   {
     const projectInitPath = join(CDIR, "state", "project-init.json");
-    const settingsText = read(SETTINGS);
-    const settingsJson = settingsText === undefined ? null : safe(() => JSON.parse(settingsText)) ?? null;
+    // Same BOM-safe parse as the settings merge; absent or unparsable means nothing to strip (null).
+    const parsedOrNull = (p) => (existsSync(p) ? readJsonOrNull(p) : null);
     const plan = planGsdPurge({
       claudeDir: CDIR, homeDir: HOME, exists: existsSync,
       list: (p) => safe(() => readdirSync(p)) || [],
-      settings: settingsJson,
-      projectInit: safe(() => JSON.parse(readFileSync(projectInitPath, "utf8"))) ?? null,
+      settings: parsedOrNull(SETTINGS),
+      projectInit: parsedOrNull(projectInitPath),
     });
     if (!isEmptyPlan(plan)) {
       log(formatGsdPurge(plan, DRY));
@@ -882,7 +881,7 @@ async function main() {
     const mentionsOurs = (e) => (e.hooks || []).some(h => (h.args || []).some(a => ourFiles.has(String(a).split(/[\\/]/).pop())));
 
     // Re-add side is variant-filtered: a lite install must not re-add base-only hook entries even
-    // though they're still present in the FULL partial used above to strip stale entries.
+    // though they're still present in the whole partial used above to strip stale entries.
     const variantBasenames = new Set(V.rels.map((r) => r.split("/").pop()));
     const partialHooksForVariant = filterPartialHooks(partial.hooks, variantBasenames);
 
@@ -931,8 +930,8 @@ async function main() {
       }, []);
     }
 
-    // Either historical renderer counts as ours, in both directions: a profile switch prunes the
-    // file the old entry pointed at, so a takeover that recognised only one would leave statusLine
+    // The bundle renderer counts as ours, in both directions: a profile switch prunes the
+    // file the old entry pointed at, so a takeover that missed it would leave statusLine
     // aimed at nothing and render an empty line on every prompt.
     const ourStatusLine = (cmd) => typeof cmd === "string"
       && cmd.includes("hooks/statusline.mjs");
@@ -1336,9 +1335,8 @@ async function main() {
   /* ---------- prune stale files + persist manifest ---------- */
   migrateRulesDir();
   overwriteTemplatesDir();
-  // After pruneStale, never before it, and the data dependency now says so rather than a comment:
-  // a file an earlier bundle installed and this one no longer ships is pruneStale's
-  // to remove, under pruneStale's own gates, so the detector is handed what it already claimed.
+  // A file an earlier bundle installed and this one no longer ships is pruneStale's to remove,
+  // under pruneStale's own gates.
   await pruneStale();
   // After the prune, which is what can delete the file the command names.
   warnStatuslineNamesMissingFile();

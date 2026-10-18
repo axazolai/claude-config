@@ -598,7 +598,7 @@ The repo is split into two zones:
   → `~/.claude/hooks/foo.mjs`).
 - **Repo root** — the installer's own meta, never copied: `setup.mjs`,
   `bootstrap.sh`/`bootstrap.ps1`, `README.md`, `settings.partial.json`,
-  `RISK_REGISTER.snippet.md`, this repo's own register
+  this repo's own register
   `.ultrapowers/RISK_REGISTER.md` (not to be confused with the installed `~/.claude/state/...`),
   `docs/` and `.ultrapowers/` (reference material, design specs/plans, planning history —
   outside distribution).
@@ -615,7 +615,7 @@ below). Hidden files (`.git`, `.DS_Store`, etc.) inside `payload/` are also neve
 ### GSD traces are removed on every install
 
 Every `node setup.mjs` run removes GSD traces from the machine automatically and permanently:
-`gsd-core` and every `gsd-*` entry under `~/.claude` (agents, skills, hooks, libraries), the
+`gsd-core` and the `gsd-*` entries in the top level of `~/.claude`, `agents/`, `skills/`, `hooks/` and `hooks/lib/`, plus `commands/gsd/`, the
 bundle files that served GSD, the GSD hook, statusLine, permission and env registrations in
 `settings.json`, the GSD keys in `state/project-init.json`, and `~/.gsd/`. There is no prompt and
 no trash. The only backup is `settings.json.pre-gsd-purge`, written next to `settings.json` before
@@ -1136,8 +1136,7 @@ while the same session's first tool calls already use the tool.
   single source of truth for hooks/permissions in `settings.json` (substituting `<HOME>` with
   the real home directory). Edit hooks only here — you don't need to, and shouldn't, touch the
   generated merge inside `setup.mjs` by hand. Also fine for manual insertion if you'd rather
-  not rely on the installer. `RISK_REGISTER.snippet.md` is purely a reference, for manual
-  insertion.
+  not rely on the installer.
 
 ---
 

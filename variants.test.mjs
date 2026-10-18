@@ -149,11 +149,11 @@ test("@critical no profile excludes the deepseek MCP server files", () => {
     "alwaysExclude must not match the deepseek server");
 });
 
-test("@critical the bundle ships exactly the profiles base and lite", () => {
+test("the bundle ships exactly the profiles base and lite", () => {
   assert.deepEqual(Object.keys(profilesOf(loadVariants(REPO))).sort(), ["base", "lite"]);
 });
 
-test("@important base ships the CI-watch and worktree-discipline hooks; lite ships neither", () => {
+test("base ships the CI-watch and worktree-discipline hooks; lite ships neither", () => {
   const rels = (variant) => resolveVariant({ repoRoot: REPO, variant }).rels;
   for (const h of ["hooks/ci-watch-nudge.mjs", "hooks/worktree-executor-discipline-advisor.mjs"]) {
     assert.ok(rels("base").includes(h), `base lacks ${h}`);
@@ -161,7 +161,7 @@ test("@important base ships the CI-watch and worktree-discipline hooks; lite shi
   }
 });
 
-test("@important gsd is a forbidden managed plugin and no profile lists it", () => {
+test("gsd is a forbidden managed plugin and no profile lists it", () => {
   const cfg = loadVariants(REPO);
   assert.ok(cfg.forbiddenPlugins.includes("gsd") && "gsd" in cfg.managedPlugins);
   for (const [name, def] of Object.entries(profilesOf(cfg)))

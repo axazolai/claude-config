@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { basename, dirname, join } from "node:path";
+import { basename, dirname, join, relative, sep } from "node:path";
 import { BUNDLE_RELS, planGsdPurge, stripGsdSettings, stripProjectInitGsd, isEmptyPlan } from "./gsd-purge.mjs";
 
 const CD = join("/fake", ".claude");
@@ -35,10 +35,8 @@ test("@critical the purge plan lists every GSD path and no foreign file", () => 
   const bundle = BUNDLE_RELS.map(at);
   const { list, exists } = fakeFs([...gsd, ...foreign, ...bundle, join(HOME, ".gsd")]);
   const { paths } = planGsdPurge({ claudeDir: CD, homeDir: HOME, list, exists });
-  for (const p of [...gsd, ...bundle]) assert.ok(paths.includes(p), `missing ${p}`);
-  assert.ok(paths.includes(join(HOME, ".gsd")));
-  assert.equal(paths[paths.length - 1], join(HOME, ".gsd"));
-  for (const p of foreign) assert.ok(!paths.includes(p), `foreign ${p} listed`);
+  const claudeRels = [...gsd, ...bundle, at("references")].map((p) => relative(CD, p).split(sep).join("/")).sort();
+  assert.deepEqual(paths, [...claudeRels.map(at), join(HOME, ".gsd")]);
 });
 
 test("@critical GSD hooks, statusLine, permissions and env are removed and the rest of settings is kept", () => {
