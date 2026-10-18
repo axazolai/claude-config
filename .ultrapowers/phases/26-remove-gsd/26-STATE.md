@@ -1,11 +1,11 @@
 ---
 phase: 26
 slug: remove-gsd
-status: planned
-tasks_done: 0
+status: running
+tasks_done: 1
 tasks_total: 5
-branch: null
-integration: none
+branch: phase-26-remove-gsd
+integration: branch
 updated: 2026-10-18
 ---
 
