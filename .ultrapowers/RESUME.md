@@ -8,10 +8,10 @@ status is — this file answers what is owed, what was ruled, and what must not 
 
 ## Summary
 
-As of 2026-10-18, later: B — phase 26 (`26-remove-gsd`) — is complete on branch
-`phase-26-remove-gsd` (`58d0980..18bca2e`), full suite 625/625, verification ACHIEVED, **not
-merged**. A and C are on `master` and undeployed. Owed: integrate the branch into `master` (the
-user's choice of method), then one deploy carrying A, C and phase 26, then a restart. `BUG-005`
+As of 2026-10-18, latest: B — phase 26 (`26-remove-gsd`) — is complete and merged into `master`
+at `80230d9` (merge commit, chosen by the user), full suite 625/625 on the merged result,
+verification ACHIEVED. A, C and phase 26 are on `master`, **unpushed and undeployed**. Owed: one
+deploy carrying all three, then a restart. `BUG-005`
 (protected-guard roots at the raw cwd) is open and outside phase 26.
 
 Earlier the same day: A (model routing for Haiku 5.5) and C (save points) are committed on `master`
@@ -30,11 +30,7 @@ migration shipped as phase 10's first task.
 
 ## Open
 
-- **Phase 26: integrate `phase-26-remove-gsd` into `master`.** Complete and reviewed; the method
-  (merge or squash) is the user's. Six commits carry a Sonnet 5.5 `Co-Authored-By` trailer
-  (`26-VERIFICATION.md`); a squash merge replaces them. After the merge set `current: null` in
-  `ROADMAP.md` and `delivery: merged`.
-- **Deploy A, C and phase 26 together.** From `master` after the merge: `node setup.mjs` (answer `r`
+- **Deploy A, C and phase 26 together.** From `master`: `node setup.mjs` (answer `r`
   on `CLAUDE.md`), then a restart. On this machine the purge should find nothing (no GSD traces
   were measured on 2026-10-18); `--dry-run` first shows it.
 - **`BUG-005`: protected-guard roots at the raw cwd.** Logged in `.ultrapowers/BUGS.md`; outside
@@ -137,6 +133,9 @@ fixed on 2026-07-31, the second still stands:
 Compressed once paid: name, one line, the date. The reasoning that got each one done is in
 its commit — these lines exist so a reader can see it happened at all.
 
+- **Phase 26 merged, 2026-10-18.** Regular merge commit `80230d9`, branch deleted; six branch
+  commits keep a Sonnet 5.5 `Co-Authored-By` trailer (`26-VERIFICATION.md`), accepted with the
+  merge method.
 - **Phase 26 executed, 2026-10-18.** Subagent-driven, five tasks plus a final-review fix wave
   (`58d0980..18bca2e`); the purge matcher is anchored to the config dir after three fix rounds, and
   the purge parses `settings.json` BOM-safely. Full suite 625/625, verification ACHIEVED.

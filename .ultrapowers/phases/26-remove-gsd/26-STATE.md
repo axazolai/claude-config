@@ -5,7 +5,7 @@ status: complete
 tasks_done: 5
 tasks_total: 5
 branch: phase-26-remove-gsd
-integration: branch
+integration: merged
 updated: 2026-10-18
 ---
 
@@ -14,15 +14,15 @@ updated: 2026-10-18
 Remove the GSD integration and the `full` profile; every `node setup.mjs` run removes GSD traces
 from the machine automatically and permanently.
 
-**Complete, not merged.** All five tasks ran subagent-driven on `phase-26-remove-gsd`
+**Complete, merged into `master` at `80230d9` (merge commit, branch deleted), 2026-10-18; full
+suite 625/625 on the merged result; not deployed.** All five tasks ran subagent-driven on `phase-26-remove-gsd`
 (`58d0980..18bca2e`), each task review clean, the final whole-branch review's fix wave re-reviewed
 clean, full suite 625/625 at `18bca2e`. Verification: ACHIEVED (`26-VERIFICATION.md`); its one
 VIOLATED constraint is six commits whose `Co-Authored-By` trailer names Sonnet 5.5 rather than
 Opus 5.5 — a squash merge replaces them. Rulings, deferred minors and out-of-spec items:
 `26-SUMMARY.md`.
 
-Next: the user chooses how to integrate the branch into `master`; then deploy A, C and phase 26
-together with `node setup.mjs` (answer `r` on `CLAUDE.md`) and restart Claude Code. The
+Next: deploy A, C and phase 26 together from `master` with `node setup.mjs` (answer `r` on `CLAUDE.md`) and restart Claude Code. The
 real-machine success criterion (spec § 1) is checked on that deploy.
 
 ## Done
