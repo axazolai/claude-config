@@ -35,7 +35,13 @@ test("@important a GitHub remote with no git-host MCP gets the /init-mcp suggest
   const { base, root } = withProject();
   writeFileSync(join(base, "home", "state", "bundle-manifest.json"), JSON.stringify({ profile: "base" }));
   writeFileSync(join(root, ".git", "config"), '[remote "origin"]\n\turl = https://github.com/acme/app.git\n');
+  mkdirSync(join(base, "home", "commands"), { recursive: true });
+  writeFileSync(join(base, "home", "commands", "init-mcp.md"), "x");
   assert.match(ctx(run(base, root, { CLAUDE_MCP_SUGGEST: "1" })), /MCP suggestion: .*GitHub.*\/init-mcp/);
+  // lite does not ship the command: no suggestion
+  writeFileSync(join(base, "home", "state", "bundle-manifest.json"), JSON.stringify({ profile: "lite" }));
+  rmSync(join(base, "home", "commands", "init-mcp.md"));
+  assert.doesNotMatch(ctx(run(base, root, { CLAUDE_MCP_SUGGEST: "1" })), /MCP suggestion/);
   rmSync(base, { recursive: true, force: true });
 });
 
@@ -46,8 +52,8 @@ test("@important a .planning project is left alone: no settings write, no risk-r
   writeFileSync(join(root, "package.json"), "{}");
   writeFileSync(join(root, ".planning", "config.json"),
     JSON.stringify({ code_quality: { fallow: { enabled: true } }, workflow: {} }));
-  for (const manifest of [{ profile: "base" }, { profile: "lite" }]) {
-    writeFileSync(join(base, "home", "state", "bundle-manifest.json"), JSON.stringify(manifest));
+  for (const manifest of [null, { profile: "full" }, { profile: "base" }, { profile: "lite" }]) {
+    if (manifest) writeFileSync(join(base, "home", "state", "bundle-manifest.json"), JSON.stringify(manifest));
     const out = ctx(run(base, root));
     assert.equal(existsSync(join(root, ".claude", "settings.json")), false);
     assert.equal(readFileSync(join(root, ".planning", "RISK_REGISTER.md"), "utf8"), REGISTER);

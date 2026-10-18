@@ -152,7 +152,7 @@ if (process.env.CLAUDE_STACK_RULES !== "0") {
 // EVERY session on purpose: git init / a DB dependency can appear later, and a one-time flag would
 // miss it - instead it stops on its own once the matching MCP is configured. Web search is
 // on-demand (no passive signal) - mentioned as an option. Opt out: CLAUDE_MCP_SUGGEST=0.
-if (process.env.CLAUDE_MCP_SUGGEST !== "0") {
+if (process.env.CLAUDE_MCP_SUGGEST !== "0" && existsSync(join(CLAUDE_DIR, "commands", "init-mcp.md"))) {
   const rd = (p) => safe(() => readFileSync(join(root, p), "utf8")) || "";
   const cfg = (rd(".claude/settings.json") + "\n" + rd(".mcp.json")).toLowerCase();  // already-wired MCPs
   const has = (k) => cfg.includes(`"${k}"`);
