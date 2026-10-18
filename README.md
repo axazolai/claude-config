@@ -20,7 +20,7 @@ node setup.mjs
 - [Порядок действий](#порядок-действий)
   - [Первичная настройка (новый ПК)](#первичная-настройка-новый-пк)
   - [Перенастройка](#перенастройка)
-- [Варианты бандла (full/base/lite)](#варианты-бандла-fullbaselite)
+- [Варианты бандла (base/lite)](#варианты-бандла-baselite)
   - [Выбор варианта](#выбор-варианта)
   - [Переключение варианта](#переключение-варианта)
 - [Перенос `~/.claude` на другой диск](#перенос-claude-на-другой-диск)
@@ -31,20 +31,20 @@ node setup.mjs
   - [Конфликты (курируемый текст и JSON): объединить / заменить / пропустить](#конфликты-курируемый-текст-и-json-объединить-заменить-пропустить)
   - [Читаемость диффа](#читаемость-диффа)
   - [Структура репозитория: `payload/` vs корень](#структура-репозитория-payload-vs-корень)
-  - [`gsd-defaults.partial.json` → `~/.gsd/defaults.json`](#gsd-defaultspartialjson-gsddefaultsjson)
+  - [Следы GSD удаляются при каждой установке](#следы-gsd-удаляются-при-каждой-установке)
   - [Флаги (без интерактива / для CI)](#флаги-без-интерактива-для-ci)
 - [Модель защиты: маркер, а не путь](#модель-защиты-маркер-а-не-путь)
 - [Авто-инициализация проектов (SessionStart)](#авто-инициализация-проектов-sessionstart)
 - [Правила стека (stack-rules): снапшот вместо автозагрузки](#правила-стека-stack-rules-снапшот-вместо-автозагрузки)
 - [Что делает каждый хук и почему](#что-делает-каждый-хук-и-почему)
-- [Кросс-инструментные патчи gsd-core (агенты, воркфлоу, tool-grant)](#кросс-инструментные-патчи-gsd-core-агенты-воркфлоу-tool-grant)
+- [Проверка новой версии бандла](#проверка-новой-версии-бандла)
 - [Требуемые инструменты и fallback](#требуемые-инструменты-и-fallback)
 - [PowerShell tool на Windows (опционально, одноразовый опт-ин в setup.mjs)](#powershell-tool-на-windows-опционально-одноразовый-опт-ин-в-setupmjs)
 - [Проверка после установки](#проверка-после-установки)
 - [Автообновление компонентов (context-mode, сам бандл, design stack)](#автообновление-компонентов-context-mode-сам-бандл-design-stack)
 - [Прочее / ограничения](#прочее-ограничения)
 - [Диагностика: `PreToolUse hook error` / `cannot find module` на каждом Edit](#диагностика-pretooluse-hook-error-cannot-find-module-на-каждом-edit)
-- [Кириллическая консоль: ошибка из-за символа (галочка/тире) и где лежит RISK_REGISTER](#кириллическая-консоль-ошибка-из-за-символа-галочкатире-и-где-лежит-risk_register)
+- [Кириллическая консоль: ошибка из-за символа (галочка/тире)](#кириллическая-консоль-ошибка-из-за-символа-галочкатире)
 
 ---
 
@@ -63,18 +63,6 @@ irm https://raw.githubusercontent.com/axazolai/claude-config/master/bootstrap.ps
 
 Проброс флагов в `setup.mjs` (напр. неинтерактивная замена): POSIX — `… | bash -s -- --replace-all`;
 Windows — `$env:CLAUDE_SETUP_ARGS='--replace-all'; irm … | iex`.
-
-**Windows: bootstrap + gsd-агент-патчи за один заход.** `setup.mjs` сознательно НЕ применяет
-review-gated контент-патчи gsd-агентов (см. «gsd-core») — после установки/обновления их
-применяют отдельно, командой `/init-session`. Готовый PowerShell-блок, который
-делает и то и другое сразу (учитывает релокацию через `CLAUDE_CONFIG_DIR`; на чистой машине без
-gsd-core третий шаг — безвредный no-op):
-
-```powershell
-irm https://raw.githubusercontent.com/axazolai/claude-config/master/bootstrap.ps1 | iex
-$cc = $env:CLAUDE_CONFIG_DIR; if (-not $cc) { $cc = Join-Path $HOME '.claude' }
-node (Join-Path $cc 'apply-gsd-agent-patches.mjs')
-```
 
 > Примечание: при `curl|bash` на Linux/macOS `setup.mjs` запускается неинтерактивно (stdin занят
 > пайпом) — на уже настроенном `~/.claude` конфликты решаются аддитивным merge (без потерь, с
@@ -112,9 +100,7 @@ notepad bootstrap.ps1; .\bootstrap.ps1
    запусти `/init-stack`. Семь шагов команды:
    - **1. детект** — сам прогонит `node ~/.claude/bin/init-stack.mjs` (детект стека + отчёт,
      ничего не пишет); файл/деп-маркеры → id стека и `STACK_PATHS` — общий источник в
-     `~/.claude/bin/lib/stack-markers.mjs` (заменяет прежний скилл `stack-markers`). Тот же
-     прогон ре-мигрирует `model_overrides` в `.planning/config.json` GSD-проекта на текущие
-     дефолты моделей (хирургически, no-op без `.planning/`);
+     `~/.claude/bin/lib/stack-markers.mjs` (заменяет прежний скилл `stack-markers`).;
    - **2. снапшот stack-rules** — `hooks/lib/stack-rules-check.mjs`, и на `stale`/`missing`/
      `legacy` пересборка `.claude/stack-rules.md` суб-агентом (см. «Правила стека» ниже);
    - **3. интерактивная установка** — попросит тебя лично запустить
@@ -132,8 +118,7 @@ notepad bootstrap.ps1; .\bootstrap.ps1
    - **7. отметка о прогоне** — `hooks/lib/mark-initstack-done.mjs` (даёт leanmode-диалу
      проекта дефолт `full`).
 
-   GSD-специфичных предложений, которые были у команды до переписывания, здесь больше нет:
-   `fallow` теперь доезжает во все профили через плагин (дельта `001-fallow-graft` в форке
+      `fallow` теперь доезжает во все профили через плагин (дельта `001-fallow-graft` в форке
    ultrapowers), а `claude_orchestration` снят сознательно — см. RISK-INITSTACK-001, закрыт
    2026-07-27.
 4. **Перезапусти Claude Code ещё раз** — `enabledPlugins` тоже резолвится только при старте.
@@ -141,7 +126,7 @@ notepad bootstrap.ps1; .\bootstrap.ps1
 Итого на новый ПК: `setup.mjs` — один раз, `/init-stack` — на каждый проект (сразу после
 клонирования репозитория или когда в нём впервые понадобились плагины).
 
-> Шаг 3 и вся таблица «Перенастройка» ниже описывают **full**-вариант `/init-stack`
+> Шаг 3 и вся таблица «Перенастройка» ниже описывают **base**-профиль `/init-stack`
 > (Node-скрипт + plugin-machinery). В **lite**-варианте `/init-stack` — не то же самое: он
 > только детектит стек и собирает `.claude/stack-rules.md`, без установки/включения
 > плагинов вообще. Подробности и как выбрать/переключить вариант — «Варианты бандла» ниже.
@@ -162,38 +147,37 @@ notepad bootstrap.ps1; .\bootstrap.ps1
 
 ---
 
-## Варианты бандла (full/base/lite)
+## Варианты бандла (base/lite)
 
-Бандл ставится в одном из трёх профилей. Выбор не привязан к первой установке — переключиться
+Бандл ставится в одном из двух профилей. Выбор не привязан к первой установке — переключиться
 можно в любой момент повторным запуском `setup.mjs`. Профили описаны в `variants.json`
-(`base` наследуется `lite` через `extends`; `exclude` выигрывает у `include`).
+(`lite` наследует `base` через `extends`; `exclude` выигрывает у `include`).
 
-- **full** (дефолт) — всё, что описано в этом README: все хуки, все команды, все скиллы.
+- **base** (дефолт) — всё, что описано в этом README: все хуки, все команды, все скиллы.
   Плагины: `ultrapowers`, `context-mode`.
-- **base** — full минус GSD-machinery: нет `agents/gsd-*.md`, `apply-gsd-agent-patches.mjs`,
-  `gsd-defaults-sync.mjs`, `sync-gsd-context-mode-tool.mjs`, команды `/init-session`, всех
-  `hooks/gsd-*` и `hooks/lib/gsd-*`, `rules-src/gsd.md`, `references/`, теневого скилла
-  `using-git-worktrees`, а также `db-live-access-gate`, `ci-watch-nudge` и
-  `worktree-executor-discipline-advisor`. Плагины — те же, что в full.
 - **lite** — base минус всё, что требует тяжёлой оснастки:
   - плагин ровно один — `context-mode`. `ultrapowers` в lite **ставится на диск, но не
     включается** (`variants.json → keepInstalled`), поэтому вернуть его — одна команда, а не
     переустановка из маркетплейса;
   - ровно 7 хуков: `secrets-gate`, `deny-curated-claude-md`, `protected-guard`,
     `decision-records-nudge`, `inject-axes`,
-    `precompact-observe`, `session-init` (последний работает, но пропускает все
-    GSD-специфичные шаги — см. врезку в «Авто-инициализация проектов» ниже);
+    `precompact-observe`, `session-init` (последний работает, но без подсказки
+    `/init-mcp` — см. «Авто-инициализация проектов» ниже);
   - `leanmode`; два «ленивых» скилла
     (`model-selection-policy`, `update-changelog`);
   - свой `/init-stack` — только детект стека + сборка `.claude/stack-rules.md`, без
     python/plugin-machinery (см. врезку в «Первичная настройка» выше);
-  - своя версия `rules-src/README.md` (без GSD-специфики) и свой `model-selection-policy` —
+  - своя версия `rules-src/README.md` и свой `model-selection-policy` —
     оба берутся из оверлея `payload-lite/`, который накладывается поверх `payload/`.
     `CLAUDE.md` оверлеем НЕ подменяется: он собирается пофрагментно из `payload/claude-md/*.md`
     по профилю (`bin/lib/assemble-claude-md.mjs`, фронтматтер `profiles:` в каждом фрагменте);
-  - **НЕТ** дополнительно к исключённому в base: `schedulewakeup`-нуджа, `prune-tests-nudge`,
-    pnpm-phantom-guard, bg-supervision (`supervise-bg.mjs`), turbopack-проверки, команд
-    `/init-mcp` и `/pnpm-phantom-fix`, скилла `/publish`.
+  - **НЕТ** относительно base: `schedulewakeup`-нуджа, `prune-tests-nudge`, `ci-watch-nudge`,
+    `worktree-executor-discipline-advisor`, pnpm-phantom-guard, bg-supervision
+    (`supervise-bg.mjs`), turbopack-проверки, команд `/init-mcp` и `/pnpm-phantom-fix`, скилла
+    `/publish`.
+
+Профиль `full` удалён. `--variant=full` или `full` в старом манифесте превращается в `base` и
+печатает `profile "full" was removed; using "base"`.
 
 Ни в один профиль не входят (`variants.json → alwaysExclude`): `hooks/task-lifecycle-probe*`
 (probe-логгер схемы `TaskCreated`/`TaskCompleted` — остаётся в репозитории как заготовка, но не
@@ -202,7 +186,7 @@ notepad bootstrap.ps1; .\bootstrap.ps1
 
 ### `ultrapowers` вместо `superpowers`
 
-Базовым скилл-плагином в `full` и `base` стоит **`ultrapowers@ultrapowers`** (в `lite` он
+Базовым скилл-плагином в `base` стоит **`ultrapowers@ultrapowers`** (в `lite` он
 ставится на диск, но не включается) — наш форк
 [`obra/superpowers`](https://github.com/obra/superpowers) (Jesse Vincent, MIT), сужённый до
 Claude Code. Живёт в [`axazolai/ultrapowers`](https://github.com/axazolai/ultrapowers): ветка
@@ -233,12 +217,12 @@ Claude Code. Живёт в [`axazolai/ultrapowers`](https://github.com/axazolai/
 
 ### Выбор варианта
 
-- Интерактивно: `node setup.mjs` спрашивает `bundle profile [full/base/lite] (Enter = …)` — дефолт
+- Интерактивно: `node setup.mjs` спрашивает `bundle profile [base/lite] (Enter = …)` — дефолт
   (Enter) берётся из того, что уже стоит по `~/.claude/state/bundle-manifest.json` (поле
-  `variant`), а на чистой машине — `full`.
-- Флагом: `node setup.mjs --variant=lite` (или `--variant=full`) — пропускает вопрос.
+  `variant`), а на чистой машине — `base`.
+- Флагом: `node setup.mjs --variant=lite` — пропускает вопрос.
 - Без терминала и без флага (CI, non-TTY): берётся тот же вариант, что уже установлен, иначе
-  `full`.
+  `base`.
 - Через bootstrap: POSIX — `curl ... | bash -s -- --variant=lite`; Windows —
   `$env:CLAUDE_SETUP_ARGS='--variant=lite'; irm ... | iex` — тот же механизм проброса флагов, что
   и `--replace-all` (см. «Установка на новом ПК» выше). Сам bootstrap-код под вариант не менялся —
@@ -247,7 +231,7 @@ Claude Code. Живёт в [`axazolai/ultrapowers`](https://github.com/axazolai/
 ### Переключение варианта
 
 Переустанови: `node setup.mjs` (интерактивно выбери другой вариант, или сразу
-`--variant=full`/`--variant=lite`). Установщик:
+`--variant=base`/`--variant=lite`). Установщик:
 
 - находит файлы, которых нет в новом варианте, но которые остались на диске (surplus после
   переключения), печатает список и спрашивает подтверждение на удаление (`y/N`) — тем же
@@ -255,16 +239,16 @@ Claude Code. Живёт в [`axazolai/ultrapowers`](https://github.com/axazolai/
   выше). **Курируемые файлы и файлы, изменённые тобой вручную** (хэш на диске не совпадает с тем,
   что записал последний `setup.mjs`), в prune не попадают — остаются как есть, даже если новый
   вариант их не включает.
-- фильтрует записи хуков в `settings.json` под новый вариант: переход в base/lite снимает
-  GSD-хуки, обратный переход их возвращает. Ключ `statusLine` профили больше не различают — один
-  и тот же `statusline.mjs` регистрируется на full/base/lite (см. «Что делает каждый хук и
+- фильтрует записи хуков в `settings.json` под новый вариант: переход на профиль без части
+  хуков снимает их, обратный переход возвращает. Ключ `statusLine` профили больше не различают — один
+  и тот же `statusline.mjs` регистрируется на base и lite (см. «Что делает каждый хук и
   почему» ниже), поэтому переключение варианта его не трогает; твой собственный, не-бандловый
   `statusLine` по-прежнему не трогается.
 - сверяет набор плагинов и печатает план (что поставить/убрать, что включить/выключить) —
   спрашивает подтверждение (`y/N`) перед вызовом `claude plugin install/uninstall`; если CLI
   `claude` не найден в PATH, вместо выполнения печатает команды для ручного запуска.
-- сверяет MCP-серверы уровня пользователя из `managedMcpServers` в `variants.json`: base и full
-  получают `scrapling` (`uvx --from "scrapling[ai]" scrapling-mcp`, нужен `uv`) и `context7`
+- сверяет MCP-серверы уровня пользователя из `managedMcpServers` в `variants.json`: base получает
+  `scrapling` (`uvx --from "scrapling[ai]" scrapling-mcp`, нужен `uv`) и `context7`
   (HTTP; ключ берётся из переменной окружения `CONTEXT7_API_KEY`, без неё сервер
   регистрируется без ключа), lite — ни одного. Уже настроенный сервер не перезаписывается.
   `--replace-all` добавляет недостающие, а удаление только печатает командой для ручного
@@ -276,9 +260,7 @@ Claude Code. Живёт в [`axazolai/ultrapowers`](https://github.com/axazolai/
   `statusLine` не подхватываются на лету.
 
 Манифест `~/.claude/state/bundle-manifest.json` хранит поле `variant` — оно решает, какой вариант
-подставится дефолтом при следующем запуске без флага, и по нему же `session-init.mjs` определяет,
-какие GSD-специфичные шаги пропустить (манифест без поля `variant` — это бандл, поставленный до
-появления вариантов, трактуется как `full`).
+подставится дефолтом при следующем запуске без флага.
 
 Для тестов есть герметичный режим: `CLAUDE_SETUP_SKIP_PLUGINS=1` полностью пропускает шаг
 плагиновой реконсиляции (и сам probe `claude plugin list`), не трогая CLI;
@@ -338,7 +320,7 @@ Claude Code. Живёт в [`axazolai/ultrapowers`](https://github.com/axazolai/
   PostToolUse `prune-tests-nudge` (после `git push` — вычистить непомеченные тесты) +
   PreToolUse-нудж `schedulewakeup-loop-only-nudge` (ScheduleWakeup — только для /loop-пейсинга;
   завершение отслеживаемой фоновой задачи ре-инвокает модель само, wakeup-поллинг — впустую).
-- **Веб-доступ (base/full)** — секция WEB ACCESS в CLAUDE.md разводит Context7,
+- **Веб-доступ (base)** — секция WEB ACCESS в CLAUDE.md разводит Context7,
   `ctx_fetch_and_index` и Scrapling MCP; PreToolUse-гейт `scrapling-raw-gate` запрещает
   `main_content_only=false` (он выключает санитайзер скрытого контента — защиту от
   prompt injection; обход — `CLAUDE_SCRAPLING_ALLOW_RAW=1`), а PostToolUse/PostToolUseFailure
@@ -388,7 +370,7 @@ Claude Code. Живёт в [`axazolai/ultrapowers`](https://github.com/axazolai/
   голым git без CI/CD — тогда публикация идёт только через git (мёрдж веток, push, тег, без
   шагов пайплайна). Настройки проекта — `.claude/publish.json`
   (host/remote/branches/cli/ci/version/changelog/tests/merge), пишутся первым запуском-интервью,
-  пересобираются флагом `--reconfigure`. Ставится в base/full, в lite — нет (см. «Варианты
+  пересобираются флагом `--reconfigure`. Ставится в base, в lite — нет (см. «Варианты
   бандла» выше).
 - **`skill-library/` и bundled стек-скиллы** — новый верхнеуровневый каталог
   `payload/skill-library/`, отдельно от `payload/skills/` (те грузятся напрямую из
@@ -412,25 +394,24 @@ Claude Code. Живёт в [`axazolai/ultrapowers`](https://github.com/axazolai/
 
 Базовая проблема: в Claude Code **проектный `CLAUDE.md` перебивает пользовательский**, а сам
 `CLAUDE.md` грузится как контекст, а не как «жёсткая» конфигурация — то есть любой проектный файл
-(в т.ч. сгенерированный GSD) может тихо переопределить твои выверенные правила. Прозой в
+(в т.ч. сгенерированный) может тихо переопределить твои выверенные правила. Прозой в
 глобальном `~/.claude/CLAUDE.md` это не защитить. Жёстко работают только хуки.
 
 Поэтому набор делает три вещи:
 
 1. **Защищает курируемые файлы** — PreToolUse-хук блокирует правку любого `CLAUDE.md` с маркером
-   `<!-- CURATED:NOEDIT -->`, где бы тот ни лежал (рут проекта или `.planning/`). Маркер решает
+   `<!-- CURATED:NOEDIT -->`, где бы тот ни лежал. Маркер решает
    всё, путь не важен. Немаркированные (сгенерированные) файлы правятся свободно.
 2. **Ловит секреты** — PreToolUse-хук на `git commit` сканирует staged-изменения; при находке
    коммит блокируется (срабатывает только на коммитах, которые делает Claude, не на твоих ручных).
 3. **Снимает рутину на новых проектах** — SessionStart-хук один раз на проект автоматически
-   помечает курируемый рут-`CLAUDE.md`, добавляет per-project исключение для GSD-овского
-   `.planning/CLAUDE.md` и дописывает риск в `RISK_REGISTER.md`. Руками на каждый проект — ничего.
+   помечает курируемый рут-`CLAUDE.md`. Руками на каждый проект — ничего.
 
 ---
 
 ## Что куда ставится
 
-Ниже — состав **full**-профиля (что из него убирают `base` и `lite` — см. «Варианты бандла»
+Ниже — состав **base**-профиля (что из него убирает `lite` — см. «Варианты бандла»
 выше). `*.test.mjs` рядом с каждым скриптом остаются в репозитории и не ставятся.
 
 ```
@@ -438,27 +419,21 @@ Claude Code. Живёт в [`axazolai/ultrapowers`](https://github.com/axazolai/
   CLAUDE.md                              # твои курируемые правила (содержит строку-маркер);
                                           #   собирается из payload/claude-md/*.md под профиль
   settings.json                          # твой файл + до-мёрженные ключи (hooks, permissions.deny)
-  add-risk.mjs                           # хелпер риск-реестра (его дёргает авто-инициализация)
-  apply-gsd-agent-patches.mjs            # применяет agent+workflow контент-патчи (зовёт /init-session)
-  gsd-defaults-sync.mjs                  # CLI: ~/.gsd/defaults.json + .planning/config.json проекта
-  sync-gsd-context-mode-tool.mjs         # CLI-обёртка tool-grant синка (зовут setup.mjs / init-stack.mjs)
   hooks/
     deny-curated-claude-md.mjs           # блок правок курируемого CLAUDE.md (любая локация)
     protected-guard.mjs                  # отказ править/удалять/двигать пути из `.protected`
     secrets-gate.mjs                     # блок `git commit` при найденных секретах в staged
     decision-records-nudge.mjs           # PreToolUse: линт риск-регистра/ADR/глоссария на коммите
-    db-live-access-gate.mjs              # read-only гейт на живые БД (PreToolUse: Bash|mcp__*)
     scratchpad-layout-guard.mjs          # PreToolUse: запись/команда вне раскладки .scratchpad — deny
-    worktree-executor-discipline-advisor.mjs # advisory: дисциплина worktree + backstop больших Read
+    worktree-executor-discipline-advisor.mjs # (нет в lite) advisory: дисциплина worktree + backstop больших Read
     bg-supervision-nudge.mjs             # PreToolUse: нудж обернуть run_in_background в supervise-bg
     background-sleep-guard.mjs           # PreToolUse: запрет фонового sleep/Start-Sleep/timeout без работы
     schedulewakeup-loop-only-nudge.mjs   # PreToolUse: ScheduleWakeup — только для /loop-пейсинга
-    gsd-config-patch.mjs                 # PostToolUse: разовые патчи .planning/config.json (модель+воркфлоу)
-    ci-watch-nudge.mjs                   # PostToolUse: после `git push` — нудж `gh run watch`
+    ci-watch-nudge.mjs                   # (нет в lite) PostToolUse: после `git push` — нудж `gh run watch`
     prune-tests-nudge.mjs                 # PostToolUse: после `git push` — нудж вычистить непомеченные тесты
-    scrapling-raw-gate.mjs               # PreToolUse: запрет Scrapling с main_content_only=false (base/full)
-    web-block-nudge.mjs                  # PostToolUse(+Failure): блок/JS-оболочка → повторить через Scrapling (base/full)
-    phase-end-cleanup-nudge.mjs          # PostToolUse: закрытие фазы (NN-SUMMARY.md) → нудж /scratch-prune (base/full)
+    scrapling-raw-gate.mjs               # PreToolUse: запрет Scrapling с main_content_only=false (нет в lite)
+    web-block-nudge.mjs                  # PostToolUse(+Failure): блок/JS-оболочка → повторить через Scrapling (нет в lite)
+    phase-end-cleanup-nudge.mjs          # PostToolUse: закрытие фазы (NN-SUMMARY.md) → нудж /scratch-prune (нет в lite)
     pnpm-phantom-fix-hook.mjs            # PostToolUse: скан фантомных зависимостей после install
     inject-axes.mjs                      # SessionStart + SubagentStart: инжектор осей правил (см. ниже)
     session-init.mjs                     # SessionStart: бутстрап проекта
@@ -471,10 +446,6 @@ Claude Code. Живёт в [`axazolai/ultrapowers`](https://github.com/axazolai/
       leanmode-{lite,full,ultra}-rule.md # тексты правил оси leanmode
       verbosity-rules.mjs                # резолвер оси verbosity (.claude/verbosity.json)
       verbosity-{lite,full,ultra}-rule.md # тексты правил оси verbosity
-      context-mode-gsd-agents.mjs        # тихий посессионный tool-grant синк в gsd-*.md
-      gsd-agent-patches.mjs              # review-gated контент-патчи в 30+ gsd-*.md (check/apply)
-      gsd-hook-patches.mjs               # review-gated патч строки в hooks/gsd-*.js + его тревога
-      gsd-statusline-registration.mjs    # safe-гард регистрации statusLine
       component-registry.mjs             # реестр обновляемых компонентов + правила решения
       component-update-check-run.mjs     # detached-воркер проверки обновлений компонентов
       config-update-check-run.mjs        # detached-воркер: проверка новой версии бандла на GitHub
@@ -483,7 +454,7 @@ Claude Code. Живёт в [`axazolai/ultrapowers`](https://github.com/axazolai/
       statusline-lib.mjs, phase-segment.mjs, context-severity.mjs, autocompact.mjs # сегменты строки статуса
       state-lock.mjs, atomic-json.mjs    # конкурентно-безопасная запись state-файлов
       jsonl-io.mjs                       # JSONL/JSON-хелперы для precompact-observe
-      tdd-mode.mjs                       # режим тестирования проекта (tdd | test-after), запись + синк GSD
+      tdd-mode.mjs                       # режим тестирования проекта (tdd | test-after), запись
       mark-initstack-done.mjs            # зовётся из /init-stack; ставит initStackRun в project-init.json
   bin/
     init-stack.mjs                       # детект стека + плагиновый чек-лист (движок /init-stack)
@@ -500,11 +471,8 @@ Claude Code. Живёт в [`axazolai/ultrapowers`](https://github.com/axazolai/
                                           #   assemble-claude-md, claude-cleanup-lib, …)
   agents/
     leanmode-executor.md                 # саб-агент для явного per-task lean-опта (см. ниже)
-    gsd-executor-decomposing.md          # GSD-исполнитель с декомпозицией задачи
-    gsd-task-verifier.md                 # проверяет поведение ОДНОЙ задачи в чистом контексте
   commands/
     init-stack.md                        # /init-stack — семь шагов настройки проекта (см. выше)
-    init-session.md                      # /init-session — применить отложенные патчи gsd-*.md агентов
     init-mcp.md                          # /init-mcp — подключение MCP-серверов проекта
     leanmode.md                          # /leanmode — интерактив/--флаг, ставит project-level dial
     ultrapowers-tdd.md                   # /ultrapowers-tdd enable|disable — режим тестирования проекта
@@ -513,18 +481,16 @@ Claude Code. Живёт в [`axazolai/ultrapowers`](https://github.com/axazolai/
     pnpm-phantom-fix.md                  # /pnpm-phantom-fix — фантомные зависимости pnpm
     up-update.md                         # /up-update — обновление форка ultrapowers
   skills/
-    using-git-worktrees/SKILL.md         # no-op заглушка worktree-скилла Ultrapowers
     verification-before-completion/SKILL.md # тень с условием по модели: no-op на Opus 5.5+, иначе реальная проверка
     update-changelog/SKILL.md            # /update-changelog — git-история → changelog.json (RU-записи)
     model-selection-policy/SKILL.md      # routing моделей + effort-лестница, вынесен из CLAUDE.md
     scratch-prune/SKILL.md               # /scratch-prune — раскладка, фазы, harness-сессии; три режима вызова
-    publish/SKILL.md                     # /publish — релиз через launch-keys dev|prod|fast|step (base/full, не lite)
+    publish/SKILL.md                     # /publish — релиз через launch-keys dev|prod|fast|step (base, не lite)
   skill-library/postgres/                # bundled-скилл для /init-stack install.bundled — копируется
                                           #   в проект (.claude/skills/), не грузится напрямую из ~/.claude
   rules-src/                             # источник правил стека — НЕ автозагружается Claude Code;
                                           #   компилируется в <проект>/.claude/stack-rules.md (см. ниже)
   setting-templates/                     # наборы плагинов по направлениям, применяет /init-stack
-  references/gsd-claude-orchestration-pilot.md # справочный материал (не ставится в base/lite)
   state/project-init.json                # создаётся в рантайме; список уже инициализированных проектов
                                           #   (+ initStackRun на project root — ставит /init-stack)
   state/model-pricing.json               # создаётся в рантайме; таблица цен (обновляется раз в сутки)
@@ -573,13 +539,10 @@ Claude Code. Живёт в [`axazolai/ultrapowers`](https://github.com/axazolai/
     событию — переезд хука из `SessionStart` в `PreToolUse` тоже подхватится) удаляются,
     актуальные добавляются — повторный запуск idempotent. Тем же мёржем регистрируется и
     верхнеуровневый ключ `statusLine` — **но не безусловно**: перезаписывается только пустое
-    значение или собственный дефолт gsd-core (`gsd-statusline.js`); значение, указывающее на
+    значение или команда, указывающая на `statusline.mjs` бандла; значение, указывающее на
     что-то ещё (твой кастомный statusline), оставляется как есть. Записываемая команда — одна и
-    та же для всех трёх профилей: `node "<путь>/statusline.mjs"` (в кавычках, только прямые
-    слэши — безопасно, даже если путь до `$HOME` содержит пробел). Своей бандл считает запись,
-    указывающую на `statusline.mjs` — а на машине, где ещё стоит удалённый в этой версии
-    `gsd-context-meter.mjs`, и его тоже, чтобы такая регистрация мигрировала, а не осталась
-    целиться в исчезнувший файл (см. «Что делает каждый хук и почему» ниже).
+    та же для обоих профилей: `node "<путь>/statusline.mjs"` (в кавычках, только прямые
+    слэши — безопасно, даже если путь до `$HOME` содержит пробел). Подробности — «Что делает каждый хук и почему» ниже.
   - курируемый `.md`/текст — слить автоматически нельзя, дифф выше и ЕСТЬ результат мёржа.
     Ничего не пишется — ни в сам файл, ни рядом (никаких `<имя>.new`): твой файл остаётся
     байт-в-байт как был, применяй вручную по диффу или перезапусти с `--replace-all`.
@@ -618,11 +581,10 @@ updated, M unchanged`, `rules-src: ...` и т.д.) — чтобы не прих�
 Репозиторий разделён на две зоны:
 
 - **`payload/`** — всё, что реально устанавливается в `~/.claude` (`hooks/`, `skills/`, `rules-src/`,
-  `commands/`, `setting-templates/`, `bin/`, `add-risk.mjs`,
-  `CLAUDE.md`). Установщик **зеркалит всё дерево `payload/`** в `~/.claude`, сохраняя структуру
+  `commands/`, `setting-templates/`, `bin/`, `CLAUDE.md`). Установщик **зеркалит всё дерево `payload/`** в `~/.claude`, сохраняя структуру
   относительно `payload/` (т.е. `payload/hooks/foo.mjs` → `~/.claude/hooks/foo.mjs`).
 - **Корень репозитория** — мета самого установщика, никогда не копируется: `setup.mjs`,
-  `bootstrap.sh`/`bootstrap.ps1`, `README.md`, `settings.partial.json`, `gsd-defaults.partial.json`,
+  `bootstrap.sh`/`bootstrap.ps1`, `README.md`, `settings.partial.json`,
   `RISK_REGISTER.snippet.md`, собственный реестр этого репозитория
   `.ultrapowers/RISK_REGISTER.md` (не путать с установленным `~/.claude/state/...`),
   `docs/` и `.ultrapowers/` (справочные материалы, дизайн-спеки/планы, история планирования —
@@ -635,41 +597,19 @@ updated, M unchanged`, `rules-src: ...` и т.д.) — чтобы не прих�
 
 Файл `settings.json` в корне архива (`~/.claude/settings.json`) не копируется как обычный файл —
 он управляется отдельным аддитивным мёржем на основе `settings.partial.json` (см. ниже). Скрытые
-файлы (`.git`, `.DS_Store` и т.п.) внутри `payload/` тоже никогда не копируются. Аналогично,
-`gsd-defaults.partial.json` не идёт через обычную diff/merge-логику — своя мирроринг+мёрж-логика,
-см. подраздел ниже.
+файлы (`.git`, `.DS_Store` и т.п.) внутри `payload/` тоже никогда не копируются.
 
-### `gsd-defaults.partial.json` → `~/.gsd/defaults.json`
+### Следы GSD удаляются при каждой установке
 
-Курируемый набор личных дефолтов GSD (`model_profile`, `models`/`model_overrides`,
-`workflow`-тумблеры и т.п.) синкается отдельно от `settings.json` и **не конфликт-чекается** —
-без диффа и диалога, потому что это твой собственный бандл, а не чужой конфиг с per-machine
-значениями: мёрж всегда additive и ничего не может молча затереть.
-
-- `setup.mjs` сначала копирует `gsd-defaults.partial.json` как есть в `~/.claude` (зеркальная
-  копия — нужна CLI ниже, у которого после установки нет доступа к корню репозитория), затем
-  зовёт `syncGsdGlobalDefaults()` (`hooks/lib/gsd-defaults-sync.mjs`): **глубокий аддитивный
-  мёрж** в `~/.gsd/defaults.json` (машинно-глобальный дефолт самого gsd-core) — твои
-  существующие значения остаются, недостающие добавляются. Тихо, best-effort: ошибка
-  чтения/записи не останавливает установку.
-- `.planning/config.json` конкретного проекта `setup.mjs` не трогает — он не привязан к
-  проекту. Для этого — отдельный CLI **`~/.claude/gsd-defaults-sync.mjs`** (устанавливается
-  туда же, запускается вручную:
-  `node ~/.claude/gsd-defaults-sync.mjs [homeDir] [projectDir]`). За один проход он: повторяет
-  тот же мёрж в `~/.gsd/defaults.json`; применяет **reference-wins мёрж** (`mergeReferenceWins`)
-  в `.planning/config.json` текущего проекта — значения из бандла перезаписывают одноимённые
-  ключи проекта, остальные ключи не трогаются (пропускается, если `.planning/` нет или
-  `config.json` не читается); и прогоняет тот же safe statusLine-гард, что и `setup.mjs` (см.
-  выше) через `ensureStatuslineOverride()` (`hooks/lib/gsd-statusline-registration.mjs`) — не
-  единая с инлайновым блоком `setup.mjs` реализация, а вторая, независимая (у CLI нет
-  интерактивного диффа, на который можно откатиться, поэтому решение о перезаписи должно быть
-  безусловно безопасным само по себе), обе намеренно решают одну и ту же трёхвариантную задачу.
-  Обе также по-прежнему узнают старую команду `gsd-context-meter.mjs` в уже записанном
-  `statusLine.command` — этот файл в текущей версии удалён, но узнавание оставлено намеренно:
-  так машина со старой регистрацией распознаётся как «наша» и мигрирует на `statusline.mjs`, а
-  не трактуется как чужой кастомный `statusLine`.
-  Удобно перезапускать точечно после правки `gsd-defaults.partial.json`, без полного
-  `setup.mjs`.
+Каждый запуск `node setup.mjs` автоматически и безвозвратно удаляет следы GSD с машины:
+`gsd-core` и все записи `gsd-*` в `~/.claude` (агенты, скиллы, хуки, библиотеки), файлы бандла,
+обслуживавшие GSD, регистрации GSD в `settings.json` (хуки, statusLine, permissions, env), ключи
+GSD в `state/project-init.json` и `~/.gsd/`. Вопросов нет, корзины нет. Единственная копия —
+`settings.json.pre-gsd-purge` рядом с `settings.json`, пишется до его правки.
+`node setup.mjs --dry-run` перечисляет всё, что запуск удалил бы, и ничего не меняет. Собственный
+файл `gsd-*` пользователя в `~/.claude` подпадает под шаблоны имён и тоже удаляется
+(`RISK-GSDPURGE-001`). Проекты не затрагиваются: `.planning/` и проектный
+`.claude/settings.json` остаются как есть.
 
 ### Флаги (без интерактива / для CI)
 
@@ -680,14 +620,7 @@ node setup.mjs --skip-all      # все конфликты -> пропустит
 node setup.mjs --dry-run       # показать, что было бы сделано, без записи
 node setup.mjs --md            # диффы как markdown ```diff
 node setup.mjs --doctor        # проверить пути зарегистрированных хуков
-node setup.mjs --uninstall-gsd # base/lite: убрать чужой gsd-core в .cleanup-trash (обратимо)
 ```
-
-`--uninstall-gsd` намеренно **не** следует из `--replace-all`/`--merge-all`: те флаги про файлы
-самого бандла, а gsd-core — отдельный продукт, поэтому согласие на его удаление всегда своё.
-Без терминала и без этого флага шаг только печатает отчёт. Ничего не удаляется — всё
-переезжает в датированную партию `.cleanup-trash` (откат 7 дней, команды печатаются на месте);
-`~/.gsd/` и `.planning/` в проектах не трогаются никогда.
 
 Если запуск **не в терминале** и без флага, действие по умолчанию для существующих не-скриптов —
 **merge**: `.json` объединяется по-настоящему, курируемый `.md`/текст остаётся как есть (ничего
@@ -698,7 +631,7 @@ node setup.mjs --uninstall-gsd # base/lite: убрать чужой gsd-core в 
 
 Сразу после сверки MCP `setup.mjs` также управляет двумя скалярными ключами в
 `~/.claude/settings.json` — `model` и `effortLevel` — по `sessionDefaults` из `variants.json`
-(сейчас `{ "model": "sonnet", "effortLevel": "medium" }`), на любом профиле — full/base/lite:
+(сейчас `{ "model": "sonnet", "effortLevel": "medium" }`), на любом профиле — base/lite:
 
 - Отсутствующий ключ дописывается, без вопроса.
 - Ключ, уже равный управляемому значению, не трогается — без вывода.
@@ -727,8 +660,8 @@ node setup.mjs --uninstall-gsd # base/lite: убрать чужой gsd-core в 
 Авторитетность «путешествует» с маркером. Любой `CLAUDE.md`, в котором ЕСТЬ строка
 `<!-- CURATED:NOEDIT -->` (не обязательно первая — до неё может идти заголовок, фронтматтер и
 т.п.; пробелы/табы вокруг строки и вокруг `<!--`/`-->` не важны), считается курируемым: защищён
-от правок агентом и является источником истины — хоть в руте, хоть в `.planning/`.
-Немаркированные файлы (например, сгенерированные GSD) правятся свободно. Никакой привязки к
+от правок агентом и является источником истины — где бы он ни лежал.
+Немаркированные (сгенерированные) файлы правятся свободно. Никакой привязки к
 конкретному пути нет — как и никакой привязки к позиции строки в файле. Просто отдельное
 упоминание маркера в прозе (например, эта фраза) не считается — матчится только сама строка
 целиком.
@@ -740,20 +673,13 @@ node setup.mjs --uninstall-gsd # base/lite: убрать чужой gsd-core в 
 Хук `session-init.mjs` срабатывает на старте КАЖДОЙ сессии (состояние — в
 `~/.claude/state/project-init.json`, но большинство шагов ниже НЕ одноразовые — см. почему). Он
 **детерминированно правит файлы** (не полагается на инъекцию контекста — она на свежих сессиях
-иногда теряется). В **lite**-варианте GSD-специфичные пункты ниже (риск-регистр, исключение
-`.planning/CLAUDE.md`, подсказка `/init-mcp`) пропускаются целиком — см. «Варианты бандла» выше:
+иногда теряется). В **lite**-варианте подсказка `/init-mcp` ниже пропускается
+(команда не ставится) — см. «Варианты бандла» выше:
 
-- **авто-маркирует** немаркированный рут-`CLAUDE.md` как курируемый — если он не похож на
-  сгенерированный GSD. **Перепроверяется каждую сессию, идемпотентно** (раньше было одноразово на
+- **авто-маркирует** немаркированный рут-`CLAUDE.md` как курируемый. **Перепроверяется каждую сессию, идемпотентно** (раньше было одноразово на
   первую сессию проекта — оказалось багом: если рут-`CLAUDE.md` на первой сессии ещё не
   существовал, а появлялся позже от стороннего инструмента, — он навсегда оставался
   немаркированным, т.к. одноразовый флаг уже был потрачен). Тумблер: `CLAUDE_CURATED_AUTOMARK_ROOT=0`.
-- **добавляет per-project `claudeMdExcludes`** для немаркированного (GSD-овского)
-  `.planning/CLAUDE.md` в `.claude/settings.json` этого проекта (глобально такое исключение не
-  ставится: union-исключение нельзя отменить на уровне проекта, и оно бы прятало твой курируемый
-  `.planning/CLAUDE.md`). **Перепроверяется каждую сессию**, той же причине, что и пункт выше.
-- **дописывает GSD-риск** в существующий `RISK_REGISTER.md` (через `add-risk.mjs`: понимает формат
-  таблицы или секций, берёт следующий свободный ID, идемпотентно).
 - **предлагает `/init-mcp`** (только подсказка — ничего не запускает): если у репозитория
   GitHub/GitLab-remote или есть признаки работы с БД (`postgres`/`DATABASE_URL`/`prisma`/`typeorm`/
   `psycopg`/`sqlalchemy` в конфигах), а соответствующий MCP ещё не подключён — дописывает в
@@ -850,8 +776,7 @@ CLAUDE_STACK_RULES=0             # не проверять наличие сна
 - **Сквозные (cross-cutting, подмешиваются по признакам проекта):** `testing`, `security`,
   `api-contracts`, `ci`, `docker`, `sql`, `shell`, `mobile`, `monorepo`, `design-fidelity`
   (для UI-стеков — реализация 1:1 по выданному макету/референсу), `context7` (когда
-  подключён одноимённый MCP-сервер), а для GSD-проектов (`.planning/`) — ещё `gsd` (роутинг
-  методологии + правила карантина `CLAUDE.md`).
+  подключён одноимённый MCP-сервер).
 - **Блок «Detected commands»** в конце снапшота — команды теста и сборки, выведенные из тех же
   маркеров: `bin/detect-stack-commands.mjs` печатает готовый markdown, компилятор его
   вставляет. Стек без уверенного дефолта честно печатает, что команду надо задать вручную, —
@@ -902,12 +827,7 @@ README (источник истины — сами `rules-src/*.md` и их `REA
   AWS-ключи, приватные ключи, токены Slack/GitHub, креды в строках подключения, явные присваивания
   секретов (env-ссылки отфильтровываются, чтобы меньше ложных). Если установлен `gitleaks` — он
   используется дополнительно. Базовый regex работает всегда, без зависимостей.
-- **db-live-access-gate.mjs** (PreToolUse: `Bash|^mcp__.*`). Живые подключённые БД — read-only
-  по умолчанию: любой запрос за пределами SELECT/WITH/SHOW/DESCRIBE/EXPLAIN блокируется (exit 2);
-  распознанный read-only запрос всё равно требует ручного подтверждения через "ask", даже в
-  bypass-permissions сессии. Живёт под `PreToolUse` вместе с остальными гейтами — не под
-  `SessionStart`, то событие не привязано к вызову инструмента и не сработало бы ни разу.
-- **worktree-executor-discipline-advisor.mjs** (PreToolUse: `Bash|Read`). Чисто **advisory** —
+- **worktree-executor-discipline-advisor.mjs** (PreToolUse: `Bash|Read`; base, в lite не ставится). Чисто **advisory** —
   никогда не блокирует и не спрашивает, любой путь резолвится в `allow`. Два независимых дешёвых
   stdin-чека в одном файле (оба — одноразовый проход, делить нечего): **(1) дисциплина
   параллельных worktree** (только `Bash`, срабатывает лишь когда cwd похож на агентский worktree
@@ -915,23 +835,11 @@ README (источник истины — сами `rules-src/*.md` и их `REA
   на Windows ещё и EPERM при конкурентных установках даже с общим стором), запуск тест-раннера
   без видимого флага скоупинга (полный прогон × число worktree — наблюдались десятки минут на
   воркер) и голый `git status` (висит минутами на большом `node_modules` даже при корректном
-  `.gitignore` — вместо него `git diff --stat HEAD`); подпирает харнесс-нуджем то, что
-  `gsd-executor.md` держит только прозой (см. патчи ниже). **(2) backstop для больших `Read`**
+  `.gitignore` — вместо него `git diff --stat HEAD`). **(2) backstop для больших `Read`**
   (любой сессии, без worktree-гейта) — собственный one-shot-нудж context-mode срабатывает
   максимум раз за сессию и потом молчит; этот backstop повторяется на каждом большом Read,
   покрывая то, что одноразовый пропустил. Эвристика, не гарантия: ложные пропуски ожидаемы и
   нормальны (нудж, не гейт), любой сбой парсинга → тихий passthrough.
-- **gsd-config-patch.mjs** (PostToolUse: `Write|Edit|MultiEdit|Bash`). Когда у проекта есть
-  `.planning/config.json`, разово применяет мои личные дефолты: **tier 1** — перезаписывает
-  ТОЛЬКО `model_profile`/`models`/`model_overrides`; **tier 2** — `DEFAULT_WORKFLOW_CONFIG`
-  (вложенные ключи мёржатся по одному, соседние остаются). Каждый tier после первого применения —
-  вечный no-op для проекта (позже ручные правки побеждают; стейт-ключи в общем с `session-init.mjs`
-  `~/.claude/state/project-init.json`). Слушает все четыре тула, а не `SessionStart`, потому что
-  gsd-core может создать конфиг уже посреди сессии (через Write/Edit Claude или шелл-скриптом) —
-  хук проверяет состояние ФС постфактум; на несвязанных вызовах — дешёвый no-op. Полный
-  по-ключевой лог решений (что патчим и что намеренно НЕ патчим) — `docs/gsd-config-defaults.md`.
-  Тумблеры: `CLAUDE_GSD_CONFIG_AUTOPATCH=0` (оба tier), `CLAUDE_GSD_CONFIG_AUTOPATCH_WORKFLOW=0`
-  (только tier 2).
 - **session-init.mjs** (SessionStart). Бутстрап проекта (см. выше — большинство шагов теперь
   каждую сессию, идемпотентно).
   Ещё один каждосессионный идемпотентный шаг: в git-репозитории дописывает `.scratchpad/` в
@@ -944,8 +852,8 @@ README (источник истины — сами `rules-src/*.md` и их `REA
   проекта не `off`, каждую сессию напоминает мне (ассистенту) конвенцию — перед каждым
   запуском саб-агента через `Agent` резолвить эффективный уровень
   (`resolveEffectiveLevel(subagentType, root)`) и анонсировать его одной строкой прямо перед
-  вызовом тулза: встроить `(leanmode=<level>)` в уже пишущийся нарратив (GSD wave-строка,
-  Ultrapowers `Subagent (type): "task"`), а не отдельной строкой; отдельный шаблон
+  вызовом тулза: встроить `(leanmode=<level>)` в уже пишущийся нарратив (Ultrapowers
+  `Subagent (type): "task"`), а не отдельной строкой; отдельный шаблон
   `Запускаю суб-агента <type> (<model>) в режиме (leanmode=<level>)` — только если никакого
   другого нарратива для этого запуска нет. Почему прозой, а не хуком: баннер запуска
   (`agent_type(description) Model`) рисуется харнессом до отработки хуков, а `systemMessage`
@@ -966,7 +874,7 @@ README (источник истины — сами `rules-src/*.md` и их `REA
     YAGNI-текст ("пиши минимум кода") — но не всем поровну: карта `DEFAULT_LEANMODE_MAP` даёт
     `off/lite/full` каждому известному `agent_type` по отдельности (11 из ~40 не-`off`; всё
     остальное — намеренно `off`, ничего не пишущие код агенты вроде
-    `gsd-planner`/`gsd-security-auditor` эту инъекцию не получают вообще). Поверх — per-project
+    планировщиков и аудиторов эту инъекцию не получают вообще). Поверх — per-project
     оверрайды (`.claude/leanmode.json`) и общепроектный dial (`off/lite/full/ultra`,
     `/leanmode`-командой), который **сдвигает**, а не заменяет карту — `off` при сдвиге не
     трогается ни в одну сторону (design rationale и полная карта:
@@ -1007,7 +915,7 @@ README (источник истины — сами `rules-src/*.md` и их `REA
   их watchdog по wall-clock убил бы зря), инжектит неблокирующее напоминание обернуть её в
   `bin/supervise-bg.mjs` (`--stale`/`--timeout`/`--label`) — тогда застой/таймаут убьёт задачу и
   вернёт событие завершения. Fail-open: любая ошибка → exit 0.
-- **ci-watch-nudge.mjs** (PostToolUse: `Bash`). После `git push` в репо с GitHub Actions
+- **ci-watch-nudge.mjs** (PostToolUse: `Bash`; base, в lite не ставится). После `git push` в репо с GitHub Actions
   (`.github/workflows` вверх по дереву) напоминает досмотреть CI до конца фоновым
   `gh run watch <id> --exit-status` — он ВЫХОДИТ, когда CI финиширует (pass/fail), и тем самым
   переподнимает меня: «прошёл ли CI?» становится гарантированным push-событием, а не тем, что
@@ -1031,12 +939,10 @@ probe только пишет по строке на каждое срабаты
 управляет твоим Claude Code" — здесь же для находимости:
 
 - **statusline.mjs** (`statusLine.command`, регистрация — см. «Как работает установщик» выше;
-  **все три профиля** — `full`, `base`, `lite`, единый рендерер вместо прежнего выбора между
-  обёрткой над `gsd-statusline.js` gsd-core и собственным рендерером base/lite; удалённый
-  `gsd-context-meter.mjs` был этой обёрткой). Строка рисуется сама, без единого сабпроцесса —
-  шесть сегментов слева направо, разделённых тусклым `│`:
+  **оба профиля** — `base`, `lite`, единый рендерер). Строка рисуется сама, без единого
+  сабпроцесса — пять сегментов слева направо, разделённых тусклым `│`:
   1. **ожидающие обновления компонентов**, по **имени** (`⬆ context-mode impeccable`), крайние
-     слева — не счётчик и не справа, как было у удалённой обёртки;
+     слева — не счётчик;
   2. **модель** — `data.model.display_name` из payload statusLine;
   3. **контекст** — токены и процент, например `165.6K/1M 17%`, раскрашенные и помеченные по
      двум разным шкалам: **цвет** — по проценту окна модели (00–15 серый / 16–30 зелёный /
@@ -1050,13 +956,11 @@ probe только пишет по строке на каждое срабаты
      `precompact-observe.mjs` для текущей модели (`~/.claude/state/autocompact.json`) → сама
      вместимость. Дефолт — не угаданный резерв;
   4. **проект** — только имя папки, без ветки git;
-  5. **статус работы GSD** — только когда gsd-core установлен **и** активен в этом проекте
-     (`<claudeDir>/gsd-core/VERSION` существует **и** `<root>/.planning/config.json` существует);
-  6. **статус работы ultrapowers** — на всех профилях, кроме `lite`. Профиль читается из
+  5. **статус работы ultrapowers** — на всех профилях, кроме `lite`. Профиль читается из
      `~/.claude/state/bundle-manifest.json`; отсутствующий или нечитаемый манифест фейлит
      **открыто** (сегмент показывается) — гасит его только `lite`.
 
-  Сегмент 6 выбирает фазу детерминированно: фронтматтер `current` из `.ultrapowers/ROADMAP.md`,
+  Сегмент 5 выбирает фазу детерминированно: фронтматтер `current` из `.ultrapowers/ROADMAP.md`,
   иначе — единственная фаза со `status: running`. Ноль или несколько совпадений означают, что
   дерево не знает, какая фаза в работе, и сегмент показывает талли, а не догадку.
 
@@ -1090,40 +994,9 @@ probe только пишет по строке на каждое срабаты
 
 ---
 
-## Кросс-инструментные патчи gsd-core (агенты, воркфлоу, tool-grant)
+## Проверка новой версии бандла
 
-Файлы `~/.claude/agents/gsd-*.md` и `~/.claude/gsd-core/workflows/execute-phase.md` принадлежат
-**отдельному инструменту `gsd-core`** (`npx @opengsd/gsd-core@latest`), не этому бандлу. Набор всё же дообслуживает
-их — best-effort, идемпотентно, версионированными маркерами
-`<!-- gsd-patch:ID vN -->…<!-- /gsd-patch:ID -->` (сравнение по СОДЕРЖИМОМУ, не по наличию: при
-bump версии патча устаревший текст заменяется свежим, а не пропускается). Три механизма с разной
-политикой записи, осознанно:
-
-- **Тихая самолечащаяся синхронизация tool-grant** — `hooks/lib/context-mode-gsd-agents.mjs`.
-  Дописывает MCP-тул context-mode во фронтматтер `tools:` агентов `gsd-*.md`, но ТОЛЬКО если
-  плагин context-mode реально установлен и включён (иначе агент ссылался бы на несуществующий
-  MCP-сервер). Это одна строка фронтматтера, поэтому безопасно гонять КАЖДУЮ сессию — в т.ч.
-  после того, как апдейтер самого gsd-core перезапишет агента и снова уронит тул. Зовётся из
-  `session-init.mjs` и из CLI-обёртки `sync-gsd-context-mode-tool.mjs` (её дёргают `setup.mjs` и
-  `init-stack.mjs`).
-- **Review-gated контент-патчи** — `hooks/lib/gsd-agent-patches.mjs` (30+ агентов: роутинг на
-  context-mode-тулы, хардненинг `gsd-executor.md`/`gsd-debugger.md`, guardrail против рекурсивного
-  спавна — включая bounded-Agent guardrail для `gsd-debug-session-manager.md`, единственного
-  агента, которому `Agent` оставлен (для спавна `gsd-debugger`), поэтому вместо запрета там
-  правдиво описан depth-2 предел) и `hooks/lib/gsd-hook-patches.mjs` (одна строка в
-  `hooks/gsd-agent-isolation-guard.js`: гард gsd-core знает только своего исполнителя, а бандл везёт
-  второго). Выбор `gsd-executor` vs `gsd-executor-decomposing` — больше не наш патч: это штатный
-  per-plan `agent_hint` самого gsd-core. В отличие от tool-grant это
-  **НЕ пишется молча**: патчи инжектят прозу через десятки файлов, поэтому человек сначала смотрит,
-  что применится. `session-init.mjs` каждую сессию проверяет их **read-only** (`checkGsd…Patches`) и,
-  если что-то ждёт, печатает подсказку. Применяет — только явный вызов человека: команда
-  **`/init-session`** (`apply-gsd-agent-patches.mjs`, применяет ОБА набора — agent + workflow —
-  разом). После апдейта gsd-core патчи ожидаемо «отваливаются» (их
-  файлы перезаписаны родным апдейтером) — `session-init` это замечает и снова предлагает
-  `/init-session`. Патчи содержательно привязаны к формату конкретной версии gsd-core: маркеры
-  проверены против установленной **1.8.0** (при рефромате блока в будущем релизе патч деградирует
-  в «no anchor found» — пропуск, не порча файла).
-- **Проверка новой версии бандла** — `hooks/lib/config-update-check-run.mjs`. Detached-воркер,
+`hooks/lib/config-update-check-run.mjs`. Detached-воркер,
   которого `session-init.mjs` спавнит и сразу unref'ит (сессию не блокирует). Сверяет SHA из
   `~/.claude/state/bundle-manifest.json` (что поставил `setup.mjs` в последний раз) с текущим
   master на GitHub (публичный API, без auth, ничего не отправляется) и сообщает ТОЛЬКО хорошую
@@ -1206,8 +1079,7 @@ docs.claude.com, но это **preview-фича, ещё «rolling out progressiv
 
 - `/hooks` — в списке должны быть две записи PreToolUse и одна SessionStart.
 - Попроси Claude отредактировать твой помеченный `CLAUDE.md` → должно быть отказано.
-- В репозитории с немаркированным `.planning/CLAUDE.md` и `RISK_REGISTER.md` на первой сессии
-  добавятся per-project exclude и строка риска. (только full-вариант, см. «Варианты бандла»)
+- В репозитории с немаркированным рут-`CLAUDE.md` на первой сессии добавится маркер курируемого файла.
 - Застейдь файл с явно захардкоженным ключом (строка вида `api_key = "<16 hex-символов>"`)
   и попроси Claude `git commit` → отказ; чистое изменение проходит.
  
@@ -1288,15 +1160,15 @@ node setup.mjs
 
 ---
 
-## Кириллическая консоль: ошибка из-за символа (галочка/тире) и где лежит RISK_REGISTER
+## Кириллическая консоль: ошибка из-за символа (галочка/тире)
 
 **Симптом:** при запуске (например, `/init-stack`) падение из-за не-ASCII символа (`v`-галочка `✓`,
 длинное тире и т.п.) в терминале с OEM-кодировкой под кириллицу (cp866) или cp1251.
 
 **Причина:** консоль в этой кодировке не может закодировать такой символ при выводе — запись в stdout
-бросает ошибку, и шаг прерывается (поэтому, в числе прочего, `RISK_REGISTER.md` мог не обновиться).
+бросает ошибку, и шаг прерывается.
 
-**Что уже сделано здесь:** все скрипты пакета (`setup.mjs`, хуки, `add-risk.mjs`) выводят
+**Что уже сделано здесь:** все скрипты пакета (`setup.mjs`, хуки) выводят
 **только ASCII** — они в этот класс ошибок не попадают.
 
 **Если падает твой собственный скрипт/команда** (например, `/init-stack` печатает `✓`):
@@ -1305,37 +1177,3 @@ node setup.mjs
   - PowerShell: `chcp 65001` или `[Console]::OutputEncoding=[Text.Encoding]::UTF8`;
   - Python-инструменты: переменная `PYTHONIOENCODING=utf-8`;
   - Node выводит UTF-8 сам — достаточно ASCII-вывода или UTF-8-консоли.
-
-**Где ищется RISK_REGISTER.md:** в корне проекта, в `.ultrapowers/`, в корне `.planning/` и в его
-подпапках (например `.planning/codebase/`). Правила выбора:
-- если найдено несколько — берётся тот, что **выше по вложенности** (ближе к корню);
-- если на этом минимальном уровне их несколько — обновляется **каждый**, у каждого свой следующий ID.
-
-`add-risk.mjs`:
-- путь к **файлу** — обновить именно его; путь к **папке** — `<папка>/RISK_REGISTER.md`;
-- **без аргумента** — найти и обновить реестр(ы) по правилам выше (база поиска — текущая папка,
-  можно задать `--root <dir>`); `--no-create` — ничего не создавать, если ни одного нет.
-
-Авто-инициализация (`session-init.mjs`) использует ту же логику (с `--no-create`, т.е. только
-существующие файлы). Шаг риск-реестра выполняется **каждую сессию** и идемпотентен — если реестр
-появился или переместился уже после первой инициализации проекта, запись добавится на следующем
-старте сама. (Авто-маркировка root `CLAUDE.md` и per-project exclude — тоже каждую сессию и
-идемпотентны, причина та же — см. «Авто-инициализация проектов» выше.)
-
-Точечно обновить конкретный реестр:
-
-```
-node ~/.claude/add-risk.mjs .planning/codebase/RISK_REGISTER.md
-```
-
-Найти и обновить по правилам (из корня проекта):
-
-```
-node ~/.claude/add-risk.mjs
-```
-
-Риск-реестр обновляется на каждом старте сам — удалять состояние для этого НЕ нужно.
-Авто-маркировка root `CLAUDE.md` и per-project exclude тоже ничего не помнят в состоянии —
-это чистая проверка текущего содержимого файла на каждой сессии, поэтому удалять состояние
-для них тоже не нужно. Запись в `~/.claude/state/project-init.json` нужна только для истинно
-однократных шагов (model_profile-патч) — удали её, если нужно прогнать именно их заново.

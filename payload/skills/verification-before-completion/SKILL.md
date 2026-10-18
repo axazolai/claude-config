@@ -18,8 +18,7 @@ check the result against the spec/plan's stated acceptance criteria — name eac
 its evidence — instead of a generic "double-check".
 
 What this does **not** touch — these keep running unchanged:
-- Structural verification owned by a *separate* agent: `/gsd-verify-work`, `gsd-verifier`,
-  `gsd-plan-checker`, `gsd-nyquist-auditor`, `gsd-security-auditor`.
+- Structural verification owned by a *separate* agent (plan checkers, verifiers, auditors).
 - CI gates and test suites.
 - Honest reporting of outcomes (run the command, report the real result) — that comes from the
   harness system prompt, not from a self-verification step.

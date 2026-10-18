@@ -137,13 +137,6 @@ Selection section inside ultrapowers skills.
 Prefer tier **aliases** (`opus`/`sonnet`/`haiku`/`fable`) over full model IDs in
 `model_overrides` — they don't go stale.
 
-## GSD's own per-role map lives elsewhere, not in this skill
-Concrete per-role assignments are not duplicated here. Model overrides live in
-`gsd-defaults.partial.json` (re-applied per project by `gsd-config-patch.mjs`); the per-role
-`effort:` re-tune for GSD-owned agents/skills is carried by the review-gated patch mechanism
-(`gsd-agent-patches.mjs` and its skill-patch sibling), because `/gsd-update` overwrites those
-files and they have no other durable home.
-
 ## Advisor tool (Claude Code, session-level — separate axis from executor model choice)
 Claude Code's advisor tool pairs the session's executor model with a stronger model consulted
 mid-generation for strategy/course-correction. This is a HOST-RUNTIME setting
@@ -156,7 +149,7 @@ default, stepped up where it fits) still governs cost for mechanical turns; the 
 stronger reviewer inline on top, on every turn, for the whole session.
 
 **Worth enabling:** long, multi-step agent loops where the plan matters but most turns are
-mechanical (e.g. `/gsd-execute-phase`, `/gsd-debug`) — prompt-caching for the advisor call
+mechanical (e.g. long plan executions and debugging sessions) — prompt-caching for the advisor call
 pays off at roughly 3+ advisor invocations, which these long loops make.
 **Skip it:** short, one-shot agents (mappers, quick audits, single-file checks) — little to
 plan, added cost without a commensurate quality gain.

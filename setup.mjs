@@ -881,7 +881,7 @@ async function main() {
     for (const f of RETIRED_HOOK_FILES) ourFiles.add(f);
     const mentionsOurs = (e) => (e.hooks || []).some(h => (h.args || []).some(a => ourFiles.has(String(a).split(/[\\/]/).pop())));
 
-    // Re-add side is variant-filtered: a lite install must not re-add gsd-only hook entries even
+    // Re-add side is variant-filtered: a lite install must not re-add base-only hook entries even
     // though they're still present in the FULL partial used above to strip stale entries.
     const variantBasenames = new Set(V.rels.map((r) => r.split("/").pop()));
     const partialHooksForVariant = filterPartialHooks(partial.hooks, variantBasenames);
