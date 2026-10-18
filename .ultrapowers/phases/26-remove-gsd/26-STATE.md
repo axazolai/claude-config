@@ -2,7 +2,7 @@
 phase: 26
 slug: remove-gsd
 status: running
-tasks_done: 1
+tasks_done: 5
 tasks_total: 5
 branch: phase-26-remove-gsd
 integration: branch
