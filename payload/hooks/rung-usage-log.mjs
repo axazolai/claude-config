@@ -8,6 +8,7 @@ import { pathToFileURL } from "node:url";
 import { safe, readJSONLRecords } from "./lib/jsonl-io.mjs";
 
 const EFFORT = /^rung-(?:sonnet|opus)-(medium|high)$/;
+const FIXED_EFFORT = { "rung-haiku": "medium" };
 
 export function buildRecord(d, entries, now = new Date()) {
   const usage = entries.filter((e) => e && e.type === "assistant" && e.message && e.message.usage);
@@ -28,7 +29,8 @@ export function buildRecord(d, entries, now = new Date()) {
   }
   const agent = typeof d.agent_type === "string" ? d.agent_type : null;
   const m = agent && EFFORT.exec(agent);
-  return { date: now.toISOString(), session_id: d.session_id ?? null, agent, model, effort: m ? m[1] : null, ...t };
+  const effort = m ? m[1] : (Object.hasOwn(FIXED_EFFORT, agent) ? FIXED_EFFORT[agent] : null);
+  return { date: now.toISOString(), session_id: d.session_id ?? null, agent, model, effort, ...t };
 }
 
 function main() {

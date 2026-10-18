@@ -39,6 +39,16 @@ test("@important current and later sonnet 5.x ids are not flagged by the claude-
   }
 });
 
+test("@important superseded haiku ids migrate to claude-haiku-5-5, the current one stays", () => {
+  for (const id of ["claude-haiku-4-5", "claude-haiku-4-5-20251001", "claude-3-5-haiku-20241022", "claude-3-haiku-20240307"]) {
+    const r = migrateSettingsModel(id);
+    assert.equal(r.changed, true, `${id} should be flagged`);
+    assert.equal(r.value, "claude-haiku-5-5");
+    assert.equal(r.from, id);
+  }
+  assert.equal(migrateSettingsModel("claude-haiku-5-5").changed, false);
+});
+
 test("@important aliases are left untouched (opus[1m] is the deliberate exception)", () => {
   for (const id of ["opus", "sonnet", "haiku", "fable", "sonnet[1m]"]) {
     const r = migrateSettingsModel(id);

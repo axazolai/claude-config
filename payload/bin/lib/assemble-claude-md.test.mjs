@@ -57,7 +57,7 @@ test("@important real fragments: model selection — Sonnet 5.5 default, medium 
   const full = assembleClaudeMd(REAL, "full"), base = assembleClaudeMd(REAL, "base"), lite = assembleClaudeMd(REAL, "lite");
   for (const o of [full, base]) {
     assert.match(o, /DEFAULT executor: claude-sonnet-5-5/);
-    assert.match(o, /Start `medium`/);
+    assert.match(o, /Every track starts on `medium`/);
     assert.ok(o.includes("/effort high"), "full/base fragment lacks the brainstorming effort rule");
     assert.doesNotMatch(o, /Start `high`/);
     assert.match(o, /role map in the `model-selection-policy` skill/);
@@ -66,7 +66,7 @@ test("@important real fragments: model selection — Sonnet 5.5 default, medium 
   assert.ok(lite.includes(liteHeading));
   const liteSection = lite.slice(lite.indexOf(liteHeading));
   assert.match(liteSection, /DEFAULT executor: claude-sonnet-5-5/);
-  assert.match(liteSection, /Start `medium`/);
+  assert.match(liteSection, /Every track starts on `medium`/);
   assert.ok(liteSection.includes("/effort high"), "lite fragment lacks the brainstorming effort rule");
   assert.match(liteSection, /rung-opus-high/);
   assert.doesNotMatch(liteSection, /role map/);

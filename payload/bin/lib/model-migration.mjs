@@ -7,7 +7,7 @@
 
 // ---- session model (settings.json "model") ----
 // Tier-preserving: an old opus id -> claude-opus-5-5, an old sonnet id -> claude-sonnet-5-5, an old
-// haiku id -> claude-haiku-4-5. Explicit per-family prefixes (not a "not in current allowlist"
+// haiku id -> claude-haiku-5-5. Explicit per-family prefixes (not a "not in current allowlist"
 // heuristic) so a future claude-opus-6 is never mis-flagged and no migration crosses tiers.
 // `exact` ids match with any `[...]` suffix stripped: claude-opus-5 and claude-sonnet-5 are prefixes
 // of claude-opus-5-5 / claude-sonnet-5-5 and of any later -5-N, so they cannot be prefix entries.
@@ -17,7 +17,7 @@
 const SUPERSEDED_MODEL_FAMILIES = [
   { target: "claude-opus-5-5", prefixes: ["claude-opus-4", "claude-3-opus", "opus[1m]"], exact: ["claude-opus-5"] },
   { target: "claude-sonnet-5-5", prefixes: ["claude-sonnet-4", "claude-3-5-sonnet", "claude-3-7-sonnet"], exact: ["claude-sonnet-5"] },
-  { target: "claude-haiku-4-5", prefixes: ["claude-3-5-haiku", "claude-3-haiku"] },
+  { target: "claude-haiku-5-5", prefixes: ["claude-haiku-4", "claude-3-5-haiku", "claude-3-haiku"] },
 ];
 
 export function migrateSettingsModel(model) {

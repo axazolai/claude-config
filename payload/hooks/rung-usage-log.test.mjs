@@ -32,8 +32,9 @@ test("@important a rung agent's usage is summed, the model loses its date suffix
 });
 
 test("@important agents that are not effort-bearing rungs log effort null", () => {
-  for (const agent of ["general-purpose", "rung-haiku", "rung-sonnet-max"]) assert.equal(buildRecord({ agent_type: agent }, ENTRIES, NOW).effort, null, agent);
+  for (const agent of ["general-purpose", "rung-sonnet-max", "constructor"]) assert.equal(buildRecord({ agent_type: agent }, ENTRIES, NOW).effort, null, agent);
   assert.equal(buildRecord({ agent_type: "rung-opus-medium" }, ENTRIES, NOW).effort, "medium");
+  assert.equal(buildRecord({ agent_type: "rung-haiku" }, ENTRIES, NOW).effort, "medium");
 });
 
 test("@important a transcript with no usage-bearing assistant entry yields no record", () => {
