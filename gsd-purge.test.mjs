@@ -50,17 +50,25 @@ test("@critical GSD hooks, statusLine, permissions and env are removed and the r
         { command: "node", args: ["C:/Users/x/.claude/hooks/my-hook.mjs"] },
       ] }],
       PostToolUse: [{ hooks: [{ command: "node", args: ["C:\\Users\\x\\.claude\\hooks\\db-live-access-gate.mjs"] }] }],
-      Notification: [{ hooks: [{ command: "node", args: ["~/.claude/hooks/secrets-gate.mjs"] }] }],
+      Notification: [
+        { hooks: [{ command: "node", args: ["~/.claude/hooks/secrets-gate.mjs"] }] },
+        { hooks: [{ command: "node", args: ["D:\\proj\\gsd-notes\\run.js"] }] },
+        { hooks: [{ command: "node", args: ["/w/add-risk.mjs"] }] },
+      ],
       SessionStart: [{ hooks: [{ command: "node", args: ["C:\\Users\\x\\.claude\\add-risk.mjs"] }] }],
+      UserPromptSubmit: [{ hooks: [{ command:
+        '"C:/Program Files/nodejs/node.exe" "C:/Users/x/.claude/hooks/gsd-check-update.js"' }] }],
+      PreCompact: [{ hooks: [{ command: "node", args: ["/cfg/claude-home/hooks/lib/context-mode-gsd-agents.mjs"] }] }],
     },
     statusLine: { type: "command", command: "node C:\\Users\\x\\.claude\\hooks\\gsd-statusline.js" },
     permissions: { allow: ["Bash(npm test)", "Read(C:/Users/x/.claude/gsd-core/**)",
       "Bash(node C:/Users/x/.claude/add-risk.mjs:*)", "Read(~/.claude/gsd-user-files-backup/**)",
-      "Read(C:/Users/x/.claude/hooks/my-gsd-helper.mjs)"], deny: ["Bash(rm:*)"] },
+      "Read(C:/Users/x/.claude/hooks/my-gsd-helper.mjs)", "Bash(npx gsd-core *)",
+      "Read(~/code/gsd-tool/**)"], deny: ["Bash(rm:*)"] },
     env: { GSD_HOME: "C:\\Users\\x\\.gsd", EDITOR: "vim" },
   };
   const snapshot = JSON.parse(JSON.stringify(settings));
-  const { settings: next, removed } = stripGsdSettings(settings);
+  const { settings: next, removed } = stripGsdSettings(settings, "/cfg/claude-home");
   assert.deepEqual(settings, snapshot, "input was mutated");
   assert.equal(next.hooks.Stop, undefined);
   assert.equal(next.hooks.PostToolUse, undefined);
@@ -69,12 +77,15 @@ test("@critical GSD hooks, statusLine, permissions and env are removed and the r
   ] }]);
   assert.deepEqual(next.hooks.Notification, settings.hooks.Notification);
   assert.equal(next.hooks.SessionStart, undefined);
+  assert.equal(next.hooks.UserPromptSubmit, undefined);
+  assert.equal(next.hooks.PreCompact, undefined);
   assert.equal(next.statusLine, undefined);
-  assert.deepEqual(next.permissions, { allow: ["Bash(npm test)", "Read(C:/Users/x/.claude/hooks/my-gsd-helper.mjs)"],
-    deny: ["Bash(rm:*)"] });
+  assert.deepEqual(next.permissions, { allow: ["Bash(npm test)", "Read(C:/Users/x/.claude/hooks/my-gsd-helper.mjs)",
+    "Read(~/code/gsd-tool/**)"], deny: ["Bash(rm:*)"] });
   assert.deepEqual(next.env, { EDITOR: "vim" });
   assert.deepEqual(removed, ["Stop: 1 hook(s)", "PreToolUse: 1 hook(s)", "PostToolUse: 1 hook(s)",
-    "SessionStart: 1 hook(s)", "statusLine", "permissions.allow: 3", "env.GSD_HOME"]);
+    "SessionStart: 1 hook(s)", "UserPromptSubmit: 1 hook(s)", "PreCompact: 1 hook(s)", "statusLine",
+    "permissions.allow: 4", "env.GSD_HOME"]);
 });
 
 test("@important references is listed only when the pilot doc is its sole file", () => {
