@@ -8,7 +8,12 @@ status is — this file answers what is owed, what was ruled, and what must not 
 
 ## Summary
 
-Nothing is running, and the phase queue is empty — phases 10, 11 and 12 were all specified,
+As of 2026-10-18: a three-part task (A → C → B) is in flight on `master`, outside the phase
+tree. A (model routing for Haiku 5.5) and C (save points) are done in `payload/` with the full
+suite green (656/656), and are **uncommitted and undeployed**. B (remove GSD and the `full`
+profile) is next and has not been brainstormed yet.
+
+Earlier summary, 2026-07-31: Nothing is running, and the phase queue is empty — phases 10, 11 and 12 were all specified,
 implemented and merged on 2026-07-31. `master` carries them but has **not** been pushed since
 phase 10; the fork stands at `6.2.0-up.5`. Two things are owed that are only
 keystrokes — the deploy from `master`, and `/plugin update` plus a restart — and until both
@@ -20,6 +25,16 @@ migration shipped as phase 10's first task.
 
 ## Open
 
+- **B: remove GSD and the `full` profile.** Architectural: brainstorm → `NN-SPEC.md` → plan. About
+  68 tracked files mention GSD. Open questions: the fate of the full-only files that are not GSD
+  (`commands/init-session.md`, `skills/using-git-worktrees`, `references/**`,
+  `hooks/db-live-access-gate.mjs`, `hooks/ci-watch-nudge*`,
+  `hooks/worktree-executor-discipline-advisor.mjs`); what `setup.mjs` cleans on install (GSD
+  agents, hooks, skills, settings registrations, `gsd-core`, statusline segments, per-project
+  `.planning/config.json` patches); and the GSD sections in `model-selection-policy` and
+  `model-migration.mjs`.
+- **Commit and deploy A and C.** Uncommitted on `master`: the Haiku 5.5 update, routing A and the
+  `17-save-points.md` fragment. Then `node setup.mjs` (answer `r` on `CLAUDE.md`) and a restart.
 - **Restart Claude Code after the 2026-09-20 deploy.** Phase 16's `/scratch-prune` skill and the
   two-tier scratchpad rule of 2026-09-19 are on disk; skills and `CLAUDE.md` load at startup.
 - **Restart Claude Code.** The deploy ran on 2026-07-31 and everything is on disk, but hooks
@@ -114,6 +129,20 @@ fixed on 2026-07-31, the second still stands:
 
 Compressed once paid: name, one line, the date. The reasoning that got each one done is in
 its commit — these lines exist so a reader can see it happened at all.
+
+- **C: save points, 2026-10-18.** `payload/claude-md/17-save-points.md`, base and full only (lite
+  has ultrapowers disabled). Save points: a plan written to its file, the end of a phase, a
+  finished part of a decomposed task; reviews are not save points. State goes to `ROADMAP.md`,
+  `NN-STATE.md` and `RESUME.md`; the reply ends with an offer of `/clear` and a resume prompt. A
+  written plan stops at its save point and the execution method is chosen in the next session.
+- **A: model routing for Haiku 5.5, 2026-10-18.** Sonnet stays the default; Haiku 5.5 takes
+  routine and small work (code the plan carries, a small one-file change, small reviews, scoped
+  re-reviews); Opus at `medium` takes complex work, and heavy reviews moved from rung 5 to rung 4.
+  Every track starts on `medium`; `high` only by escalation. A test asserts no track or role
+  starts on rung 5.
+- **Haiku 5.5 adoption, 2026-10-17.** `claude-haiku-5-5` in the policy, `rung-haiku` at
+  `effort: medium`, the deploy-time migrator moves `claude-haiku-4*` to it, and the usage log
+  records `medium` for `rung-haiku`.
 
 - **The deploy ran, at `ebfba7d`** — 14 created, 4 updated, nothing pruned, `settings.json`
   merged with three registrations. Two lessons, both recorded because they generalise: `setup.mjs`
