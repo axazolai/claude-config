@@ -27,10 +27,16 @@ phases:
   - { phase: "23", slug: publish-and-postgres, status: complete, delivery: merged }
   - { phase: "24", slug: model-ladder, status: complete, delivery: merged }
   - { phase: "25", slug: deepseek-offload, status: complete, delivery: merged }
-  - { phase: "26", slug: remove-gsd, status: planned, delivery: none }
+  - { phase: "26", slug: remove-gsd, status: complete, delivery: branch }
 ---
 
 # Roadmap
+
+Phase 26 (`remove-gsd`) — complete on branch `phase-26-remove-gsd` (`58d0980..18bca2e`), not yet
+merged, 2026-10-18. The bundle ships `base` and `lite` only; a recorded or requested `full` installs
+as `base`. Every `node setup.mjs` run purges GSD traces automatically and permanently
+(`gsd-purge.mjs`, one `settings.json.pre-gsd-purge` backup). Full suite 625/625, verification
+ACHIEVED. Owed: the merge into `master`, then one deploy carrying A, C and phase 26.
 
 Phase 24 (`model-ladder`) — complete: implemented inline on `phase-24-model-ladder`, merged into `master`
 (`ddd8fb4`) pushed and deployed 2026-09-29; full suite 581/581, verification ACHIEVED. Sonnet 5.5 replaces Sonnet 5 as the default executor and the migrator's Sonnet target;
