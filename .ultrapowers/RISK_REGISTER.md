@@ -82,6 +82,7 @@
 - [RISK-FALLOW-001 — `fallow.enabled` is set optimistically, not gated on binary presence](#risk-fallow-001-fallowenabled-is-set-optimistically-not-gated-on-binary-presence)
 - [RISK-GRAPHPUSH-003 — graphify export neo4j --push writes every node and then never returns](#risk-graphpush-003-graphify-export-neo4j---push-writes-every-node-and-then-never-returns)
 - [RISK-GRAPHPUSH-004 — every commit prunes and re-pushes the whole graph, leaving Neo4j gutted for the duration](#risk-graphpush-004-every-commit-prunes-and-re-pushes-the-whole-graph-leaving-neo4j-gutted-for-the-duration)
+- [RISK-GSDPURGE-001 — the `gsd-*` name patterns remove a user's own artefact that shares the prefix](#risk-gsdpurge-001-the-gsd-name-patterns-remove-a-users-own-artefact-that-shares-the-prefix)
 - [RISK-HOOKSTDIN-001 — `token-usage-log.mjs` throws on a literal `null` on stdin](#risk-hookstdin-001-token-usage-logmjs-throws-on-a-literal-null-on-stdin)
 - [RISK-INITSTACK-001 — `/init-stack` GSD-free rewrite deleted steps 6-11; ~24 stale references + 2 dropped capabilities](#risk-initstack-001-init-stack-gsd-free-rewrite-deleted-steps-6-11-24-stale-references-2-dropped-capabilities)
 - [RISK-STATUSLINE-001 — the context-window size field name is documented, not observed](#risk-statusline-001-the-context-window-size-field-name-is-documented-not-observed)
@@ -1165,6 +1166,19 @@
 - **Residual:** prose-guided behavior can still misfire on an edge case; caught in review, not
   hook-enforced. Accepted.
 
+
+### RISK-GSDPURGE-001 — the `gsd-*` name patterns remove a user's own artefact that shares the prefix
+
+- **Status:** Active
+- **Context:** phase 26 (`26-remove-gsd`) makes every `node setup.mjs` run delete GSD traces
+  automatically and permanently, with no consent prompt and no trash. Part of the inventory is by
+  name pattern under `~/.claude`: top-level `gsd-*`, `agents/gsd-*.md`, `skills/gsd-*/`,
+  `hooks/gsd-*`, `hooks/lib/gsd-*`. A user's own agent, skill or hook whose name starts with
+  `gsd-` matches and is deleted with no way back.
+- **Mitigation:** the plan prints every path before deleting; `--dry-run` prints the plan and
+  changes nothing; `settings.json` gets one backup before it is edited. The user chose automatic
+  permanent removal on 2026-10-18 knowing this.
+- **Residual:** a hand-made `gsd-` artefact on a machine is lost on the next install.
 
 ## Deferred
 ### RISK-GRAPHFRESH-001 — Stage 2 freshness edits regress the working graphify autosync

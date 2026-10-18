@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-10
+updated: 2026-10-18
 current: null
 deployed_through: "24"
 phases:
@@ -27,6 +27,7 @@ phases:
   - { phase: "23", slug: publish-and-postgres, status: complete, delivery: merged }
   - { phase: "24", slug: model-ladder, status: complete, delivery: merged }
   - { phase: "25", slug: deepseek-offload, status: complete, delivery: merged }
+  - { phase: "26", slug: remove-gsd, status: planned, delivery: none }
 ---
 
 # Roadmap
