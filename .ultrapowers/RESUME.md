@@ -10,7 +10,7 @@ status is — this file answers what is owed, what was ruled, and what must not 
 
 As of 2026-10-18: a three-part task (A → C → B) is in flight on `master`, outside the phase
 tree. A (model routing for Haiku 5.5) and C (save points) are done in `payload/` with the full
-suite green (656/656), and are **uncommitted and undeployed**. B (remove GSD and the `full`
+suite green (656/656), committed as `f29c728` and `7364097`, and **undeployed**. B (remove GSD and the `full`
 profile) is next and has not been brainstormed yet.
 
 Earlier summary, 2026-07-31: Nothing is running, and the phase queue is empty — phases 10, 11 and 12 were all specified,
@@ -33,8 +33,8 @@ migration shipped as phase 10's first task.
   agents, hooks, skills, settings registrations, `gsd-core`, statusline segments, per-project
   `.planning/config.json` patches); and the GSD sections in `model-selection-policy` and
   `model-migration.mjs`.
-- **Commit and deploy A and C.** Uncommitted on `master`: the Haiku 5.5 update, routing A and the
-  `17-save-points.md` fragment. Then `node setup.mjs` (answer `r` on `CLAUDE.md`) and a restart.
+- **Deploy A and C.** Committed on `master` (`f29c728`, `7364097`), not deployed: `node setup.mjs`
+  (answer `r` on `CLAUDE.md`), then a restart.
 - **Restart Claude Code after the 2026-09-20 deploy.** Phase 16's `/scratch-prune` skill and the
   two-tier scratchpad rule of 2026-09-19 are on disk; skills and `CLAUDE.md` load at startup.
 - **Restart Claude Code.** The deploy ran on 2026-07-31 and everything is on disk, but hooks
