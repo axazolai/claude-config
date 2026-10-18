@@ -64,7 +64,8 @@ test("@critical GSD hooks, statusLine, permissions and env are removed and the r
     permissions: { allow: ["Bash(npm test)", "Read(C:/Users/x/.claude/gsd-core/**)",
       "Bash(node C:/Users/x/.claude/add-risk.mjs:*)", "Read(~/.claude/gsd-user-files-backup/**)",
       "Read(C:/Users/x/.claude/hooks/my-gsd-helper.mjs)", "Bash(npx gsd-core *)",
-      "Read(~/code/gsd-tool/**)"], deny: ["Bash(rm:*)"] },
+      "Read(~/code/gsd-tool/**)", "Bash(npx get-shit-done-cc@latest)", "Read(~/my-gsd-core-notes/**)"],
+    deny: ["Bash(rm:*)"] },
     env: { GSD_HOME: "C:\\Users\\x\\.gsd", EDITOR: "vim" },
   };
   const snapshot = JSON.parse(JSON.stringify(settings));
@@ -81,11 +82,11 @@ test("@critical GSD hooks, statusLine, permissions and env are removed and the r
   assert.equal(next.hooks.PreCompact, undefined);
   assert.equal(next.statusLine, undefined);
   assert.deepEqual(next.permissions, { allow: ["Bash(npm test)", "Read(C:/Users/x/.claude/hooks/my-gsd-helper.mjs)",
-    "Read(~/code/gsd-tool/**)"], deny: ["Bash(rm:*)"] });
+    "Read(~/code/gsd-tool/**)", "Read(~/my-gsd-core-notes/**)"], deny: ["Bash(rm:*)"] });
   assert.deepEqual(next.env, { EDITOR: "vim" });
   assert.deepEqual(removed, ["Stop: 1 hook(s)", "PreToolUse: 1 hook(s)", "PostToolUse: 1 hook(s)",
     "SessionStart: 1 hook(s)", "UserPromptSubmit: 1 hook(s)", "PreCompact: 1 hook(s)", "statusLine",
-    "permissions.allow: 4", "env.GSD_HOME"]);
+    "permissions.allow: 5", "env.GSD_HOME"]);
 });
 
 test("@important references is listed only when the pilot doc is its sole file", () => {

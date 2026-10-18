@@ -88,7 +88,7 @@ const SEP = String.raw`[\\/]`;
 const NAME_END = String.raw`(?![\w.-])`;
 const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 const segsRe = (p) => p.replace(/\\/g, "/").split("/").filter(Boolean).map(esc).join(SEP);
-const PRODUCT_RE = new RegExp(`${BOUND}(?:gsd-core|get-shit-done|@opengsd)${NAME_END}|${BOUND}\\.gsd${NAME_END}`, "i");
+const PRODUCT_RE = new RegExp(`${BOUND}(?:gsd-core|get-shit-done|@opengsd)|${BOUND}\\.gsd${NAME_END}`, "i");
 const PATH_NAMES = [
   ...BUNDLE_RELS.map((r) => segsRe(r) + NAME_END),
   ...RETIRED_HOOK_FILES.map((f) => segsRe(`hooks/${f}`) + NAME_END),
