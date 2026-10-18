@@ -15,9 +15,9 @@ const readJSON = (p) => JSON.parse(readFileSync(p, "utf8").replace(/^﻿/, ""));
 
 export const LEVEL_ORDER = ["off", "lite", "full", "ultra"];
 
-// Runtime map holds only the 11 non-"off" entries - "off" is already the global fallback, so a
-// key that would just say "off" adds nothing at lookup time. The other 29 known agent_type
-// values (GSD's remaining agents plus Explore/Plan/claude-code-guide) are deliberately NOT
+// Runtime map holds only the 5 non-"off" entries - "off" is already the global fallback, so a
+// key that would just say "off" adds nothing at lookup time. Other known agent_type
+// values (Explore/Plan/claude-code-guide and the rest) are deliberately NOT
 // entries here - see .ultrapowers/archive/specs/2026-07-10-leanmode-design.md for the full,
 // per-agent accounting of what was considered and why each landed on "off".
 export const DEFAULT_LEANMODE_MAP = {
@@ -25,16 +25,9 @@ export const DEFAULT_LEANMODE_MAP = {
   "claude": "lite", // default catch-all when no agent name given - same reasoning as general-purpose
   "statusline-setup": "lite", // narrow single-purpose config edit - small scope, minimal is naturally correct here
   "leanmode-executor": "full", // payload/agents/leanmode-executor.md - explicit per-task opt-in to lean implementation
-  "gsd-executor": "full", // writes/edits application code implementing plans - primary target for this system
-  "gsd-code-fixer": "full", // applies fixes to code review findings - writes application code
-  "gsd-debugger": "full", // investigates bugs and writes fix code
-  "gsd-pattern-mapper": "full", // maps existing code patterns for reuse - directly synergistic with YAGNI/reuse-first
-  "gsd-codebase-mapper": "full", // maps codebase structure/tech for planning - reinforces "reuse what's already there"
-  "gsd-nyquist-auditor": "lite", // generates tests to fill validation gaps - some minimalism helps, doesn't need the full push
-  "gsd-debug-session-manager": "lite", // orchestrates debug cycles and applies fixes itself - code-touching but mostly a manager role
 };
 
-// Same root-finding walk as session-init.mjs/gsd-config-patch.mjs, duplicated on purpose (small
+// Same root-finding walk as session-init.mjs, duplicated on purpose (small
 // helper, keeps this module independently readable without importing a sibling hook file).
 export function findRoot(start) {
   let cur = resolve(start);
@@ -79,7 +72,7 @@ export function resolveDial(root) {
 // never via a lite/ultra shift: every "off" agent_type writes plans, reports, docs, or specs,
 // never application code (verified against the full map - see the design doc), so nudging it
 // under `ultra` would be pure noise at best (a "before writing code" line landing on a research
-// agent) or actively harmful at worst (diluting gsd-security-auditor/gsd-planner). Downward
+// agent) or actively harmful at worst (diluting a security-review or planning agent). Downward
 // shifts need no such guard - "lite" naturally floors at "off" via the plain index clamp.
 export function shift(base, dial) {
   if (dial === "off") return "off";

@@ -26,25 +26,22 @@
  *     choice, etc.) that must never be silently clobbered. Same no-backup rule on (r)eplace.
  *
  * Flags (non-interactive / CI): --merge-all | --replace-all | --skip-all | --dry-run
- *   --uninstall-gsd is deliberately NOT one of the bulk flags: those govern THIS bundle's own
- *   files, while gsd-core is a separate product, so removing it always needs its own consent.
  * In a non-TTY without a bulk flag, curated/JSON conflicts default to MERGE (additive for JSON;
  * a no-op that leaves your file untouched for curated text - see above). This installer never
  * writes `.new` or `.bak` side files anywhere under ~/.claude - a diff is either shown for you
  * to act on, or the change is applied directly with no backup.
  */
-import { readFileSync, writeFileSync, mkdirSync, existsSync, chmodSync, readdirSync, rmSync, realpathSync, copyFileSync, mkdtempSync, renameSync, rmdirSync } from "node:fs";
-import { homedir, platform, tmpdir } from "node:os";
+import { readFileSync, writeFileSync, mkdirSync, existsSync, chmodSync, readdirSync, rmSync, realpathSync, copyFileSync, rmdirSync } from "node:fs";
+import { homedir, platform } from "node:os";
 import { createHash } from "node:crypto";
 import { join, dirname } from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
 import { spawnSync } from "./payload/hooks/lib/spawn-hidden.mjs";
 import { createInterface } from "node:readline";
 import { validateConfigDir } from "./payload/bin/lib/config-dir-validate.mjs";
 import { assembleClaudeMd } from "./payload/bin/lib/assemble-claude-md.mjs";
 import { migrateSettingsModel } from "./payload/bin/lib/model-migration.mjs";
-import { gsdCorePresent, buildGsdInventory, filterGsdHooks, gsdCoreInstallPlan, gsdCoreUpdatePlan, gsdLookingRels } from "./payload/bin/lib/gsd-core-detect.mjs";
-import { applyPlan, purgeRetention, trashRoot } from "./payload/bin/lib/claude-cleanup-lib.mjs";
+import { planGsdPurge, isEmptyPlan, formatGsdPurge, RETIRED_HOOK_FILES as GSD_RETIRED_HOOK_FILES } from "./gsd-purge.mjs";
 import { resolveVariant, filterPartialHooks, loadVariants, profilesOf, globToRe } from "./variants.mjs";
 import { buildPluginPlan, formatPlan, selectActions, describeAction } from "./plugin-reconcile.mjs";
 import { buildMcpPlan, formatMcpPlan, describeMcpAction, mcpAddArgs, mcpRemoveArgs, redactValues, postAddArgv,
@@ -61,7 +58,7 @@ import { reconcileBundleInstall } from "./payload/hooks/lib/config-update-check-
 // REPO_ROOT = where setup.mjs itself lives (installer meta: setup.mjs, README.md,
 // settings.partial.json, RISK_REGISTER*.md, bootstrap.sh/ps1, .gitignore - never mirrored).
 // SRC = REPO_ROOT/payload - everything that actually gets installed into ~/.claude
-// (hooks/, skills/, rules-src/, commands/, setting-templates/, bin/, add-risk.mjs).
+// (hooks/, skills/, rules-src/, commands/, setting-templates/, bin/).
 // Kept as two separate constants (not one) because
 // settings.partial.json below is read from REPO_ROOT, not SRC - it configures the installer,
 // it isn't itself installed. NOTE: payload/claude-md/ is a build input, not a copied rel -
@@ -75,10 +72,9 @@ const HOME = homedir();
 // symlink. Runtime scripts/hooks below use the same fallback.
 const CDIR = process.env.CLAUDE_CONFIG_DIR || join(HOME, ".claude");
 const HOOKS = join(CDIR, "hooks");
-const SKILL = join(CDIR, "skills", "using-git-worktrees");
 const SETTINGS = join(CDIR, "settings.json");
 const MANIFEST = join(CDIR, "state", "bundle-manifest.json");
-const RETIRED_HOOK_FILES = ["token-usage-log.mjs"];
+const RETIRED_HOOK_FILES = ["token-usage-log.mjs", ...GSD_RETIRED_HOOK_FILES];
 // Removed on purpose: pruned even when their basename still appears elsewhere in the bundle.
 const RETIRED_RELS = new Set([
   "hooks/token-usage-log.mjs",
@@ -99,17 +95,12 @@ const BULK = argv.has("--replace-all") ? "replace"
           : argv.has("--merge-all")   ? "merge"
           : argv.has("--skip-all")    ? "skip" : null;
 const DRY = argv.has("--dry-run");
-// Scripted consent for removing a FOREIGN gsd-core install. Never derived from BULK: --replace-all
-// /--merge-all say what to do with this bundle's own files, and stretching them over another
-// product would be consent the user never gave.
-const UNINSTALL_GSD = argv.has("--uninstall-gsd");
 const VARIANT_ARG = (() => {
   const a = [...argv].find((x) => x.startsWith("--variant="));
   return a ? a.slice("--variant=".length) : null;
 })();
 const ENABLE_UPDATE_CHECK_FLAG = argv.has("--enable-update-check");
 const ENABLE_POWERSHELL_TOOL_FLAG = argv.has("--enable-powershell-tool");
-const UPDATE_GSD_CORE_FLAG = argv.has("--update-gsd-core");
 const INTERACTIVE = !BULK && process.stdin.isTTY;
 const MD = argv.has("--md");
 const COLOR = !MD && !argv.has("--no-color") && !process.env.NO_COLOR && process.stdout.isTTY;
@@ -342,7 +333,7 @@ async function proposeConfigDir() {
 
 /* ---------- copy any bundle file into ~/.claude with conflict resolution ---------- */
 // Bundle-meta that must NOT be copied into ~/.claude (only matched at the archive root):
-const META = new Set(["setup.mjs", "README.md", "settings.partial.json", "RISK_REGISTER.snippet.md", "RISK_REGISTER.md", "settings.json", "bootstrap.sh", "bootstrap.ps1"]);
+const META = new Set(["setup.mjs", "README.md", "settings.partial.json", "RISK_REGISTER.md", "settings.json", "bootstrap.sh", "bootstrap.ps1"]);
 const copiedScripts = [];
 function* walkBundle(dir, rel = "") {
   for (const e of readdirSync(dir, { withFileTypes: true })) {
@@ -522,7 +513,6 @@ async function pruneStale() {
   for (const rel of oldByRel.keys()) if (!currentRels.has(rel)) candidates.add(rel);
   for (const rel of SEED_REMOVED) if (!currentRels.has(rel)) candidates.add(rel);
   for (const rel of RETIRED_RELS) if (!currentRels.has(rel)) candidates.add(rel);
-  if (VARIANT !== "full") candidates.add("gsd-defaults.partial.json"); // full-only mirror, never manifest-tracked
   if (!candidates.size) return [];
 
   const allText = bundleAllText();
@@ -532,15 +522,13 @@ async function pruneStale() {
     if (!existsSync(dst)) continue;                                  // already gone
     const cur = read(dst);
     if (typeof cur === "string" && isCurated(cur)) { kept.push([rel, "curated"]); continue; }
-    const variantExcluded = V.excludedSet.has(rel) || (rel === "gsd-defaults.partial.json" && VARIANT !== "full");
+    const variantExcluded = V.excludedSet.has(rel);
     if (!variantExcluded && !RETIRED_RELS.has(rel) && allText.includes(rel.split("/").pop())) { kept.push([rel, "still referenced in bundle"]); continue; }
     const oldHash = oldByRel.get(rel);
     if (oldHash && cur !== undefined && sha(cur) !== oldHash) { kept.push([rel, "modified since install"]); continue; }
     del.push({ rel, dst });
   }
-  // Every rel this function took responsibility for, removed or not. detectForeignGsdCore()
-  // subtracts it, so a file pruneStale() decided to KEEP (curated, still referenced, edited since
-  // install) or that the user declined to prune cannot then be swept up as someone else's.
+  // Every rel this function took responsibility for, removed or not.
   const considered = [...del.map((d) => d.rel), ...kept.map(([rel]) => rel)];
   if (kept.length) { log("\n--- stale but KEPT (not safe to auto-remove) ---"); for (const [rel, why] of kept) log(`  ${rel} (${why})`); }
   if (!del.length) return considered;
@@ -587,232 +575,6 @@ function warnStatuslineNamesMissingFile() {
   log(`  --merge-all - to point it at hooks/statusline.mjs.`);
 }
 
-/* ---------- foreign gsd-core: report it, and offer a reversible removal (base/lite only) ----------
- * gsd-core is a separate product installed by `npx @opengsd/gsd-core`, not from a marketplace and
- * not by this bundle beyond the offer below. On base/lite it has
- * no place here, but nothing about that justifies deleting it: every removal is a MOVE into the
- * same .cleanup-trash batch /claude-cleanup already restores and expires after 7 days, and the
- * decision is always the user's (default no; a bulk flag or a non-TTY run reports and stops).
- * Reach is bounded by buildGsdInventory, which only enumerates paths under CDIR - so ~/.gsd/ and
- * every project's .planning/ are out of range by construction. What it must never claim is a file
- * THIS bundle owns, which is three sets, not one: what this run ships (manifestNow), what any
- * profile can ship (a base install that was full yesterday still has full's gsd-* files on disk,
- * and the manifest that named them is overwritten later in main()), and whatever pruneStale() just
- * took responsibility for. Without the second and third, a full -> base downgrade whose stale
- * prune was declined would move ~12 of this bundle's own paths under a banner reading "not part of
- * this bundle" - consent obtained under a false description. */
-/* ---------- full without gsd-core: offer the npx install ----------
- * The mirror image of detectForeignGsdCore. full ships the GSD machinery - agents, hooks, rules -
- * and all of it is inert without the tool those files talk to. gsd-core is an npx package, never a
- * marketplace plugin, so presence is a filesystem question (gsd-core/VERSION), never an
- * enabledPlugins entry. Consent is explicit and per-run: the command is printed either way, and
- * only a TTY plus a "y" runs it. */
-async function offerGsdCoreInstall() {
-  if (DRY) return;
-  const defaultConfigDir = join(HOME, ".claude");
-  const pinnedVersion = safe(() => (loadVariants(REPO_ROOT).gsdCore || {}).version) || null;
-  const present = gsdCorePresent(CDIR);
-  const shared = { variant: VARIANT, present, interactive: INTERACTIVE, pinnedVersion, configDir: CDIR, defaultConfigDir };
-  let command = null;
-
-  if (!present) {
-    const plan = gsdCoreInstallPlan(shared);
-    if (plan.action === "none") {
-      if (plan.reason === "unknown-version" && VARIANT === "full")
-        log(`\ngsd-core is not installed and variants.json carries no gsdCore.version pin - nothing to install against.`);
-      return;
-    }
-    log(`\ngsd-core is not installed, and the full profile ships its agents, hooks and rules:`);
-    log(`  ${plan.command}`);
-    if (plan.action === "ask" && (await ask("  Install it now? (y/N) > "))[0] !== "y") { log("  Skipped."); return; }
-    command = plan.command;
-  } else {
-    if (VARIANT !== "full") return;
-    const plan = gsdCoreUpdatePlan({ ...shared, installedVersion: installedGsdCoreVersion(), flag: UPDATE_GSD_CORE_FLAG });
-    if (plan.action === "ahead") {
-      // Never downgrade. The fork and the twelve patches were verified against the pin, so a newer
-      // gsd-core is the case where they may already be stale - say so rather than act.
-      log(`\ngsd-core ${plan.from} is installed; this bundle is pinned to ${plan.to}.`);
-      log(`  Left alone - nothing here downgrades it. The executor fork and the gsd-* patches were`);
-      log(`  verified against ${plan.to}, so re-check them before relying on them at ${plan.from}.`);
-      summary.push(`gsd-core ${plan.from} is ahead of the pin ${plan.to} - fork/patches unverified there`);
-      return;
-    }
-    if (plan.action === "none") return;
-    log(`\ngsd-core ${plan.from} is installed; this bundle is pinned to ${plan.to}:`);
-    log(`  ${plan.command}`);
-    if (plan.action === "ask" && (await ask("  Update it now? (y/N) > "))[0] !== "y") { log("  Skipped."); return; }
-    command = plan.command;
-  }
-
-  const q = quarantineGsdLooking();
-  if (q.moved.length)
-    log(`  moved ${q.moved.length} of this bundle's own gsd-* file(s) aside for the run` +
-        ` - gsd-core's baseline scan blocks on them, and with no TTY that prompt has no answer.`);
-  let r = null;
-  try {
-    r = spawnSync(command, { shell: true, stdio: "inherit" });
-  } finally {
-    const back = restoreQuarantine(q);
-    if (q.moved.length) {
-      log(`  restored ${back}/${q.moved.length}.`);
-      if (back !== q.moved.length)
-        summary.push(`WARNING gsd-* quarantine restored ${back}/${q.moved.length} - check ${q.dir}`);
-    }
-  }
-  if (r && r.status === 0 && gsdCorePresent(CDIR)) {
-    const v = installedGsdCoreVersion() || "unknown";
-    summary.push(`installed gsd-core ${v} (npx)`);
-    log(`  gsd-core ${v} installed.`);
-    repatchAfterGsdCoreInstall();
-  } else {
-    log(`  Install did not complete (exit ${r ? r.status : "n/a"}). Nothing else changed.`);
-  }
-}
-
-const installedGsdCoreVersion = () =>
-  safe(() => readFileSync(join(CDIR, "gsd-core", "VERSION"), "utf8").trim()) || null;
-
-// gsd-core's first-time-baseline-scan calls every gsd-* file under its config dir that it cannot
-// prove manifest-managed "stale-gsd-looking" and blocks on a keep/remove prompt; its own prune
-// then deletes every agents/gsd-* entry outright. Both hit files this bundle owns. Moving them
-// out of the tree for the duration of the npx run is the only lever available from this side -
-// gsd-core offers GSD_INSTALLER_MIGRATION_RESOLVE for the first problem but nothing for the
-// second. Restored in a finally, so a crashed installer does not take them with it.
-function quarantineGsdLooking() {
-  const dir = mkdtempSync(join(tmpdir(), "claude-config-gsd-"));
-  const moved = [];
-  for (const rel of gsdLookingRels((V && V.rels) || [])) {
-    const src = join(CDIR, rel);
-    if (!existsSync(src)) continue;
-    const dest = join(dir, rel.split("/").join("~"));
-    // A file we cannot move is left where it is: a blocked installer beats a lost file.
-    try { renameSync(src, dest); moved.push({ src, dest }); } catch { /* keep going */ }
-  }
-  return { dir, moved };
-}
-
-function restoreQuarantine(q) {
-  let restored = 0;
-  for (const { src, dest } of q.moved) {
-    try { mkdirSync(dirname(src), { recursive: true }); renameSync(dest, src); restored += 1; } catch { /* reported by caller */ }
-  }
-  if (restored === q.moved.length) { try { rmSync(q.dir, { recursive: true, force: true }); } catch { /* best-effort */ } }
-  return restored;
-}
-
-// apply-gsd-agent-patches.mjs is deliberately not part of setup.mjs's normal path - its patches
-// inject prose across 30+ files and want a human trigger. This call is the exception that proves
-// it: gsd-core's installer has just overwritten every agents/gsd-*.md with a fresh copy, so the
-// patches THIS run's consent put there are gone. Re-applying restores state this run disturbed
-// rather than making a new change, and it only ever runs on the path that just ran the installer.
-function repatchAfterGsdCoreInstall() {
-  const cli = join(CDIR, "apply-gsd-agent-patches.mjs");
-  if (!existsSync(cli)) {
-    log("  (the gsd-* patcher is not deployed here - run /init-session once to re-apply the patches)");
-    return;
-  }
-  const r = spawnSync(process.execPath, [cli, CDIR], { encoding: "utf8" });
-  if (r.error || r.status !== 0) {
-    log("  (re-applying the gsd-* patches failed - run /init-session)");
-    summary.push("WARNING gsd-* patches were NOT re-applied after the gsd-core install - run /init-session");
-    return;
-  }
-  const applied = /^Applied (\d+) patch/m.exec(r.stdout || "");
-  log(`  gsd-* patches re-applied${applied ? ` (${applied[1]})` : ""}.`);
-  summary.push(`re-applied gsd-* patches after the gsd-core install${applied ? ` (${applied[1]})` : ""}`);
-}
-
-async function detectForeignGsdCore(prunedRels = []) {
-  if (VARIANT === "full" || !gsdCorePresent(CDIR)) return;
-  const everOurs = safe(() => Object.keys(profilesOf(loadVariants(REPO_ROOT)))
-    .flatMap((p) => resolveVariant({ repoRoot: REPO_ROOT, variant: p }).rels));
-  // Fail-safe, the same shape as pluginPruneCandidates' "never prune when we can't tell what's
-  // active": if the set of files this bundle can own is unknown, every gsd-* path on disk looks
-  // foreign. Say so and remove nothing, rather than lose the protection silently.
-  if (!everOurs) {
-    log(`\ngsd-core is installed here, but this bundle's own file list could not be resolved`);
-    log(`  - skipping the removal offer entirely rather than risk claiming our own files.`);
-    return;
-  }
-  const { items, categories, totalBytes } = buildGsdInventory({
-    dir: CDIR,
-    manifestRels: [...manifestNow.map((f) => f.rel), ...everOurs, ...prunedRels],
-  });
-  if (!items.length) return;
-
-  const version = safe(() => readFileSync(join(CDIR, "gsd-core", "VERSION"), "utf8").trim()) || "unknown";
-  log(`\ngsd-core ${version} is installed here and is not part of this bundle:`);
-  for (const c of categories) log(`  ${c.name.padEnd(10)} ${String(c.count).padStart(3)}  ${Math.round(c.bytes / 1024)} KB`);
-  log(`  total ${Math.round(totalBytes / 1024)} KB`);
-  log(`  ~/.gsd/ and every project's .planning/ are never touched.`);
-
-  // BULK counts as non-interactive here exactly as it does everywhere else in this file
-  // (INTERACTIVE = !BULK && isTTY): a bulk flag must never ask, and must never consent either, so
-  // the two meet at report-only. Without the BULK arm, `--replace-all` in a terminal stops on a
-  // question and a CI runner that allocates a PTY hangs on it with no timeout.
-  if ((!process.stdin.isTTY || BULK) && !UNINSTALL_GSD) {
-    log(`  Reporting only (non-interactive). Run with --uninstall-gsd to remove it.`);
-    return;
-  }
-  if (DRY) { log(`  [dry-run] would move ${items.length} path(s)`); return; }
-  if (!UNINSTALL_GSD && (await ask("  Move all of it to the cleanup trash? (y/N) > "))[0] !== "y") return;
-
-  const fwd = (p) => p.replace(/\\/g, "/");
-  const ts = new Date().toISOString().replace(/[:.]/g, "-");
-  const batchDir = join(trashRoot(CDIR), ts);
-  mkdirSync(batchDir, { recursive: true });
-  // Printed before any move, so a crash further down still leaves the user the one string the
-  // rollback needs.
-  log(`  trash batch: ${fwd(batchDir)}`);
-  // Written BEFORE anything is edited, and into the batch itself so it ages out with it. This is a
-  // copy, not a moved file, which is why restoreBatch cannot put it back - see the rollback below.
-  const backup = join(batchDir, "settings.json.pre-gsd-uninstall");
-  if (existsSync(SETTINGS)) copyFileSync(SETTINGS, backup);
-
-  const res = applyPlan({ dir: CDIR, items, nowMs: Date.now(), ts });
-  log(`  moved ${res.moved} path(s), ${Math.round(res.bytes / 1024)} KB, skipped ${res.skipped}`);
-
-  if (existsSync(SETTINGS)) {
-    const curSettings = safe(() => JSON.parse(readFileSync(SETTINGS, "utf8")));
-    // safe() twice, because this runs AFTER applyPlan: filterGsdHooks throws on a malformed hooks
-    // shape (a null entry, a non-array event value, a non-object `hooks`), and a throw here would
-    // leave the files in the trash batch with the rollback below never printed.
-    const filtered = curSettings && safe(() => filterGsdHooks(curSettings));
-    if (filtered && filtered.removed.length) {
-      const { settings, removed } = filtered;
-      if (write(SETTINGS, JSON.stringify(settings, null, 2) + "\n")) {
-        summary.push(`updated  ${SETTINGS} (${removed.length} gsd-* hook registration(s) removed)`);
-        log(`  removed ${removed.length} gsd-* hook registration(s) from settings.json`);
-      } else {
-        log(`  COULD NOT rewrite settings.json - ${removed.length} gsd-* hook registration(s) still point at moved files; roll back below or edit by hand`);
-      }
-    }
-  }
-
-  // Order is load-bearing: a clean restoreBatch deletes the whole batch directory, backup included,
-  // so the settings copy has to be taken back first. It is also deliberately manual - replaying it
-  // automatically would revert every unrelated settings edit made since. And claude-cleanup.mjs
-  // resolves its target from CLAUDE_CONFIG_DIR, never from its own location, so under a relocated
-  // config dir the variable has to travel with the command or it restores from ~/.claude and
-  // reports "Restored 0" as though there were nothing to restore.
-  // Carrying it takes two labelled lines, not one: `VAR="x" cmd` is a POSIX env prefix, and
-  // PowerShell reads it as a command NAMED `VAR=x` and dies with "is not recognized" - on the one
-  // platform where most users will paste this. The `cp` above needs no such split (PowerShell
-  // aliases it to Copy-Item) and neither does the default config dir, whose command carries no
-  // environment at all.
-  const relocated = CDIR !== join(HOME, ".claude");
-  const restore = `node "${fwd(join(CDIR, "bin", "claude-cleanup.mjs"))}" restore --ts ${ts}`;
-  log(`  Rollback within 7 days, in this order:`);
-  log(`    cp "${fwd(backup)}" "${fwd(SETTINGS)}"`);
-  if (!relocated) log(`    ${restore}`);
-  else {
-    log(`    bash:       CLAUDE_CONFIG_DIR="${fwd(CDIR)}" ${restore}`);
-    log(`    PowerShell: $env:CLAUDE_CONFIG_DIR="${fwd(CDIR)}"; ${restore}`);
-  }
-  purgeRetention({ dir: CDIR, nowMs: Date.now() });
-}
-
 // Best-effort: resolve the commit we just installed, for the update-check hook's baseline.
 // Prefers a local git checkout (REPO_ROOT has .git -> exact, no network); falls back to asking
 // GitHub what master currently points at (covers the bootstrap-tarball install path, where
@@ -854,25 +616,30 @@ async function main() {
   await proposeConfigDir();
 
   // ---------- variant selection (spec § 9) ----------
-  const oldManifestEarly = safe(() => JSON.parse(readFileSync(MANIFEST, "utf8")));
-  const installedVariant = oldManifestEarly ? (oldManifestEarly.profile || oldManifestEarly.variant || "full") : null;
   const known = Object.keys(profilesOf(loadVariants(REPO_ROOT)));
-  VARIANT = VARIANT_ARG;
-  if (VARIANT && !known.includes(VARIANT)) {
-    log(`Unknown --variant=${VARIANT}. Known: ${known.join(", ")}`);
-    process.exit(1);
-  }
+  const resolveProfile = (name, source) => {
+    if (!name) return null;
+    if (name === "full") { log(`profile "full" was removed; using "base"`); return "base"; }
+    if (known.includes(name)) return name;
+    if (source === "arg") { log(`Unknown --variant=${name}. Known: ${known.join(", ")}`); process.exit(1); }
+    log(`profile "${name}" is unknown; using "base"`);
+    return "base";
+  };
+  const oldManifestEarly = safe(() => JSON.parse(readFileSync(MANIFEST, "utf8")));
+  const installedVariant = oldManifestEarly ? (oldManifestEarly.profile || oldManifestEarly.variant || null) : null;
+  VARIANT = resolveProfile(VARIANT_ARG, "arg");
   if (!VARIANT && INTERACTIVE) {
-    const def = installedVariant || "full";
-    const a = (await ask(`  bundle profile [full/base/lite] (Enter = ${def}) > `)).trim().toLowerCase();
-    VARIANT = known.includes(a) ? a : def;
+    const def = resolveProfile(installedVariant, "manifest") || "base";
+    const a = (await ask(`  bundle profile [${known.join("/")}] (Enter = ${def}) > `)).trim().toLowerCase();
+    VARIANT = a === "full" || known.includes(a) ? resolveProfile(a, "prompt") : def;
   }
-  if (!VARIANT) VARIANT = installedVariant || "full";   // non-TTY: detected, or full on fresh
+  if (!VARIANT) VARIANT = resolveProfile(installedVariant, "manifest") || "base";
 
   const profileDef = profilesOf(loadVariants(REPO_ROOT))[VARIANT] || {};
   V = resolveVariant({ repoRoot: REPO_ROOT, variant: VARIANT });
-  if (installedVariant && installedVariant !== VARIANT)
-    log(`Switching variant: ${installedVariant} -> ${VARIANT} (surplus files listed for removal below)`);
+  const installedResolved = installedVariant === "full" ? "base" : installedVariant;
+  if (installedResolved && installedResolved !== VARIANT)
+    log(`Switching variant: ${installedResolved} -> ${VARIANT} (surplus files listed for removal below)`);
   log(`Variant: ${VARIANT} (${V.rels.length} files)`);
 
   log(`Installing into ${CDIR}${DRY ? "  [DRY RUN]" : ""}`);
@@ -920,119 +687,6 @@ async function main() {
     }
   }
 
-  /* ---------- gsd-* agents: add the context-mode MCP tool, only if that plugin is active ----------
-   * gsd-* agents (~/.claude/agents/gsd-*.md) belong to the separate gsd-core tool, not this
-   * bundle - this is best-effort cross-tool maintenance, same idea as the tool-owned CLAUDE.md
-   * step in session-init.mjs. Imports the just-installed copy of the lib (not the repo's own
-   * payload/ copy) so behavior always matches what actually landed in ~/.claude this run. */
-  if (VARIANT === "full" && !DRY) {
-    const libPath = join(CDIR, "hooks", "lib", "context-mode-gsd-agents.mjs");
-    if (existsSync(libPath)) {
-      try {
-        const mod = await import(pathToFileURL(libPath).href);
-        const r = mod.syncGsdAgentsContextMode({ claudeDir: CDIR });
-        if (r && r.active && r.updated.length)
-          summary.push(`updated  ${r.updated.length} gsd-* agent(s) with context-mode tool (${r.updated.join(", ")})`);
-      } catch { /* best-effort; never blocks install */ }
-    }
-  }
-
-  /* ---------- gsd-defaults.partial.json: mirror + apply to ~/.gsd/defaults.json ----------
-   * gsd-defaults.partial.json is REPO_ROOT meta (same treatment as settings.partial.json -
-   * source of truth, not walked by placeFile()). Its content must also persist inside
-   * ~/.claude so the standalone `gsd-defaults-sync.mjs` CLI (manual-only; no longer wired into
-   * /init-stack; has no access to REPO_ROOT once installed) can re-read it later - so this step always
-   * overwrites the installed mirror copy, then applies it via the just-installed lib. */
-  if (VARIANT === "full" && !DRY) {
-    const partialDefaultsRaw = read(join(REPO_ROOT, "gsd-defaults.partial.json"));
-    if (partialDefaultsRaw !== undefined) {
-      const mirrorPath = join(CDIR, "gsd-defaults.partial.json");
-      if (write(mirrorPath, partialDefaultsRaw)) summary.push(`updated  ${mirrorPath} (mirror copy)`);
-      const gsdSyncLibPath = join(CDIR, "hooks", "lib", "gsd-defaults-sync.mjs");
-      if (existsSync(gsdSyncLibPath)) {
-        try {
-          const mod = await import(pathToFileURL(gsdSyncLibPath).href);
-          const gsdDefaultsPartial = safe(() => JSON.parse(partialDefaultsRaw));
-          if (gsdDefaultsPartial) {
-            const r = mod.syncGsdGlobalDefaults({ homeDir: HOME, partial: gsdDefaultsPartial });
-            if (r.changed) summary.push(`merged   ${r.path} (deep additive; your values kept)`);
-          }
-        } catch { /* best-effort; never blocks install */ }
-      }
-    }
-  }
-
-  /* ---------- gsd-core hand-patches (backports of confirmed upstream fixes) ----------
-   * gsd-core (~/.claude/gsd-core) is a separate tool, not owned by this bundle - it updates
-   * via `npx @opengsd/gsd-core@latest` or its own /gsd-update skill, not setup.mjs.
-   * gsd-core-patches/<name>/ holds hand-applied backports of
-   * a real, confirmed upstream fix that hasn't reached a tagged release yet - see
-   * gsd-core-patches/README.md for the manifest.json schema and how to add a new one. Generic
-   * over every subdirectory found there - adding a new backport needs no change here, just a
-   * new subdirectory. Version-gated per patch (skip silently on any mismatch - not a
-   * per-session nag) and per-file hash-gated (only touches a file whose current hash matches
-   * the known pre-patch baseline; already-patched or diverged files are left alone, never
-   * clobbered). Retire a subdirectory entirely once its fix ships in a real gsd-core release.
-   */
-  // `.pre-<name>` backups (written just below, once, before the first overwrite of a given
-  // file) used to accumulate forever - nothing ever removed them once the patch had proven
-  // stable. Removed only once it's safe to say the backup is no longer needed:
-  //   - installedVersion no longer matches manifest.targetVersion: gsd-core moved on (upstream
-  //     fix likely shipped, or the user rolled back) - the backup is orphaned either way, since
-  //     it was paired with a specific pre-patch baseline that no longer describes this install.
-  //   - OR every file is already at afterSha256 AND this run did no new patching (patched === 0):
-  //     the patch survived at least one full run untouched since it was applied, so the backup
-  //     has done its job. Deliberately NOT removed in the same run that just created it
-  //     (patched > 0) - that would defeat the point of having a same-run rollback option.
-  if (VARIANT === "full") {
-    const prunePatchBackups = (name, files) => {
-      let removed = 0;
-      for (const f of files) {
-        const backup = join(gsdCoreDir, ...f.rel.split("/")) + `.pre-${name}`;
-        if (!existsSync(backup)) continue;
-        try { rmSync(backup, { force: true }); removed++; summary.push(`pruned   ${backup} (patch backup no longer needed)`); }
-        catch { summary.push(`prune-failed ${backup}`); }
-      }
-      return removed;
-    };
-    const gsdCoreDir = join(CDIR, "gsd-core");
-    if (!DRY) {
-      const patchesRoot = join(REPO_ROOT, "gsd-core-patches");
-      if (existsSync(gsdCoreDir) && existsSync(patchesRoot)) {
-        const patchNames = readdirSync(patchesRoot, { withFileTypes: true })
-          .filter((e) => e.isDirectory()).map((e) => e.name);
-        for (const name of patchNames) {
-          const patchDir = join(patchesRoot, name);
-          const manifest = safe(() => JSON.parse(readFileSync(join(patchDir, "manifest.json"), "utf8")));
-          if (!manifest) continue;
-          const label = manifest.issue ? `#${manifest.issue}` : name;
-          const installedVersion = (read(join(gsdCoreDir, "VERSION")) || "").trim();
-          if (installedVersion !== manifest.targetVersion) {
-            summary.push(`skipped  gsd-core ${label} patch (installed version "${installedVersion || "unknown"}", patch targets "${manifest.targetVersion}")`);
-            prunePatchBackups(name, manifest.files);
-            continue;
-          }
-          let patched = 0, alreadyDone = 0, diverged = 0;
-          for (const f of manifest.files) {
-            const dst = join(gsdCoreDir, ...f.rel.split("/"));
-            const cur = read(dst);
-            if (cur === undefined) { diverged++; continue; }
-            const curHash = sha(cur);
-            if (curHash === f.afterSha256) { alreadyDone++; continue; }
-            if (curHash !== f.beforeSha256) { diverged++; continue; }
-            const afterContent = read(join(patchDir, "after", ...f.rel.split("/")));
-            if (afterContent === undefined) { diverged++; continue; }
-            write(dst + `.pre-${name}`, cur); // backup original, once, before first overwrite
-            if (write(dst, afterContent)) patched++;
-          }
-          if (patched) summary.push(`patched  gsd-core ${label} (${patched} file(s) in ${gsdCoreDir}; originals saved as *.pre-${name})`);
-          else if (alreadyDone === manifest.files.length) { summary.push(`unchanged gsd-core ${label} patch (already applied)`); prunePatchBackups(name, manifest.files); }
-          else if (diverged) summary.push(`skipped  gsd-core ${label} patch (${diverged} file(s) diverge from the known ${manifest.targetVersion} baseline - not touching)`);
-        }
-      }
-    }
-  }
-
   /* ---------- graphify: remove every trace ---------- */
   // Unconditional, not profile-gated: no profile ships graphify any more, so a machine still
   // carrying it carries an orphan. Runs before the settings merge and before pruneStale() so both
@@ -1042,9 +696,9 @@ async function main() {
   // .claude/settings.json). Evidence is collected before anything is deleted: the state that proves
   // which MCP server was graphify's backend is state this same pass removes.
   //
-  // CLAUDE_SETUP_SKIP_PURGE=1 is the test escape hatch, and it is not optional there: the removals
-  // below are the only ones in this installer anchored to HOME rather than CDIR, so a harness that
-  // sandboxes CLAUDE_CONFIG_DIR alone would purge the real machine.
+  // CLAUDE_SETUP_SKIP_PURGE=1 skips this block only; the GSD purge runs regardless. The removals
+  // here and the GSD purge's HOME/.gsd are anchored to HOME rather than CDIR, so a harness must
+  // sandbox HOME/USERPROFILE as well as CLAUDE_CONFIG_DIR.
   if (process.env.CLAUDE_SETUP_SKIP_PURGE !== "1") {
     const purged = [];
     const rmPath = (target, label = target) => {
@@ -1168,6 +822,35 @@ async function main() {
     }
   }
 
+  /* ---------- GSD: remove every trace ---------- */
+  // Unconditional: no profile ships GSD. Automatic and permanent by design (RISK-GSDPURGE-001).
+  {
+    const projectInitPath = join(CDIR, "state", "project-init.json");
+    // Same BOM-safe parse as the settings merge; absent or unparsable means nothing to strip (null).
+    const parsedOrNull = (p) => (existsSync(p) ? readJsonOrNull(p) : null);
+    const plan = planGsdPurge({
+      claudeDir: CDIR, homeDir: HOME, exists: existsSync,
+      list: (p) => safe(() => readdirSync(p)) || [],
+      settings: parsedOrNull(SETTINGS),
+      projectInit: parsedOrNull(projectInitPath),
+    });
+    if (!isEmptyPlan(plan)) {
+      log(formatGsdPurge(plan, DRY));
+      if (!DRY) {
+        for (const p of plan.paths) {
+          safe(() => rmSync(p, { recursive: true, force: true }));
+          if (existsSync(p)) log(`  FAILED to remove ${p}`);
+        }
+        if (plan.settings.changed) {
+          copyFileSync(SETTINGS, `${SETTINGS}.pre-gsd-purge`);
+          if (!write(SETTINGS, JSON.stringify(plan.settings.next, null, 2) + "\n")) log(`  FAILED to clean ${SETTINGS}`);
+        }
+        if (plan.state.changed) write(projectInitPath, JSON.stringify(plan.state.next, null, 2) + "\n");
+      }
+      summary.push(`GSD ${DRY ? "purge (dry run)" : "purged"}: ${plan.paths.length} path(s) - listed above`);
+    }
+  }
+
   /* ---------- settings.json: structured additive merge ---------- */
   // Source of truth for "what hooks/permissions we want" is settings.partial.json itself - NOT a
   // second hardcoded copy in here. That duplication is exactly how this used to drift (a hook
@@ -1187,7 +870,7 @@ async function main() {
     merged.hooks = merged.hooks || {};
 
     // "Ours" = every hook script filename declared anywhere in settings.partial.json, collected
-    // dynamically - so adding/renaming/moving a hook there (e.g. db-live-access-gate.mjs moving
+    // dynamically - so adding/renaming/moving a hook there (e.g. a hook moving
     // from SessionStart to PreToolUse) is automatically picked up here with no hand-sync needed.
     const ourFiles = new Set();
     for (const entries of Object.values(partial.hooks || {}))
@@ -1197,8 +880,8 @@ async function main() {
     for (const f of RETIRED_HOOK_FILES) ourFiles.add(f);
     const mentionsOurs = (e) => (e.hooks || []).some(h => (h.args || []).some(a => ourFiles.has(String(a).split(/[\\/]/).pop())));
 
-    // Re-add side is variant-filtered: a lite install must not re-add gsd-only hook entries even
-    // though they're still present in the FULL partial used above to strip stale entries.
+    // Re-add side is variant-filtered: a lite install must not re-add base-only hook entries even
+    // though they're still present in the whole partial used above to strip stale entries.
     const variantBasenames = new Set(V.rels.map((r) => r.split("/").pop()));
     const partialHooksForVariant = filterPartialHooks(partial.hooks, variantBasenames);
 
@@ -1247,15 +930,14 @@ async function main() {
       }, []);
     }
 
-    // Either historical renderer counts as ours, in both directions: a profile switch prunes the
-    // file the old entry pointed at, so a takeover that recognised only one would leave statusLine
+    // The bundle renderer counts as ours, in both directions: a profile switch prunes the
+    // file the old entry pointed at, so a takeover that missed it would leave statusLine
     // aimed at nothing and render an empty line on every prompt.
     const ourStatusLine = (cmd) => typeof cmd === "string"
-      && (cmd.includes("gsd-context-meter") || cmd.includes("hooks/statusline.mjs"));
+      && cmd.includes("hooks/statusline.mjs");
     if (partial.statusLine) {
       const curCmd = merged.statusLine && merged.statusLine.command;
-      const isGsdCoreDefault = typeof curCmd === "string" && curCmd.includes("gsd-statusline.js");
-      if (!curCmd || isGsdCoreDefault || ourStatusLine(curCmd)) {
+      if (!curCmd || ourStatusLine(curCmd)) {
         const scriptPath = join(CDIR, "hooks", "statusline.mjs").replace(/\\/g, "/");
         merged.statusLine = { type: "command", ...partial.statusLine, command: `node "${scriptPath}"` };
       }
@@ -1653,11 +1335,9 @@ async function main() {
   /* ---------- prune stale files + persist manifest ---------- */
   migrateRulesDir();
   overwriteTemplatesDir();
-  // After pruneStale, never before it, and the data dependency now says so rather than a comment:
-  // a file this bundle installed under `full` and no longer ships under base/lite is pruneStale's
-  // to remove, under pruneStale's own gates, so the detector is handed what it already claimed.
-  await detectForeignGsdCore(await pruneStale());
-  await offerGsdCoreInstall();
+  // A file an earlier bundle installed and this one no longer ships is pruneStale's to remove,
+  // under pruneStale's own gates.
+  await pruneStale();
   // After the prune, which is what can delete the file the command names.
   warnStatuslineNamesMissingFile();
   if (!DRY) {
@@ -1728,28 +1408,19 @@ async function main() {
   log("");
   log("Step 2 - Open a Claude Code session in the project. On its FIRST session there,");
   log("         a SessionStart hook configures it AUTOMATICALLY - nothing to run:");
-  log("           - marks an unmarked root CLAUDE.md as curated (skipped if it looks");
-  log("             GSD-generated)");
-  if (VARIANT === "full") {
-    log("           - excludes a GSD-owned .planning/CLAUDE.md from auto-load (per project)");
-    log("           - appends the GSD-clobber risk to an existing RISK_REGISTER.md (every");
-    log("             session, not just the first)");
-  }
+  log("           - marks an unmarked root CLAUDE.md as curated");
   log("           - checks whether the compiled rules snapshot (.claude/stack-rules.md)");
   log("             exists; if not, suggests running /init-stack to generate it (no");
   log("             automatic staleness check - opt out: CLAUDE_STACK_RULES=0)");
-  if (VARIANT === "full") {
+  if (VARIANT !== "lite") {
     log("           - if the git remote is GitHub/GitLab or a DB dependency is detected");
     log("             with no matching MCP wired: suggests /init-mcp (suggestion only,");
     log("             installs nothing, rechecked every session)");
-    log("           - for GSD projects (.planning/ present): patches model_profile to your");
-    log("             personal default (once), and flags config gaps (e.g. fallow enabled");
-    log("             but not installed) every session");
   }
   log("         Toggles: CLAUDE_CURATED_AUTOINIT=0 (disables all of the above),");
   log("         CLAUDE_CURATED_AUTOMARK_ROOT=0, CLAUDE_MCP_SUGGEST=0.");
   log("");
-  if (VARIANT === "full") {
+  if (VARIANT !== "lite") {
     log("Step 3 - ONLY if the project needs stack-specific plugins (React, FastAPI, ...) -");
     log("         this does NOT happen automatically. Run /init-stack in that project's");
     log("         Claude Code session. It detects the stack, then asks you to run");

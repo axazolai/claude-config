@@ -1,11 +1,11 @@
 ---
 phase: 26
 slug: remove-gsd
-status: planned
-tasks_done: 0
+status: complete
+tasks_done: 5
 tasks_total: 5
-branch: null
-integration: none
+branch: phase-26-remove-gsd
+integration: branch
 updated: 2026-10-18
 ---
 
@@ -14,11 +14,18 @@ updated: 2026-10-18
 Remove the GSD integration and the `full` profile; every `node setup.mjs` run removes GSD traces
 from the machine automatically and permanently.
 
-**Spec approved, plan written, execution not started.** `26-SPEC.md` was approved on 2026-10-18;
-`26-PLAN.md` holds five test-after tasks: the purge plan module, GSD code paths out of runtime
-hooks, the `full` profile and every GSD file out, the purge wired into `setup.mjs` in place of the
-gsd-core detector, then texts and docs. The plan's Task 1 code and Task 3 profile resolution were
-executed against samples before the plan was committed.
+**Complete, not merged.** All five tasks ran subagent-driven on `phase-26-remove-gsd`
+(`58d0980..18bca2e`), each task review clean, the final whole-branch review's fix wave re-reviewed
+clean, full suite 625/625 at `18bca2e`. Verification: ACHIEVED (`26-VERIFICATION.md`); its one
+VIOLATED constraint is six commits whose `Co-Authored-By` trailer names Sonnet 5.5 rather than
+Opus 5.5 — a squash merge replaces them. Rulings, deferred minors and out-of-spec items:
+`26-SUMMARY.md`.
 
-Next: choose the execution method (subagent-driven or native) and run the plan from Task 1. No
-branch exists yet.
+Next: the user chooses how to integrate the branch into `master`; then deploy A, C and phase 26
+together with `node setup.mjs` (answer `r` on `CLAUDE.md`) and restart Claude Code. The
+real-machine success criterion (spec § 1) is checked on that deploy.
+
+## Done
+
+- Tasks 1-5 and the final-review fix wave, 2026-10-18.
+- Spec approved and plan written (five test-after tasks), 2026-10-18.

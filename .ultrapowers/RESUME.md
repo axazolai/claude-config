@@ -8,7 +8,13 @@ status is — this file answers what is owed, what was ruled, and what must not 
 
 ## Summary
 
-As of 2026-10-18: A (model routing for Haiku 5.5) and C (save points) are committed on `master`
+As of 2026-10-18, later: B — phase 26 (`26-remove-gsd`) — is complete on branch
+`phase-26-remove-gsd` (`58d0980..18bca2e`), full suite 625/625, verification ACHIEVED, **not
+merged**. A and C are on `master` and undeployed. Owed: integrate the branch into `master` (the
+user's choice of method), then one deploy carrying A, C and phase 26, then a restart. `BUG-005`
+(protected-guard roots at the raw cwd) is open and outside phase 26.
+
+Earlier the same day: A (model routing for Haiku 5.5) and C (save points) are committed on `master`
 (`f29c728`, `7364097`) and **undeployed**. B is phase 26 (`26-remove-gsd`): spec approved, plan
 written, execution not started, no branch yet.
 
@@ -24,11 +30,18 @@ migration shipped as phase 10's first task.
 
 ## Open
 
-- **Phase 26: choose the execution method and run the plan.** `.ultrapowers/phases/26-remove-gsd/26-PLAN.md`,
-  five test-after tasks from Task 1. Subagent-driven or native is chosen at the start of that
-  session; a phase branch is created then.
-- **Deploy A and C.** Committed on `master` (`f29c728`, `7364097`), not deployed: `node setup.mjs`
-  (answer `r` on `CLAUDE.md`), then a restart.
+- **Phase 26: integrate `phase-26-remove-gsd` into `master`.** Complete and reviewed; the method
+  (merge or squash) is the user's. Six commits carry a Sonnet 5.5 `Co-Authored-By` trailer
+  (`26-VERIFICATION.md`); a squash merge replaces them. After the merge set `current: null` in
+  `ROADMAP.md` and `delivery: merged`.
+- **Deploy A, C and phase 26 together.** From `master` after the merge: `node setup.mjs` (answer `r`
+  on `CLAUDE.md`), then a restart. On this machine the purge should find nothing (no GSD traces
+  were measured on 2026-10-18); `--dry-run` first shows it.
+- **`BUG-005`: protected-guard roots at the raw cwd.** Logged in `.ultrapowers/BUGS.md`; outside
+  phase 26. Until fixed, never leave the Bash cwd inside an ignored subdirectory such as
+  `.ultrapowers/sdd/`.
+- **Phase 26 out-of-spec items await the user's call** — listed in `26-SUMMARY.md` § Rulings (each
+  goes into a spec with a test, or is rejected).
 - **Restart Claude Code after the 2026-09-20 deploy.** Phase 16's `/scratch-prune` skill and the
   two-tier scratchpad rule of 2026-09-19 are on disk; skills and `CLAUDE.md` load at startup.
 - **Restart Claude Code.** The deploy ran on 2026-07-31 and everything is on disk, but hooks
@@ -123,6 +136,10 @@ fixed on 2026-07-31, the second still stands:
 
 Compressed once paid: name, one line, the date. The reasoning that got each one done is in
 its commit — these lines exist so a reader can see it happened at all.
+
+- **Phase 26 executed, 2026-10-18.** Subagent-driven, five tasks plus a final-review fix wave
+  (`58d0980..18bca2e`); the purge matcher is anchored to the config dir after three fix rounds, and
+  the purge parses `settings.json` BOM-safely. Full suite 625/625, verification ACHIEVED.
 
 - **Phase 26 designed, 2026-10-18.** Decisions: profiles `base` and `lite` only, a recorded `full`
   resolves to `base`; `ci-watch-nudge` and `worktree-executor-discipline-advisor` move into `base`,

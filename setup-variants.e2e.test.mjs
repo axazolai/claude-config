@@ -6,6 +6,7 @@ import { join, dirname, resolve, relative, isAbsolute } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { spawnSync, spawn } from "node:child_process";
 import { createHash } from "node:crypto";
+import { resolveVariant } from "./variants.mjs";
 
 const ROOT = dirname(fileURLToPath(import.meta.url));
 const REAL_HOME = homedir();
@@ -56,52 +57,97 @@ function assertTreeEquals(dir, rels) {
   const installed = new Set(walk(dir));
   for (const rel of rels) assert.ok(installed.has(rel), `missing: ${rel}`);
   for (const rel of installed)
-    if (!rel.startsWith("state/") && rel !== "settings.json" && rel !== "CLAUDE.md" && !FOREIGN.includes(rel))
+    if (!rel.startsWith("state/") && rel !== "settings.json" && rel !== "CLAUDE.md" && rel !== "deepseek-defaults.json" && !FOREIGN.includes(rel))
       assert.ok(rels.includes(rel), `unexpected: ${rel}`);
 }
 
-test("@critical switch full->lite prunes surplus; lite->full restores; foreign untouched", () => {
+const REMOVED_LINE = 'profile "full" was removed; using "base"';
+
+test("@critical switch base->lite prunes surplus; lite->base restores; foreign untouched", () => {
   const dir = mkdtempSync(join(tmpdir(), "cc-sw-"));
   plantForeign(dir);
-  assert.equal(run(dir, ["--variant=full", "--replace-all"]).status, 0);
-  assert.ok(existsSync(join(dir, "hooks/gsd-config-patch.mjs")));
+  assert.equal(run(dir, ["--variant=base", "--replace-all"]).status, 0);
+  assert.ok(existsSync(join(dir, "hooks/ci-watch-nudge.mjs")));
   assert.equal(run(dir, ["--variant=lite", "--replace-all"]).status, 0);
-  assert.ok(!existsSync(join(dir, "hooks/gsd-config-patch.mjs")), "gsd hook not pruned");
-  assert.ok(!existsSync(join(dir, "hooks/lib/context-mode-gsd-agents.mjs")), "gsd lib not pruned (name-gate bypass broken?)");
-  assert.ok(!existsSync(join(dir, "gsd-defaults.partial.json")), "gsd-defaults mirror not pruned");
-  assert.equal(run(dir, ["--variant=full", "--replace-all"]).status, 0);
-  assert.ok(existsSync(join(dir, "hooks/gsd-config-patch.mjs")), "full files not restored");
-  assert.equal(JSON.parse(readFileSync(join(dir, "state/bundle-manifest.json"), "utf8")).variant, "full");
-  for (const f of FOREIGN) assert.equal(readFileSync(join(dir, f), "utf8"), `foreign:${f}`);
+  assert.ok(!existsSync(join(dir, "hooks/ci-watch-nudge.mjs")), "base-only hook not pruned");
+  assert.ok(!existsSync(join(dir, "hooks/bg-supervision-nudge.mjs")), "universal infra not pruned on base->lite");
+  assert.equal(run(dir, ["--variant=base", "--replace-all"]).status, 0);
+  assert.ok(existsSync(join(dir, "hooks/ci-watch-nudge.mjs")), "base files not restored");
+  assert.equal(readManifest(dir).variant, "base");
+  assertForeignIntact(dir);
   rmSync(dir, { recursive: true, force: true });
 });
 
-test("@critical full->base->lite prunes GSD then universal infra; foreign untouched", () => {
-  const dir = mkdtempSync(join(tmpdir(), "cc-transitions-"));
-  plantForeign(dir);
-
-  assert.equal(run(dir, ["--variant=full", "--replace-all"]).status, 0);
-  assert.ok(existsSync(join(dir, "hooks/gsd-config-patch.mjs")));
-  assert.ok(existsSync(join(dir, "hooks/bg-supervision-nudge.mjs")));
-  assertForeignIntact(dir);
-
-  // full -> base: GSD-everything pruned, universal infra (base's own keep-set) stays.
-  assert.equal(run(dir, ["--variant=base", "--replace-all"]).status, 0);
-  assert.ok(!existsSync(join(dir, "hooks/gsd-config-patch.mjs")), "gsd hook not pruned on full->base");
-  assert.ok(!existsSync(join(dir, "hooks/lib/context-mode-gsd-agents.mjs")), "gsd lib not pruned on full->base");
-  assert.ok(!existsSync(join(dir, "gsd-defaults.partial.json")), "gsd-defaults mirror not pruned on full->base");
-  assert.ok(existsSync(join(dir, "hooks/bg-supervision-nudge.mjs")), "universal infra wrongly pruned on full->base");
+test("@critical a manifest naming the removed full profile installs as base, says so, exits 0", () => {
+  const dir = mkdtempSync(join(tmpdir(), "cc-man-full-"));
+  assert.equal(run(dir, ["--variant=base", "--skip-all"]).status, 0);
+  const manifest = readManifest(dir);
+  manifest.profile = "full"; manifest.variant = "full";
+  writeFileSync(join(dir, "state/bundle-manifest.json"), JSON.stringify(manifest, null, 2));
+  const r = run(dir, ["--skip-all"]);
+  assert.equal(r.status, 0, r.stderr);
+  assert.ok(r.stdout.includes(REMOVED_LINE), "removal line not printed");
+  assert.doesNotMatch(r.stdout, /Switching variant/, "full->base reported as a switch");
   assert.equal(readManifest(dir).profile, "base");
-  assertForeignIntact(dir);
-
-  // base -> lite: the universal infra base kept now gets pruned too.
-  assert.equal(run(dir, ["--variant=lite", "--replace-all"]).status, 0);
-  assert.ok(!existsSync(join(dir, "hooks/bg-supervision-nudge.mjs")), "universal infra not pruned on base->lite");
-  assert.ok(!existsSync(join(dir, "hooks/gsd-config-patch.mjs")), "gsd hook still absent on lite");
-  assert.equal(readManifest(dir).profile, "lite");
-  assertForeignIntact(dir);
-
   rmSync(dir, { recursive: true, force: true });
+});
+
+test("@critical no manifest, non-TTY: installs as base, exit 0", () => {
+  const dir = mkdtempSync(join(tmpdir(), "cc-fresh-"));
+  const r = run(dir, ["--skip-all"]);
+  assert.equal(r.status, 0, r.stderr);
+  assert.equal(readManifest(dir).profile, "base");
+  assert.ok(!r.stdout.includes(REMOVED_LINE));
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test("@critical --variant=full installs as base with the removal line; --variant=nope exits 1", () => {
+  const dir = mkdtempSync(join(tmpdir(), "cc-arg-full-"));
+  const r = run(dir, ["--variant=full", "--skip-all"]);
+  assert.equal(r.status, 0, r.stderr);
+  assert.ok(r.stdout.includes(REMOVED_LINE), "removal line not printed");
+  assert.equal(readManifest(dir).profile, "base");
+  rmSync(dir, { recursive: true, force: true });
+
+  const bad = mkdtempSync(join(tmpdir(), "cc-arg-nope-"));
+  const rn = run(bad, ["--variant=nope", "--skip-all"]);
+  assert.equal(rn.status, 1);
+  assert.match(rn.stdout, /Unknown --variant=nope. Known: base, lite/);
+  assert.deepEqual(walk(bad), [], "an unknown profile still wrote files");
+  rmSync(bad, { recursive: true, force: true });
+});
+
+test("@important the interactive profile prompt answered full installs as base with the removal line", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "cc-prompt-full-"));
+  const r = await runTty(dir, ["--dry-run"], [["bundle profile [", "full"]]);
+  assert.equal(r.status, 0, r.stderr);
+  assert.ok(r.stdout.includes("bundle profile [base/lite]"), "the prompt does not offer exactly base and lite");
+  assert.ok(r.stdout.includes(REMOVED_LINE), "removal line not printed");
+  assert.match(r.stdout, /^Variant: base \(/m);
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test("@important base and lite install trees match their resolved file sets; ci-watch and worktree hooks are base-only", () => {
+  const SPLIT = ["hooks/ci-watch-nudge.mjs", "hooks/worktree-executor-discipline-advisor.mjs"];
+  for (const variant of ["base", "lite"]) {
+    const dir = mkdtempSync(join(tmpdir(), `cc-tree-${variant}-`));
+    assert.equal(run(dir, [`--variant=${variant}`, "--skip-all"]).status, 0);
+    assertTreeEquals(dir, resolveVariant({ repoRoot: ROOT, variant }).rels);
+    const installed = new Set(walk(dir));
+    for (const rel of SPLIT) assert.equal(installed.has(rel), variant === "base", `${variant}: ${rel}`);
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("@important the assembled CLAUDE.md of base and lite names no GSD", () => {
+  for (const variant of ["base", "lite"]) {
+    const dir = mkdtempSync(join(tmpdir(), `cc-md-${variant}-`));
+    assert.equal(run(dir, [`--variant=${variant}`, "--skip-all"]).status, 0);
+    const md = readFileSync(join(dir, "CLAUDE.md"), "utf8");
+    assert.doesNotMatch(md, /gsd/i, variant);
+    assert.ok(!existsSync(join(dir, "rules-src/gsd.md")), variant);
+    rmSync(dir, { recursive: true, force: true });
+  }
 });
 
 test("@critical a hand-set statusLine survives a base install", () => {
@@ -157,7 +203,7 @@ test("@important an unknown flag is inert, and the install still succeeds", () =
 });
 
 test("@critical --dry-run writes nothing for both variants", () => {
-  for (const variant of ["lite", "full"]) {
+  for (const variant of ["lite", "base"]) {
     const dir = mkdtempSync(join(tmpdir(), "cc-dry-"));
     const r = run(dir, [`--variant=${variant}`, "--dry-run", "--skip-all"]);
     assert.equal(r.status, 0, r.stderr);
@@ -166,7 +212,7 @@ test("@critical --dry-run writes nothing for both variants", () => {
   }
 });
 
-/* ---------- foreign gsd-core detector (base/lite only) ----------
+/* ---------- interactive runs ----------
  * `run()` above is always non-TTY (spawnSync pipes stdin) and so can never reach an interactive
  * branch. runTty() launches setup.mjs through a driver that forces process.stdin.isTTY first, and
  * answers arrive on stdin.
@@ -205,274 +251,129 @@ function runTty(dir, args, answers = []) {
     child.on("close", (status) => { clearTimeout(killer); resolve({ status, stdout, stderr }); });
   });
 }
-const GSD_FIXTURE = {
+
+/* ---------- GSD purge: every install removes every GSD trace ---------- */
+const fwd = (p) => p.replace(/\\/g, "/");
+const GSD_FILES = {
   "gsd-core/VERSION": "0.0.0-test\n",
-  "gsd-core/lib/orchestrate.mjs": "x".repeat(3000),
-  "skills/gsd-probe/SKILL.md": "x",
-  "agents/gsd-planner.md": "x",
-  "hooks/gsd-probe.mjs": "x",
-  "hooks/gsd-legacy.js": "x",
-  "hooks/lib/gsd-probe-lib.mjs": "x",
+  "agents/gsd-x.md": "x",
+  "commands/gsd/help.md": "x",
+  "hooks/gsd-config-patch.mjs": "// former bundle file\n",
+  "hooks/db-live-access-gate.mjs": "// former bundle file\n",
+  "gsd-defaults.partial.json": "{}\n",
 };
-const GSD_REMOVED = ["gsd-core", "skills/gsd-probe", "agents/gsd-planner.md", "hooks/gsd-probe.mjs",
-  "hooks/gsd-legacy.js", "hooks/lib/gsd-probe-lib.mjs"];
-// Both registration shapes on purpose. The args form is this bundle's; the bare quoted command
-// line with no args at all is what every hook of a real gsd-core install actually looks like, and
-// a matcher that only reads `args` leaves it registered after the file underneath it has moved.
-const cmdHook = (command) => ({ matcher: "", hooks: [{ type: "command", command }] });
-function plantGsdCore(dir, { settings = true } = {}) {
-  for (const [rel, body] of Object.entries(GSD_FIXTURE)) {
+// Hooks as the old settings.partial.json wrote them (command + args), plus gsd-core's own shape:
+// one quoted command line with no args.
+function gsdSettings(dir) {
+  return {
+    model: "opus",
+    hooks: {
+      PreToolUse: [
+        { matcher: "Bash|^mcp__.*", hooks: [{ type: "command", command: "node", args: [`${fwd(dir)}/hooks/db-live-access-gate.mjs`] }] },
+      ],
+      PostToolUse: [
+        { matcher: "Write|Edit|MultiEdit|Bash", hooks: [{ type: "command", command: "node", args: [`${fwd(dir)}/hooks/gsd-config-patch.mjs`] }] },
+      ],
+      Notification: [
+        { matcher: "", hooks: [{ type: "command", command: `"C:/Program Files/nodejs/node.exe" "${fwd(dir)}/hooks/gsd-check-update.js"` }] },
+        { matcher: "", hooks: [{ type: "command", command: "echo mine-notify" }] },
+      ],
+    },
+    statusLine: { type: "command", command: `node "${fwd(dir)}/hooks/gsd-statusline.js"` },
+  };
+}
+function plantGsdMachine(dir) {
+  for (const [rel, body] of Object.entries(GSD_FILES)) {
     mkdirSync(join(dir, dirname(rel)), { recursive: true });
     writeFileSync(join(dir, rel), body);
   }
-  if (!settings) return;
-  const fwd = (rel) => join(dir, rel).replace(/\\/g, "/");
-  // Registered under an event settings.partial.json never declares, so the assertions below see the
-  // detector's own filter and not the settings merge's claim-our-slots pass.
-  writeFileSync(join(dir, "settings.json"), JSON.stringify({
-    hooks: {
-      Notification: [
-        { matcher: "", hooks: [{ type: "command", command: "node", args: [join(dir, "hooks", "gsd-probe.mjs")] }] },
-        cmdHook(`"C:/Program Files/nodejs/node.exe" "${fwd("hooks/gsd-legacy.js")}"`),
-        cmdHook(`"${fwd("hooks/gsd-legacy.js")}" --quiet`),
-        cmdHook(`node "${fwd("hooks/lib/gsd-probe-lib.mjs")}"`),
-        cmdHook(`node "${fwd("hooks/session-init.mjs")}"`),
-      ],
-    },
-  }, null, 2) + "\n");
+  plantForeign(dir);
+  writeFileSync(join(dir, "settings.json"), JSON.stringify(gsdSettings(dir), null, 2) + "\n");
 }
-const gsdPresent = (dir) => existsSync(join(dir, "gsd-core/VERSION"));
-const batches = (dir) => (existsSync(join(dir, ".cleanup-trash")) ? readdirSync(join(dir, ".cleanup-trash")) : []);
-const NOT_REPORTED = /is installed here and is not part of this bundle/;
-// The one way to exercise the NON-relocated branch (CDIR === <home>/.claude) without deploying into
-// the real ~/.claude: `homedir()` reads USERPROFILE on Windows and HOME elsewhere, so redirecting
-// both moves the whole default. CLAUDE_CONFIG_DIR must be deleted, not just omitted - `run()`'s
-// env spread would otherwise inherit an ambient one and silently put the run back on the relocated
-// branch this exists to be the opposite of.
-function runAtHome(home, args) {
-  const env = { ...process.env, USERPROFILE: home, HOME: home, CLAUDE_SETUP_SKIP_PLUGINS: "1", CLAUDE_SETUP_SKIP_MCP: "1", CLAUDE_SETUP_SKIP_PURGE: "1" };
-  delete env.CLAUDE_CONFIG_DIR;
-  SPAWN_HOMES.push({ HOME: env.HOME, USERPROFILE: env.USERPROFILE });
-  return spawnSync(process.execPath, [join(ROOT, "setup.mjs"), ...args], { encoding: "utf8", env, timeout: 120000 });
+// Like run(), but the sandbox home is known to the caller so `.gsd` can be planted in it.
+function runWithHome(dir, args, { plantHome = true } = {}) {
+  const env = setupEnv({ CLAUDE_CONFIG_DIR: dir, CLAUDE_SETUP_SKIP_PLUGINS: "1", CLAUDE_SETUP_SKIP_MCP: "1", CLAUDE_SETUP_SKIP_PURGE: "1" });
+  const gsdHome = join(env.HOME, ".gsd");
+  if (plantHome) { mkdirSync(gsdHome); writeFileSync(join(gsdHome, "state.json"), "{}\n"); }
+  const r = spawnSync(process.execPath, [join(ROOT, "setup.mjs"), ...args], { encoding: "utf8", env, timeout: 120000 });
+  return { ...r, gsdHome };
 }
-// A second REPO_ROOT, so a test can break an installer input (settings.partial.json) that lives in
-// the repository itself. docs/ is 1.8 MB of files setup.mjs never reads; `.git` is carried when it
-// is a worktree pointer file so resolveInstalledSha() answers from git instead of falling through
-// to its GitHub fetch.
-function copyRepoRoot() {
-  const repo = mkdtempSync(join(tmpdir(), "cc-repo-"));
-  const gitIsDir = existsSync(join(ROOT, ".git")) && statSync(join(ROOT, ".git")).isDirectory();
-  const skip = new Set(["docs", "node_modules", ".ultrapowers", ".planning", ".claude"]);
-  // Entry by entry: the temp dir may live under .claude/.scratchpad, and cpSync refuses a whole-tree
-  // copy into its own subdirectory before any filter runs.
-  for (const name of readdirSync(ROOT)) {
-    if (skip.has(name) || (name === ".git" && gitIsDir)) continue;
-    cpSync(join(ROOT, name), join(repo, name), { recursive: true });
-  }
-  return repo;
-}
+const GSD_PATHS = ["gsd-core", "agents/gsd-x.md", "commands/gsd", "hooks/gsd-config-patch.mjs",
+  "hooks/db-live-access-gate.mjs", "gsd-defaults.partial.json"];
 
-test("@critical --uninstall-gsd moves gsd-core to a trash batch, backs settings up first, drops only gsd hooks", () => {
-  const dir = mkdtempSync(join(tmpdir(), "cc-gsd-"));
-  plantGsdCore(dir);
-
-  const dry = run(dir, ["--variant=base", "--uninstall-gsd", "--dry-run", "--skip-all"]);
-  assert.equal(dry.status, 0, dry.stderr);
-  assert.match(dry.stdout, /\[dry-run\] would move \d+ path\(s\)/);
-  assert.ok(gsdPresent(dir), "dry-run removed something");
-  assert.deepEqual(batches(dir), []);
-
-  const r = run(dir, ["--variant=base", "--uninstall-gsd", "--skip-all"]);
+test("@critical an install purges every GSD trace, keeps the bundle statusLine and foreign files, and backs settings up", () => {
+  const dir = mkdtempSync(join(tmpdir(), "cc-sd-purge-"));
+  plantGsdMachine(dir);
+  const oldSettings = readFileSync(join(dir, "settings.json"), "utf8");
+  const r = runWithHome(dir, ["--variant=base", "--merge-all"]);
   assert.equal(r.status, 0, r.stderr);
-  assert.match(r.stdout, /gsd-core 0\.0\.0-test is installed here and is not part of this bundle/);
-  for (const rel of GSD_REMOVED) assert.ok(!existsSync(join(dir, rel)), `not removed: ${rel}`);
-
-  const ts = batches(dir);
-  assert.equal(ts.length, 1, `expected exactly one trash batch, got ${ts.join(", ")}`);
-  const batch = join(dir, ".cleanup-trash", ts[0]);
-  assert.ok(existsSync(join(batch, "manifest.json")), "batch manifest missing");
-  assert.ok(r.stdout.includes(`trash batch: ${batch.replace(/\\/g, "/")}`), "batch path not printed before the moves");
-  const backup = join(batch, "settings.json.pre-gsd-uninstall");
-  assert.ok(existsSync(backup), "pre-edit settings copy missing from the batch");
-  assert.equal(JSON.parse(readFileSync(backup, "utf8")).hooks.Notification.length, 5, "backup is not the PRE-edit copy");
-
-  // Three gsd hook registrations go (args form, interpreter+quoted path, quoted path + trailing
-  // arg); the hooks/lib entry and the unrelated hook stay.
-  const settings = JSON.parse(readFileSync(join(dir, "settings.json"), "utf8"));
-  assert.equal(settings.hooks.Notification.length, 2, "wrong set of gsd hook registrations removed");
-  const left = JSON.stringify(settings.hooks.Notification);
-  assert.ok(!/hooks\/gsd-probe\.mjs|hooks\/gsd-legacy\.js/.test(left), "a gsd hook registration survived");
-  assert.ok(left.includes("gsd-probe-lib.mjs") && left.includes("session-init.mjs"), "a non-gsd-hook entry was dropped");
-  assert.match(r.stdout, /removed 3 gsd-\* hook registration\(s\)/);
-
-  // restoreBatch deletes the whole batch (backup included), so the cp must be printed FIRST; and
-  // claude-cleanup.mjs reads CLAUDE_CONFIG_DIR, not its own location, so a relocated dir must
-  // travel with the command or the restore silently targets ~/.claude.
-  const cpAt = r.stdout.indexOf(`cp "`);
-  const restoreAt = r.stdout.indexOf(`restore --ts ${ts[0]}`);
-  assert.ok(cpAt !== -1, "rollback did not print a cp for settings.json");
-  assert.ok(restoreAt !== -1, "rollback did not print the batch restore command with this run's ts");
-  assert.ok(cpAt < restoreAt, "rollback prints restore before cp - restoring first destroys the backup");
-  assert.ok(r.stdout.includes(`CLAUDE_CONFIG_DIR="${dir.replace(/\\/g, "/")}" node "`),
-    "relocated config dir not carried into the printed restore command");
+  for (const rel of GSD_PATHS) assert.equal(existsSync(join(dir, rel)), false, rel);
+  assert.equal(existsSync(r.gsdHome), false, "~/.gsd");
+  const text = readFileSync(join(dir, "settings.json"), "utf8");
+  assert.doesNotMatch(text, /gsd|db-live-access-gate/i);
+  const s = JSON.parse(text);
+  assert.match(s.statusLine.command, /hooks\/statusline\.mjs/);
+  assert.match(JSON.stringify(s.hooks.Notification), /mine-notify/);
+  assert.equal(readFileSync(join(dir, "settings.json.pre-gsd-purge"), "utf8"), oldSettings);
+  assertForeignIntact(dir);
   rmSync(dir, { recursive: true, force: true });
 });
 
-test("@critical the rollback prints a runnable restore for both shells when relocated, and one plain line when not", () => {
-  const dir = mkdtempSync(join(tmpdir(), "cc-gsd-shell-"));
-  plantGsdCore(dir, { settings: false });
-  const r = run(dir, ["--variant=base", "--uninstall-gsd", "--skip-all"]);
+test("@critical --dry-run lists every GSD path under would remove and changes nothing", () => {
+  const dir = mkdtempSync(join(tmpdir(), "cc-sd-dry-"));
+  plantGsdMachine(dir);
+  const before = walk(dir);
+  const oldSettings = readFileSync(join(dir, "settings.json"), "utf8");
+  const r = runWithHome(dir, ["--variant=base", "--dry-run", "--merge-all"]);
   assert.equal(r.status, 0, r.stderr);
-  const cd = dir.replace(/\\/g, "/");
-  const restore = `node "${join(dir, "bin", "claude-cleanup.mjs").replace(/\\/g, "/")}" restore --ts ${batches(dir)[0]}`;
-  assert.ok(r.stdout.includes(`\n    bash:       CLAUDE_CONFIG_DIR="${cd}" ${restore}\n`),
-    "no labelled POSIX form of the restore command");
-  assert.ok(r.stdout.includes(`\n    PowerShell: $env:CLAUDE_CONFIG_DIR="${cd}"; ${restore}\n`),
-    "no labelled PowerShell form of the restore command");
-  // `VAR="x" cmd` parses in PowerShell as a command NAMED `VAR=x` and dies at run time with "is not
-  // recognized", so the PowerShell line must be an assignment plus a statement separator - never
-  // the POSIX prefix with a label glued on.
-  const ps = r.stdout.split("\n").find((l) => l.includes("PowerShell:"));
-  assert.match(ps, /^ +PowerShell: \$env:CLAUDE_CONFIG_DIR="[^"]+"; node "[^"]+" restore --ts [\w.-]+$/);
-  rmSync(dir, { recursive: true, force: true });
-
-  const home = mkdtempSync(join(tmpdir(), "cc-gsd-home-"));
-  const cdir = join(home, ".claude");
-  mkdirSync(cdir, { recursive: true });
-  plantGsdCore(cdir, { settings: false });
-  const r2 = runAtHome(home, ["--variant=base", "--uninstall-gsd", "--skip-all"]);
-  assert.equal(r2.status, 0, r2.stderr);
-  assert.equal(batches(cdir).length, 1, "the non-relocated run did not reach the removal");
-  assert.ok(r2.stdout.includes(
-    `\n    node "${join(cdir, "bin", "claude-cleanup.mjs").replace(/\\/g, "/")}" restore --ts ${batches(cdir)[0]}\n`),
-    "the default config dir did not get the plain, environment-free restore line");
-  assert.doesNotMatch(r2.stdout, /PowerShell:|\$env:/, "a per-shell split was printed for a config dir that needs none");
-  assert.doesNotMatch(r2.stdout, /CLAUDE_CONFIG_DIR="/, "an env prefix was printed for the default config dir");
-  rmSync(home, { recursive: true, force: true });
-});
-
-test("@critical a malformed settings.hooks shape cannot throw after the files have already moved", () => {
-  // The detector's settings read runs AFTER applyPlan, so anything that throws there strands the
-  // user with files in the trash and no printed way back. Reaching it takes a repo whose
-  // settings.partial.json is absent: with it present the merge in main() crashes on these same
-  // shapes first, harmlessly, before anything has moved.
-  const repo = copyRepoRoot();
-  rmSync(join(repo, "settings.partial.json"), { force: true });
-  for (const hooks of ["x", { Notification: [null] }, { Notification: {} }]) {
-    const label = JSON.stringify(hooks);
-    const dir = mkdtempSync(join(tmpdir(), "cc-gsd-badhooks-"));
-    plantGsdCore(dir, { settings: false });
-    writeFileSync(join(dir, "settings.json"), JSON.stringify({ hooks }, null, 2) + "\n");
-    const r = spawnSync(process.execPath, [join(repo, "setup.mjs"), "--variant=base", "--uninstall-gsd", "--skip-all"],
-      { encoding: "utf8", env: setupEnv({ CLAUDE_CONFIG_DIR: dir, CLAUDE_SETUP_SKIP_PLUGINS: "1", CLAUDE_SETUP_SKIP_MCP: "1", CLAUDE_SETUP_SKIP_PURGE: "1" }), timeout: 120000 });
-    assert.equal(r.status, 0, `${label}: ${r.stderr}`);
-    assert.equal(batches(dir).length, 1, `${label}: the run never reached the removal`);
-    assert.ok(!gsdPresent(dir), `${label}: gsd-core was not moved`);
-    assert.ok(r.stdout.includes(`restore --ts ${batches(dir)[0]}`),
-      `${label}: files moved but the rollback for this batch was never printed`);
-    rmSync(dir, { recursive: true, force: true });
-  }
-  rmSync(repo, { recursive: true, force: true });
-});
-
-test("@critical a bulk flag is never consent, and never a prompt either", async () => {
-  for (const bulk of ["--replace-all", "--merge-all"]) {
-    const dir = mkdtempSync(join(tmpdir(), "cc-gsd-bulk-"));
-    plantGsdCore(dir);
-    // Non-TTY and forced-TTY both: a bulk flag means "never ask", so the PTY case must not block.
-    for (const launch of [async (d, a) => run(d, a), runTty]) {
-      const r = await launch(dir, ["--variant=base", bulk]);
-      assert.equal(r.status, 0, r.stderr);
-      assert.match(r.stdout, NOT_REPORTED);
-      assert.match(r.stdout, /Reporting only \(non-interactive\)/);
-      assert.doesNotMatch(r.stdout, /Move all of it to the cleanup trash/, `${bulk} prompted instead of reporting`);
-      assert.ok(gsdPresent(dir), `${bulk} silently uninstalled a foreign product`);
-      for (const rel of GSD_REMOVED) assert.ok(existsSync(join(dir, rel)), `removed without consent: ${rel}`);
-      assert.deepEqual(batches(dir), []);
-      assert.equal(JSON.parse(readFileSync(join(dir, "settings.json"), "utf8")).hooks.Notification.length, 5,
-        "report-only must not edit settings.json");
-    }
-    rmSync(dir, { recursive: true, force: true });
-  }
-});
-
-test("@critical a file this bundle owns is never claimed as foreign, even when the stale prune declined it", () => {
-  const dir = mkdtempSync(join(tmpdir(), "cc-gsd-downgrade-"));
-  assert.equal(run(dir, ["--variant=full", "--skip-all"]).status, 0);
-  const ours = ["hooks/gsd-config-patch.mjs",
-    "hooks/lib/gsd-agent-patches.mjs", "hooks/lib/gsd-skill-patches.mjs", "agents/gsd-task-verifier.md"];
-  for (const rel of ours) assert.ok(existsSync(join(dir, rel)), `full install is missing ${rel}`);
-  plantGsdCore(dir, { settings: false });
-
-  // Run 1. Non-TTY without a bulk flag: pruneStale reports and removes nothing, so every one of
-  // `ours` is still on disk and absent from THIS run's manifest - the shape that used to be swept
-  // up. Here pruneStale still has them as candidates, so its returned set alone would cover this.
-  const r = run(dir, ["--variant=base", "--uninstall-gsd"]);
-  assert.equal(r.status, 0, r.stderr);
-  assert.match(r.stdout, /non-interactive: not removed/, "pruneStale unexpectedly pruned - run 1 no longer covers its case");
-  assert.ok(!gsdPresent(dir), "the foreign gsd-core was not removed");
-  for (const rel of ours) assert.ok(existsSync(join(dir, rel)), `bundle-owned file claimed as foreign: ${rel}`);
-
-  // Run 2, which is what pins the all-profiles set specifically. Run 1 rewrote the manifest as
-  // base's, so these rels are no longer candidates: pruneStale has nothing to report and hands back
-  // an empty set, and they are absent from this run's manifest too. Only a shield that depends on
-  // no manifest at all still knows they are ours.
-  plantGsdCore(dir, { settings: false });
-  // The one full-install leftover pruneStale would still list on run 2, removed by hand so its
-  // report is empty and `prunedRels` is provably contributing nothing to the assertions below.
-  rmSync(join(dir, "gsd-defaults.partial.json"), { force: true });
-  const r2 = run(dir, ["--variant=base", "--uninstall-gsd"]);
-  assert.equal(r2.status, 0, r2.stderr);
-  assert.doesNotMatch(r2.stdout, /stale files no longer in the bundle/,
-    "pruneStale still had candidates - run 2 is not the post-manifest-rewrite shape it exists to cover");
-  assert.ok(!gsdPresent(dir), "the foreign gsd-core was not removed on the second run");
-  for (const rel of ours) assert.ok(existsSync(join(dir, rel)), `bundle-owned file claimed as foreign on run 2: ${rel}`);
+  const listed = r.stdout.split("\n").filter((l) => l.includes("would remove")).join("\n");
+  for (const p of GSD_PATHS.map((rel) => fwd(join(dir, rel))))
+    assert.ok(fwd(listed).includes(p), `not listed: ${p}`);
+  assert.ok(fwd(listed).includes(fwd(r.gsdHome)), "~/.gsd not listed");
+  assert.deepEqual(walk(dir), before);
+  assert.equal(readFileSync(join(dir, "settings.json"), "utf8"), oldSettings);
+  assert.equal(existsSync(r.gsdHome), true);
+  assert.equal(existsSync(join(dir, "settings.json.pre-gsd-purge")), false);
   rmSync(dir, { recursive: true, force: true });
 });
 
-test("@important the detector never fires on full, nor when gsd-core is absent", () => {
-  const full = mkdtempSync(join(tmpdir(), "cc-gsd-full-"));
-  plantGsdCore(full);
-  const rf = run(full, ["--variant=full", "--uninstall-gsd", "--skip-all"]);
-  assert.equal(rf.status, 0, rf.stderr);
-  assert.doesNotMatch(rf.stdout, NOT_REPORTED);
-  assert.ok(gsdPresent(full), "full profile removed gsd-core");
-  assert.deepEqual(batches(full), []);
-  rmSync(full, { recursive: true, force: true });
-
-  const none = mkdtempSync(join(tmpdir(), "cc-gsd-none-"));
-  const rn = run(none, ["--variant=base", "--uninstall-gsd", "--skip-all"]);
-  assert.equal(rn.status, 0, rn.stderr);
-  assert.doesNotMatch(rn.stdout, NOT_REPORTED);
-  assert.deepEqual(batches(none), []);
-  rmSync(none, { recursive: true, force: true });
+test("@important a machine without GSD prints no GSD section and writes no purge backup", () => {
+  const dir = mkdtempSync(join(tmpdir(), "cc-sd-clean-"));
+  writeFileSync(join(dir, "settings.json"), JSON.stringify({ model: "opus" }, null, 2) + "\n");
+  const r = runWithHome(dir, ["--variant=base", "--merge-all"], { plantHome: false });
+  assert.equal(r.status, 0, r.stderr);
+  assert.doesNotMatch(r.stdout, /GSD:/);
+  assert.equal(existsSync(join(dir, "settings.json.pre-gsd-purge")), false);
+  rmSync(dir, { recursive: true, force: true });
 });
 
-test("@critical the interactive prompt defaults to no; only an explicit yes removes anything", async () => {
-  const TTY_ARGS = ["--variant=base", "--enable-update-check"];
-  const PROMPT = "Move all of it to the cleanup trash?";
-  const asked = (r) => {
-    assert.match(r.stdout, /left unchanged \(CLAUDE_CONFIG_DIR not set\)/, "an earlier prompt was not answered");
-    assert.ok(r.stdout.includes(PROMPT), "the detector never asked");
-  };
-  for (const answer of ["n", ""]) {
-    const dir = mkdtempSync(join(tmpdir(), "cc-gsd-no-"));
-    plantGsdCore(dir, { settings: false });
-    const r = await runTty(dir, TTY_ARGS, [[PROMPT, answer]]);
-    assert.equal(r.status, 0, r.stderr);
-    asked(r);
-    assert.ok(gsdPresent(dir), `answer ${JSON.stringify(answer)} removed gsd-core`);
-    assert.deepEqual(batches(dir), []);
-    rmSync(dir, { recursive: true, force: true });
-  }
-  const yes = mkdtempSync(join(tmpdir(), "cc-gsd-yes-"));
-  plantGsdCore(yes, { settings: false });
-  const r = await runTty(yes, TTY_ARGS, [[PROMPT, "y"]]);
+test("@important GSD traces with an unparsable settings.json: paths removed, settings byte-identical, no backup", () => {
+  const dir = mkdtempSync(join(tmpdir(), "cc-sd-broken-"));
+  plantGsdMachine(dir);
+  writeFileSync(join(dir, "settings.json"), BROKEN_JSON);
+  const r = runWithHome(dir, ["--variant=base", "--merge-all"]);
   assert.equal(r.status, 0, r.stderr);
-  asked(r);
-  assert.ok(!gsdPresent(yes), "an explicit yes did not remove gsd-core");
-  assert.equal(batches(yes).length, 1);
-  rmSync(yes, { recursive: true, force: true });
+  for (const rel of GSD_PATHS) assert.equal(existsSync(join(dir, rel)), false, rel);
+  assert.equal(existsSync(r.gsdHome), false);
+  assert.equal(readFileSync(join(dir, "settings.json"), "utf8"), BROKEN_JSON);
+  assert.equal(existsSync(join(dir, "settings.json.pre-gsd-purge")), false);
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test("@critical a BOM-prefixed settings.json is still purged of GSD registrations, and the backup keeps the original bytes", () => {
+  const dir = mkdtempSync(join(tmpdir(), "cc-sd-bom-"));
+  plantGsdMachine(dir);
+  const bomSettings = "﻿" + JSON.stringify(gsdSettings(dir), null, 2) + "\n";
+  writeFileSync(join(dir, "settings.json"), bomSettings);
+  const r = runWithHome(dir, ["--variant=base", "--merge-all"]);
+  assert.equal(r.status, 0, r.stderr);
+  const text = readFileSync(join(dir, "settings.json"), "utf8");
+  assert.doesNotMatch(text, /gsd|db-live-access-gate/i);
+  const s = JSON.parse(text.replace(/^﻿/, ""));
+  assert.match(s.statusLine.command, /hooks\/statusline\.mjs/);
+  assert.match(JSON.stringify(s.hooks.Notification), /mine-notify/);
+  assert.equal(readFileSync(join(dir, "settings.json.pre-gsd-purge"), "utf8"), bomSettings);
+  rmSync(dir, { recursive: true, force: true });
 });
 
 function mcpRun(claudeJson, args, extraEnv = {}) {

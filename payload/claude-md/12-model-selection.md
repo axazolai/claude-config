@@ -1,5 +1,5 @@
 ---
-profiles: [base, full]
+profiles: [base]
 ---
 # Model Selection Policy
 - DEFAULT executor: claude-sonnet-5-5. claude-haiku-5-5 for routine and small tasks:
@@ -23,5 +23,4 @@ profiles: [base, full]
   lower `effort`, or send `{type: "between_tools"}` at effort `high` or below.
 - Ultrapowers subagent dispatches follow the role map in the `model-selection-policy` skill; it
   outranks the Model Selection section inside ultrapowers skills.
-- Full routing, the ladder rules, and the per-role GSD effort map → the
-  `model-selection-policy` skill.
+- Full routing and the ladder rules → the `model-selection-policy` skill.

@@ -9,7 +9,7 @@
 // not necessarily the first line (a title/H1 or frontmatter may come first) - but never as a
 // substring INSIDE a longer line: a substring-anywhere check would trip on prose that merely
 // names the marker (e.g. this repo's own CLAUDE.md, which quotes it inline). Unmarked
-// CLAUDE.md files (e.g. GSD-generated) are editable wherever they live.
+// CLAUDE.md files (e.g. tool-generated) are editable wherever they live.
 // Block = exit 2 (stderr fed back to Claude). Any parse failure => allow (exit 0).
 import { readFileSync } from "node:fs";
 import { basename, resolve } from "node:path";

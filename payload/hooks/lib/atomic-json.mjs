@@ -1,5 +1,5 @@
 // Shared lock + atomic-write helpers for the state files several hooks mutate concurrently:
-// ~/.claude/state/project-init.json (session-init.mjs, gsd-config-patch.mjs,
+// ~/.claude/state/project-init.json (session-init.mjs,
 // mark-initstack-done.mjs). NOT state-lock.mjs's job - that one guards a single long-running
 // worker (10-minute TTL, no read-modify-write, no atomic write); this one serializes short
 // read-modify-write bursts and must not be folded into it. Two guarantees:

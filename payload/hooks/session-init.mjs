@@ -1,19 +1,11 @@
 #!/usr/bin/env node
 // SessionStart hook (cross-platform).
-// - The RISK_REGISTER step runs EVERY session and is idempotent: it finds the shallowest
-//   RISK_REGISTER.md (root / .ultrapowers / .planning / its subfolders) and ensures the
-//   GSD-clobber entry, so it self-heals even if the register appears or moves after the
-//   first session.
-// - Auto-mark root CLAUDE.md and the per-project .planning exclude ALSO run every session now
-//   (see the "timing bug" note further down for why - they used to be gated on `firstTime` and
-//   that was wrong).
+// - Auto-mark of the root CLAUDE.md runs EVERY session (see the "timing bug" note further down
+//   for why - it used to be gated on `firstTime` and that was wrong).
 // Reliable side effects (do NOT depend on additionalContext, which can be dropped on fresh
 // sessions):
-//   - unmarked root CLAUDE.md that is not GSD-generated -> auto-mark as curated (every session,
-//     idempotent - opt out: CLAUDE_CURATED_AUTOMARK_ROOT=0)
-//   - GSD-owned (unmarked) .planning/CLAUDE.md          -> add per-project claudeMdExcludes
-//     (every session, idempotent)
-//   - existing RISK_REGISTER.md                         -> append the GSD-clobber risk (every session)
+//   - unmarked root CLAUDE.md -> auto-mark as curated (every session, idempotent - opt out:
+//     CLAUDE_CURATED_AUTOMARK_ROOT=0)
 // Hint (additionalContext, best-effort, re-checked EACH session until the MCP is wired):
 //   - a GitHub/GitLab remote or database usage, with no matching MCP wired -> suggest /init-mcp
 //     (git/DB can appear later, so this is not one-time; opt out: CLAUDE_MCP_SUGGEST=0).
@@ -30,29 +22,17 @@
 // your step then NEVER RUNS AGAIN for that project. The fix is always the same shape: make the
 // step re-check EVERY session and be naturally idempotent (it only WRITES when its own
 // on-disk check says the fix isn't applied yet, so a no-op re-check costs one file read). See
-// the root-CLAUDE.md auto-mark and the .planning/CLAUDE.md exclude below for the pattern -
-// neither uses `firstTime` anymore, on purpose.
-import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync } from "node:fs";
+// the root-CLAUDE.md auto-mark below for the pattern - it does not use `firstTime`, on purpose.
+import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
 import { homedir } from "node:os";
-import { join, resolve, dirname, relative } from "node:path";
+import { join, resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { spawnSync, spawn } from "./lib/spawn-hidden.mjs";
+import { spawn } from "./lib/spawn-hidden.mjs";
 import { resolveDial } from "./lib/leanmode-rules.mjs";
 import { resolveTddMode } from "./lib/tdd-mode.mjs";
 import { updateJsonFile } from "./lib/atomic-json.mjs";
 import { formatUpdateNotes } from "./lib/component-registry.mjs";
 const CLAUDE_DIR = process.env.CLAUDE_CONFIG_DIR || join(homedir(), ".claude");
-
-// Bundle variant (spec: .ultrapowers/archive/specs/2026-07-22-lite-variant-design.md § 5).
-// Manifest without the field = pre-variant bundle = full. Lite skips every GSD step below.
-const VARIANT = (() => {
-  try {
-    const m = JSON.parse(readFileSync(join(CLAUDE_DIR, "state", "bundle-manifest.json"), "utf8"));
-    return m.profile || m.variant || "full";
-  }
-  catch { return "full"; }
-})();
-const FULL = VARIANT === "full";
 
 const MARKER = "CURATED:NOEDIT";
 // Whole-line match only (never a substring inside a longer line, so prose that just NAMES the
@@ -65,8 +45,7 @@ const ENABLED  = process.env.CLAUDE_CURATED_AUTOINIT      !== "0"; // default ON
 
 const safe = (fn) => { try { return fn(); } catch { return undefined; } };
 const writeFile = (p, content) => { try { mkdirSync(dirname(p), { recursive: true }); writeFileSync(p, content); return true; } catch { return false; } };
-// Strips a leading UTF-8 BOM before parsing - project-init.json (shared with
-// gsd-config-patch.mjs) can pick one up from an external tool (e.g. PowerShell's
+// Strips a leading UTF-8 BOM before parsing - project-init.json can pick one up from an external tool (e.g. PowerShell's
 // `Set-Content -Encoding utf8`) or a manual save; a raw JSON.parse throws on it, which the
 // `safe()` wrapper silently swallows into `{}`, making every one-time gate in this file
 // "forget" it ever ran. Cheap and always correct even when there's no BOM.
@@ -102,103 +81,25 @@ const root = findRoot(startDir);
 // per-user state registry - keeps project trees clean; "unknown on THIS machine"
 const stateFile = join(CLAUDE_DIR, "state", "project-init.json");
 let state = existsSync(stateFile) ? (safe(() => readJSON(stateFile)) || {}) : {};
-const firstTime = !state[root]; // do not early-exit: the risk-register step must retry every session
+const firstTime = !state[root]; // do not early-exit: later steps re-check every session
 if (!state[root]) state[root] = {}; // ensure the record exists so later independent one-time flags can attach
 
 const isMarked = (p) => {
   const t = safe(() => readFileSync(p, "utf8"));
   return !!t && t.split(/\r?\n/).some((line) => MARKER_RE.test(line.trim()));
 };
-const looksGsd = (p) => {
-  const t = safe(() => readFileSync(p, "utf8")) || "";
-  return /gsd-core|\/gsd-|GSD project|\.planning\/(PROJECT|ROADMAP|STATE)\.md/i.test(t);
-};
-
-// ---- RISK_REGISTER.md discovery (mirrors add-risk.mjs - keep both in sync): root,
-// .ultrapowers, .planning and its subfolders. The .ultrapowers probe is an exact path, not a
-// walk: the tree keeps its register at the top level and its sdd/ scratch is ignored. ----
-const SIG = "deny-curated-claude-md.mjs";
-function listRegisters(rootDir) {
-  const found = [];
-  for (const rel of ["RISK_REGISTER.md", join(".ultrapowers", "RISK_REGISTER.md")]) {
-    const f = join(rootDir, rel);
-    if (existsSync(f)) found.push(f);
-  }
-  const base = join(rootDir, ".planning");
-  if (existsSync(base)) {
-    const stack = [base];
-    while (stack.length) {
-      const dir = stack.pop();
-      let ents = [];
-      try { ents = readdirSync(dir, { withFileTypes: true }); } catch { continue; }
-      for (const e of ents) {
-        const ap = join(dir, e.name);
-        if (e.isFile() && e.name === "RISK_REGISTER.md") found.push(ap);
-        else if (e.isDirectory() && !e.name.startsWith(".")) stack.push(ap);
-      }
-    }
-  }
-  return found;
-}
-function pendingRegisters(rootDir) {
-  const files = listRegisters(rootDir);
-  if (!files.length) return [];
-  const depth = (f) => relative(rootDir, f).split(/[\\/]+/).filter(Boolean).length - 1;
-  const min = Math.min(...files.map(depth));
-  return files.filter((f) => depth(f) === min).filter((p) => {
-    const t = safe(() => readFileSync(p, "utf8")) || "";
-    return !t.includes(SIG) && !/GSD-generated CLAUDE\.md/i.test(t);
-  });
-}
 
 const actions = [], notes = [];
-const gsdProject = existsSync(join(root, ".planning"));
 
-// ALWAYS (every session, idempotent): ensure the GSD risk is in the shallowest register(s).
-// Only spawns add-risk.mjs when a register actually lacks the entry, so steady state is cheap.
-let riskAdded = 0;
-if (FULL && gsdProject && pendingRegisters(root).length) {
-  const addRisk = join(dirname(fileURLToPath(import.meta.url)), "..", "add-risk.mjs");
-  if (existsSync(addRisk)) {
-    const r = spawnSync(process.execPath, [addRisk, "--no-create", "--root", root], { encoding: "utf8" });
-    if (r.status === 0) riskAdded = (r.stdout || "").split(/\r?\n/).filter((l) => /^appended /.test(l)).length;
-  }
-}
-if (riskAdded > 0) actions.push(`ensured GSD-clobber risk in ${riskAdded} register(s)`);
-
-
-// EVERY session, idempotent - NOT `if (firstTime)`; this pair is the original victim of the
-// timing bug described in the header CONVENTION. Both checks are cheap (existsSync + one
-// read) and self-limiting, so re-checking indefinitely costs nothing.
-
-// 1) GSD-owned (unmarked) .planning/CLAUDE.md -> per-project exclude
-const planningClaude = join(root, ".planning", "CLAUDE.md");
-if (FULL && existsSync(planningClaude) && !isMarked(planningClaude)) {
-  const sp = join(root, ".claude", "settings.json");
-  const freshSettings = !existsSync(sp);
-  const wrote = updateJsonFile(sp, (s) => {
-    // Creating settings.json without an enabledPlugins key silently drops settings.local.json's
-    // plugin entries on the next startup merge. init-stack.mjs always emits it; this path
-    // bypasses init-stack, so it must too.
-    if (freshSettings && s.enabledPlugins === undefined) s.enabledPlugins = {};
-    const ex = new Set(s.claudeMdExcludes || []);
-    ex.add("**/.planning/CLAUDE.md");
-    s.claudeMdExcludes = [...ex];
-  });
-  if (wrote && freshSettings) actions.push("created .claude/settings.json (enabledPlugins + GSD exclude)");
-  else if (wrote) actions.push("excluded GSD .planning/CLAUDE.md from auto-load");
-}
-
-// 2) root CLAUDE.md: auto-mark unless it looks GSD-generated
+// 2) root CLAUDE.md: auto-mark
 const rootClaude = join(root, "CLAUDE.md");
 if (existsSync(rootClaude) && !isMarked(rootClaude)) {
-  if (AUTOMARK && !looksGsd(rootClaude)) {
+  if (AUTOMARK) {
     const t = safe(() => readFileSync(rootClaude, "utf8"));
     if (t !== undefined && writeFile(rootClaude, `<!-- ${MARKER} -->\n` + t))
       actions.push("marked root CLAUDE.md as curated");
-  } else if (!AUTOMARK) {
-    notes.push(`Unmarked CLAUDE.md at ${rootClaude}` +
-      (looksGsd(rootClaude) ? " looks GSD-generated; left as-is." : `. If it's yours, add '<!-- ${MARKER} -->' as the first line.`));
+  } else {
+    notes.push(`Unmarked CLAUDE.md at ${rootClaude}. If it's yours, add '<!-- ${MARKER} -->' as the first line.`);
   }
 }
 
@@ -251,7 +152,7 @@ if (process.env.CLAUDE_STACK_RULES !== "0") {
 // EVERY session on purpose: git init / a DB dependency can appear later, and a one-time flag would
 // miss it - instead it stops on its own once the matching MCP is configured. Web search is
 // on-demand (no passive signal) - mentioned as an option. Opt out: CLAUDE_MCP_SUGGEST=0.
-if (FULL && process.env.CLAUDE_MCP_SUGGEST !== "0") {
+if (process.env.CLAUDE_MCP_SUGGEST !== "0" && existsSync(join(CLAUDE_DIR, "commands", "init-mcp.md"))) {
   const rd = (p) => safe(() => readFileSync(join(root, p), "utf8")) || "";
   const cfg = (rd(".claude/settings.json") + "\n" + rd(".mcp.json")).toLowerCase();  // already-wired MCPs
   const has = (k) => cfg.includes(`"${k}"`);
@@ -293,167 +194,6 @@ if (process.env.CLAUDE_LEANMODE !== "0" && resolveDial(root) !== "off") {
 
 notes.push(`Testing mode: ${resolveTddMode(root)} (.claude/ultrapowers.json; /ultrapowers-tdd enable|disable).`);
 
-// ---- GSD /init-stack settings gap check -> suggest /init-stack ----
-// A HINT only - never installs/edits anything itself. The interactive
-// workflow.test_command/build_command + `fallow` devDependency proposals that /init-stack
-// used to run were removed in the GSD-free rewrite (eaf1a50; see RISK-INITSTACK-001), so
-// nothing surfaces them anymore right after `.planning/` first appears.
-// gsd-config-patch.mjs's tier2 patch already writes `code_quality.fallow.enabled: true` for
-// any Node project independent of whether /init-stack ever ran, and gsd-core HARD-FAILS
-// /gsd-code-review / /gsd-ship (not a graceful skip) when that flag is true but the binary
-// isn't resolvable. Re-checked EVERY session, like the MCP suggestion above - not a one-time
-// flag, because the gap is defined by CURRENT STATE (config says enabled, binary absent),
-// not "did we ever tell the user once". It stops surfacing on its own once fallow is
-// actually installed, or the user (or you, by hand) sets `code_quality.fallow.enabled: false`
-// in `.planning/config.json` to close the gap for good - unlike a silent decline, which would
-// leave this nagging forever. gsd-config-patch.mjs runs the SAME check on a throttle for the mid-session case
-// (`.planning/` created after this session already started) - see that file for why both
-// exist, same reasoning as the tier1/tier2 split at the top of that file.
-// Opt out: CLAUDE_GSD_INITSTACK_SUGGEST=0.
-if (process.env.CLAUDE_GSD_INITSTACK_SUGGEST !== "0" && gsdProject) {
-  const cfgPath = join(root, ".planning", "config.json");
-  const cfg = existsSync(cfgPath) ? (safe(() => readJSON(cfgPath)) || {}) : null;
-  if (cfg && typeof cfg === "object") {
-    const fallowCfg = cfg.code_quality && cfg.code_quality.fallow;
-    if (fallowCfg && fallowCfg.enabled === true) {
-      const fallowNames = process.platform === "win32"
-        ? ["fallow.exe", "fallow.cmd", "fallow.bat"] : ["fallow"];
-      const installed = fallowNames.some((n) => existsSync(join(root, "node_modules", ".bin", n)));
-      if (!installed) {
-        const installCmd = existsSync(join(root, "pnpm-workspace.yaml"))
-          ? "pnpm add -D fallow -w" : "pnpm add -D fallow";
-        notes.push("GSD settings gap: code_quality.fallow.enabled=true but the `fallow` " +
-          "binary isn't installed - the next /gsd-code-review or /gsd-ship will hard-fail, " +
-          `not skip gracefully. Install it yourself (\`${installCmd}\`, run at the repo root ` +
-          "where .planning/ lives)" +
-          " or explicitly set code_quality.fallow.enabled: false for this project.");
-      }
-    }
-  }
-}
-
-// ---- gsd-* agents: context-mode tool sync + pending content-patch checks ----
-// FULL-only: the lite variant deletes hooks/lib/context-mode-gsd-agents.mjs,
-// hooks/lib/gsd-agent-patches.mjs and hooks/lib/gsd-workflow-patches.mjs from disk (variants.mjs),
-// so these are dynamic imports gated behind FULL, wrapped in try/catch so a half-installed
-// state (e.g. mid-upgrade) skips the step instead of crashing the SessionStart hook.
-if (FULL) {
-  try {
-    const { syncGsdAgentsContextMode } = await import("./lib/context-mode-gsd-agents.mjs");
-    const { checkGsdAgentPatches, checkCuratedGsdAgentPatches, checkRetiredGsdAgentPatches, checkRecursiveAgentSpawnGuardrail } =
-      await import("./lib/gsd-agent-patches.mjs");
-    const { checkGsdSkillPatches } = await import("./lib/gsd-skill-patches.mjs");
-    const { checkGsdHookPatches, HOOK_PATCHES } = await import("./lib/gsd-hook-patches.mjs");
-
-    // ---- gsd-* agents: add the context-mode MCP tool, only if that plugin is active ----
-    // Machine-wide, not project-scoped (gsd-* agents live in ~/.claude/agents/, owned by the
-    // separate gsd-core tool - not this bundle), so it runs regardless of whether THIS session's
-    // project is a GSD project. Every session, idempotent and self-healing: if context-mode isn't
-    // installed/enabled it's a no-op, and if gsd-core's own updater later rewrites an agent file
-    // and drops the tool, this puts it back on the next session. Opt out: CLAUDE_GSD_CONTEXTMODE_SYNC=0.
-    if (process.env.CLAUDE_GSD_CONTEXTMODE_SYNC !== "0") {
-      const claudeDir = join(CLAUDE_DIR);
-      const r = safe(() => syncGsdAgentsContextMode({ claudeDir }));
-      if (r && r.active && r.updated.length)
-        actions.push(`added context-mode MCP tool to ${r.updated.length} gsd-* agent(s)`);
-    }
-
-    // ---- gsd-* agents: check (never write) for pending content patches ----
-    // Deliberately CHECK-ONLY, unlike the tool-grant sync just above: hooks/lib/gsd-agent-patches.mjs
-    // injects prose across 30+ files, so it's review-gated behind an explicit invocation of
-    // /init-session (init-stack.md no longer has this step; see apply-gsd-agent-patches.mjs) instead of silently
-    // rewriting every session. Every session, idempotent - cheap (file reads only), stops
-    // surfacing on its own once the patches have been applied and nothing is pending.
-    // Opt out: CLAUDE_GSD_AGENT_PATCHES_CHECK=0.
-    if (process.env.CLAUDE_GSD_AGENT_PATCHES_CHECK !== "0") {
-      const claudeDir = join(CLAUDE_DIR);
-      const pending = safe(() => checkGsdAgentPatches({ claudeDir })) || {};
-      const files = Object.keys(pending);
-      if (files.length)
-        notes.push(`gsd-* agent patches pending for ${files.length} file(s) ` +
-          `(${files.slice(0, 5).join(", ")}${files.length > 5 ? ", ..." : ""}) - ` +
-          `run /init-session to apply.`);
-
-      // Curated (CURATED:NOEDIT) agent files are skipped by the apply path, so a pending patch on
-      // one is never auto-applied - surface it instead of letting it sit silently unpatched.
-      const curatedPending = safe(() => checkCuratedGsdAgentPatches({ claudeDir })) || {};
-      const curatedFiles = Object.keys(curatedPending);
-      if (curatedFiles.length)
-        notes.push(`WARNING: ${curatedFiles.length} CURATED gsd-* agent file(s) have pending patches ` +
-          `that can NOT be auto-applied (${curatedFiles.slice(0, 5).join(", ")}` +
-          `${curatedFiles.length > 5 ? ", ..." : ""}) - apply by hand or remove the CURATED:NOEDIT marker.`);
-
-      // Same check-only/apply-gated split, but for the inverse direction: a file still holding text
-      // from a patch that's since been dropped from PATCHES entirely (see RETIRED_PATCHES) - stale
-      // content nothing else ever cleans up, since gsd-* agents aren't rewritten by this bundle.
-      const retiredPending = safe(() => checkRetiredGsdAgentPatches({ claudeDir })) || {};
-      const retiredFiles = Object.keys(retiredPending);
-      if (retiredFiles.length)
-        notes.push(`gsd-* agent file(s) still carry text from ${retiredFiles.length} retired patch ` +
-          `target(s) (${retiredFiles.slice(0, 5).join(", ")}${retiredFiles.length > 5 ? ", ..." : ""}) ` +
-          `- run /init-session to clean up.`);
-
-      // Same check-only/apply-gated split for the §6.1 effort re-tune of gsd-* skills
-      // (skills/gsd-*/SKILL.md — frontmatter scalar patches, see gsd-skill-patches.mjs).
-      const skPending = safe(() => checkGsdSkillPatches({ claudeDir })) || {};
-      const skFiles = Object.keys(skPending);
-      if (skFiles.length)
-        notes.push(`gsd-* skill effort patch pending for ${skFiles.length} skill(s) ` +
-          `(${skFiles.slice(0, 5).join(", ")}${skFiles.length > 5 ? ", ..." : ""}) - ` +
-          `run /init-session to apply.`);
-
-      // gsd-core's own hook files (hooks/gsd-*.js). Same check-only split, but the states differ:
-      // these are anchored line rewrites, so "diverged" means upstream rewrote the line the patch
-      // reasons about and the patch must be re-thought, not re-applied. The statusline carries the
-      // same two states as a persistent signal; this is where the detail lives.
-      const hookStatus = safe(() => checkGsdHookPatches({ claudeDir })) || {};
-      const whyOf = (id) => (HOOK_PATCHES.find((h) => h.id === id) || {}).why || "";
-      for (const [id, state] of Object.entries(hookStatus)) {
-        if (state === "pending")
-          notes.push(`gsd-core hook patch pending: ${id} - ${whyOf(id)} - run /init-session to apply.`);
-        if (state === "diverged")
-          notes.push(`gsd-core hook patch DIVERGED: ${id} - upstream rewrote the line it anchors on. ` +
-            `Do NOT re-apply blindly; re-read the hook and re-author the patch (${whyOf(id)}).`);
-        if (state === "inert")
-          notes.push(`gsd-core hook patch inert: ${id} - the file it patches is not installed, ` +
-            `so the protection it adds is absent (${whyOf(id)}).`);
-      }
-
-      // Standing invariant, not a pending patch: an agent granting `Agent` with no anti-recursion
-      // guardrail caused refusals/silent stuck states in the 2026-07 recursive-delegation test
-      // series (see gsd.md's "Depth boundary" section). No auto-fix - flag for human review.
-      const unguarded = safe(() => checkRecursiveAgentSpawnGuardrail({ claudeDir })) || [];
-      if (unguarded.length)
-        notes.push(`WARNING: ${unguarded.length} gsd-* agent(s) grant the Agent tool with no ` +
-          `anti-recursion guardrail (${unguarded.slice(0, 5).join(", ")}${unguarded.length > 5 ? ", ..." : ""}) ` +
-          `- review by hand before shipping; this combination is a known refusal/stuck-state trigger.`);
-    }
-  } catch { /* half-install: skip GSD maintenance, never block the session */ }
-}
-
-// ONE-TIME per project (soft nudge, not urgent like the fallow gap above - gsd-core's own
-// test_command/build_command auto-detect already works fine without an explicit value): flag
-// once that workflow.test_command/build_command are unset - there is currently no repo
-// mechanism to propose a more specific one from the detected stack (see RISK-INITSTACK-001;
-// the old /init-stack step that did this was removed in the GSD-free rewrite, eaf1a50).
-// Fires the first session that sees BOTH a `.planning/` project and a recognizable stack
-// signal with no explicit override yet. One-time (not recurring like the fallow check)
-// because there's no hard-failure risk here to keep chasing - re-suggesting every session for
-// something purely optional would just be noise.
-if (firstTime && gsdProject) {
-  const cfgPath = join(root, ".planning", "config.json");
-  const cfg = existsSync(cfgPath) ? (safe(() => readJSON(cfgPath)) || {}) : null;
-  if (cfg && typeof cfg === "object") {
-    const wf = cfg.workflow || {};
-    const hasStackSignal = existsSync(join(root, "package.json"))
-      || existsSync(join(root, "pyproject.toml")) || existsSync(join(root, "build.gradle.kts"));
-    if (hasStackSignal && !wf.test_command && !wf.build_command)
-      notes.push("workflow.test_command/build_command are unset - gsd-core auto-detects a " +
-        "reasonable default; there is currently no repo mechanism to propose a more specific " +
-        "one from the detected stack (see RISK-INITSTACK-001).");
-  }
-}
-
 // ---- surface component updates the worker recorded on an earlier session (decoupled
 // trigger/notify, same pattern as the bundle check). Best-effort; never blocks. ----
 if (process.env.CLAUDE_COMPONENT_AUTOUPDATE !== "0") {
@@ -468,13 +208,11 @@ if (process.env.CLAUDE_COMPONENT_AUTOUPDATE !== "0") {
 // reads its cache). Best-effort; never blocks. ----
 try { await (await import("./lib/deepseek-monitor-start.mjs")).startMonitorIfUsed({ root, claudeDir: CLAUDE_DIR }); } catch { /* never block the session */ }
 
-// record/update state (the risk step is allowed to run again on later sessions)
+// record/update state
 if (firstTime) { state[root].initialized = new Date().toISOString(); state[root].actions = actions.slice(); state[root].notes = notes.slice(); }
-if (riskAdded > 0) state[root].lastRisk = new Date().toISOString();
 // Merge THIS project's subtree onto the fresh on-disk copy under a lock, rather than writing the
 // whole stale `state`. In-memory state[root] only ever gains keys during a run and each flag has
-// a single owning writer, so spreading it over the fresh value keeps what gsd-config-patch.mjs or
-// another session added meanwhile.
+// a single owning writer, so spreading it over the fresh value keeps what another session added meanwhile.
 updateJsonFile(stateFile, (st) => { st[root] = { ...(st[root] || {}), ...(state[root] || {}) }; });
 
 emit([

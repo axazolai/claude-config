@@ -84,7 +84,7 @@ export function pluginPruneCandidates(dir = claudeDir()) {
 }
 
 const EPHEMERAL = ["paste-cache", "shell-snapshots", "logs", "cache", "session-env", "daemon"];
-const AGE_DIRS = ["file-history", "jobs", "tasks", "backups", "gsd-user-files-backup", "gsd-migration-journal"];
+const AGE_DIRS = ["file-history", "jobs", "tasks", "backups"];
 export const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function safeReaddir(p) { try { return readdirSync(p, { withFileTypes: true }); } catch { return []; } }

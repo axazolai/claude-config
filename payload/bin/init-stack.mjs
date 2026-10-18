@@ -14,14 +14,13 @@
 // Self-contained: ships inside payload/ (installed standalone into ~/.claude), so this must
 // NOT import from the repo-root variants.mjs (installer-meta, not shipped at runtime). Only
 // payload-internal siblings (./lib/*) and node:* built-ins.
-import { readFileSync, existsSync, readdirSync, writeFileSync, mkdirSync, cpSync } from "node:fs";
+import { readFileSync, existsSync, readdirSync, mkdirSync, cpSync } from "node:fs";
 import { join, dirname, relative, basename } from "node:path";
 import { homedir } from "node:os";
 import { spawnSync } from "../hooks/lib/spawn-hidden.mjs";
 import { createInterface } from "node:readline";
 import { pathToFileURL } from "node:url";
 import { STACK_PATHS, detect } from "./lib/stack-markers.mjs";
-import { migrateProjectModelConfig } from "./lib/model-migration.mjs";
 import { updateJsonFile } from "../hooks/lib/atomic-json.mjs";
 
 export { STACK_PATHS };
@@ -510,27 +509,6 @@ export function apply(enableIds, removeIds, stacks, opts = {}) {
   return 0;
 }
 
-// ---------- §6.3 project model-config re-migration (Phase 5 Part B) ----------
-// Surgically bring a GSD project's .planning/config.json model_overrides up to the current
-// defaults (five roles haiku->sonnet, gsd-verifier sonnet->opus). Guarded on the file existing,
-// so a non-GSD project (or a base/lite user) is a silent no-op. Non-clobber: only a value still
-// holding the known-old default moves; a user-chosen value is left alone (see model-migration.mjs).
-// Runs on every explicit /init-stack invocation, independent of gsd-config-patch.mjs's one-time
-// gsdModelConfigPatched flag - a malformed config is left untouched, never corrupted.
-export function migrateProjectModelConfigFile(root = process.cwd()) {
-  const p = join(root, ".planning", "config.json");
-  if (!existsSync(p)) return { changes: [] };
-  let config;
-  try { config = JSON.parse(readFileSync(p, "utf8") || "{}"); }
-  catch { return { changes: [] }; }
-  const { config: next, changes } = migrateProjectModelConfig(config);
-  if (!changes.length) return { changes };
-  writeFileSync(p, JSON.stringify(next, null, 2) + "\n", "utf8");
-  console.log(`Re-migrated ${relative(root, p) || p} model_overrides to current defaults:`);
-  for (const c of changes) console.log(`  - ${c.role}: ${c.from} -> ${c.to}`);
-  return { changes };
-}
-
 // ---------- subprocess (install/marketplace-add) ----------
 // CLAUDE_INIT_STACK_SKIP_SUBPROCESS=1 short-circuits every actual shell-out (tests; hermetic
 // dry-runs) - mirrors setup.mjs's CLAUDE_SETUP_SKIP_PLUGINS=1 pattern for the same reason: never
@@ -855,21 +833,6 @@ export async function offerSkills(stacks, opts = {}) {
   }
 }
 
-// ---------- gsd-* agents: context-mode MCP tool sync (best-effort, cross-tool, no-op if the
-// standalone gsd-core tool/script isn't present) ----------
-function syncGsdContextModeAgents(configDirPath) {
-  if (subprocessSkipped()) return;
-  const script = join(configDirPath, "sync-gsd-context-mode-tool.mjs");
-  if (!existsSync(script)) return;
-  try {
-    const r = spawnSync("node", [script], { encoding: "utf8", timeout: 10000 });
-    const out = (r && r.stdout ? r.stdout : "").trim();
-    if (out) console.log(out);
-  } catch {
-    /* best-effort - never blocks stack detection/setup */
-  }
-}
-
 // ---------- CLI arg parsing ----------
 // Collect tokens after `flag` until the next --flag.
 export function grab(args, flag) {
@@ -887,7 +850,6 @@ export function grab(args, flag) {
 // ---------- main ----------
 function mainInner(argv, opts) {
   const configDirPath = opts.configDir || configDir();
-  syncGsdContextModeAgents(configDirPath);
   const root = opts.root || process.cwd();
   // Derived from configDirPath (which may be a test override), NOT defaultTemplatesDir()/
   // defaultMarketplacesDir() - those two fall back to the REAL configDir() (env var/homedir)
@@ -910,11 +872,6 @@ function mainInner(argv, opts) {
     console.log(JSON.stringify({ id: pid, state }));
     return 0;
   }
-
-  // §6.3 re-migration: refresh this project's .planning/config.json model_overrides to current
-  // defaults (GSD projects only; silent no-op otherwise). Runs before stack work so it still
-  // fires in a GSD project with no detectable code stack.
-  migrateProjectModelConfigFile(root);
 
   const stacks = detect(root);
   if (!stacks.length) {

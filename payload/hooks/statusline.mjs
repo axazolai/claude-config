@@ -1,8 +1,8 @@
 #!/usr/bin/env node
-// statusLine renderer for every profile - full, base, lite. Composes pending updates, model,
-// context, project, and (when applicable) gsd and ultrapowers work status into one line, with no
+// statusLine renderer for every profile - base, lite. Composes pending updates, model,
+// context, project, and (when applicable) ultrapowers work status into one line, with no
 // subprocess spawned. Any error yields empty output - the statusline never breaks the prompt.
-import { readFileSync, writeFileSync, existsSync, realpathSync } from "node:fs";
+import { readFileSync, writeFileSync, realpathSync } from "node:fs";
 import { join, basename, resolve } from "node:path";
 import { homedir } from "node:os";
 import { pathToFileURL } from "node:url";
@@ -26,31 +26,6 @@ export function renderUpdates(names) {
   return YELLOW(`⬆ ${shown.join(" ")}${rest > 0 ? ` +${rest}` : ""}`);
 }
 
-// Only the states that need a human. A patch that is applied and healthy renders nothing on
-// purpose: a permanent "all clear" is noise that trains the eye to skip the segment, and this
-// segment only earns its place by being rare.
-export function renderHookPatches(statuses) {
-  if (!statuses || typeof statuses !== "object") return "";
-  const bad = Object.entries(statuses).filter(([, v]) => v !== "current");
-  if (!bad.length) return "";
-  const kinds = [...new Set(bad.map(([, v]) => v))].sort();
-  const count = bad.length > 1 ? `${bad.length} ` : "";
-  return YELLOW(`⚠ gsd-patch: ${count}${kinds.join(", ")}`);
-}
-
-export function renderGsd({ milestone, phase, status, percent } = {}) {
-  if (!milestone) return "";
-  const n = Number(percent);
-  const pct = percent == null || percent === "" || Number.isNaN(n) ? null : Math.max(0, Math.min(100, n));
-  // Three cells are too coarse for a linear map: a full bar is reserved for an actually
-  // complete milestone and an empty bar for one with no progress, so neither can be misread.
-  const filled = pct == null || pct <= 0 ? 0 : pct >= 100 ? 3 : Math.min(2, Math.ceil((pct / 100) * 3));
-  const bar = pct == null ? "" : `[${"█".repeat(filled)}${"░".repeat(3 - filled)}] ${pct}%`;
-  const head = [milestone, bar].filter(Boolean).join(" ");
-  const tail = phase ? ["Phase", phase, status].filter(Boolean).join(" ") : "";
-  return [head, tail].filter(Boolean).join(" · ");
-}
-
 export function paintContext(text, opts) {
   const { colour, icon } = opts || {};
   if (!text) return "";
@@ -63,40 +38,10 @@ export function installedProfile(claudeDir) {
   return (m && (m.profile || m.variant)) || null;
 }
 
-export function render({ updates, hookPatches, model, context, ds, project, gsd, up } = {}) {
-  return [renderUpdates(updates), renderHookPatches(hookPatches), model, context, ds, project, gsd, up]
+export function render({ updates, model, context, ds, project, up } = {}) {
+  return [renderUpdates(updates), model, context, ds, project, up]
     .filter(Boolean)
     .join(DIM(" │ "));
-}
-
-// Frontmatter or bold-markdown scalar, e.g. `milestone: v1.0` / `**Status**: executing`.
-// Indent-tolerant so the nested `progress:` block's keys resolve too.
-function field(text, key) {
-  const m = new RegExp(`^[ \\t]*(?:\\*\\*)?${key}(?:\\*\\*)?[ \\t]*:[ \\t]*(\\S+)`, "im").exec(text);
-  return m && m[1] !== "null" ? m[1] : null;
-}
-
-function gsdPercent(text) {
-  const explicit = field(text, "percent");
-  if (explicit && /^\d{1,3}$/.test(explicit)) return Number(explicit);
-  const done = Number(field(text, "completed_phases"));
-  const total = Number(field(text, "total_phases"));
-  if (Number.isFinite(done) && total > 0) return Math.round((done / total) * 100);
-  const loose = /(\d{1,3})\s*%/.exec(text);
-  return loose ? Number(loose[1]) : null;
-}
-
-function gsdState(root) {
-  if (!existsSync(join(root, ".planning", "config.json"))) return null;
-  const text = safe(() => readFileSync(join(root, ".planning", "STATE.md"), "utf8"), "") ?? "";
-  const milestone = field(text, "milestone") || field(text, "version");
-  // gsd-core writes active_phase while an orchestrator is in flight and current_phase otherwise;
-  // a hand-kept STATE.md may just say phase.
-  const phase = field(text, "active_phase") || field(text, "current_phase") || field(text, "phase");
-  // A .planning/ this parser cannot read is not an error - the gsd segment just stays absent,
-  // and the project segment renders regardless. Guessing a phase would not be.
-  if (!milestone || !phase) return null;
-  return renderGsd({ milestone, phase, status: field(text, "status") || "", percent: gsdPercent(text) });
 }
 
 // Phase resolution, the ledger and the three display modes all live in lib/phase-segment.mjs.
@@ -104,11 +49,6 @@ function gsdState(root) {
 
 function upState(root) {
   return renderPhaseSegment(readPhaseState(root));
-}
-
-function gsdActive(root) {
-  return existsSync(join(CLAUDE_DIR, "gsd-core", "VERSION"))
-    && existsSync(join(root, ".planning", "config.json"));
 }
 
 function contextSegment(data) {
@@ -137,18 +77,6 @@ function contextSegment(data) {
   return safe(() => paintContext(text, severityOf({ windowPct, acProgress })), text) || text;
 }
 
-// Loaded dynamically, and only where it can mean anything: hooks/lib/gsd-* is excluded from base
-// and lite, which also do not ship the executor fork this patch protects — there the alarm has no
-// subject, so an absent module is the correct answer rather than a missing dependency. The
-// gsd-core probe keeps a non-GSD machine from paying for the import at all.
-async function hookPatchStatuses() {
-  if (!existsSync(join(CLAUDE_DIR, "gsd-core", "VERSION"))) return {};
-  try {
-    const m = await import("./lib/gsd-hook-patches.mjs");
-    return m.checkGsdHookPatches({ claudeDir: CLAUDE_DIR }) || {};
-  } catch { return {}; }
-}
-
 async function main(raw) {
   const data = safe(() => JSON.parse(raw || "{}"), {}) || {};
   const ws = data.workspace || {};
@@ -157,12 +85,10 @@ async function main(raw) {
   const progress = safe(() => progressEnabled(CLAUDE_DIR), true);
   process.stdout.write(render({
     updates: pendingNames(state),
-    hookPatches: await hookPatchStatuses(),
     model: (data.model && data.model.display_name) || "",
     context: safe(() => contextSegment(data), "") || "",
     ds: safe(() => dsSegment({ root, claudeDir: CLAUDE_DIR }), "") || "",
     project: basename(root),
-    gsd: progress && gsdActive(root) ? (safe(() => gsdState(root)) || "") : "",
     up: !progress || installedProfile(CLAUDE_DIR) === "lite" ? "" : (safe(() => upState(root)) || ""),
   }));
 }
@@ -185,9 +111,8 @@ if (isMainModule()) {
     if (done) return;
     done = true;
     clearTimeout(guard);
-    // main is async (it may dynamically load the gsd hook-patch check), so the release below
-    // has to wait for it rather than run alongside: the documented order is write the line, THEN
-    // let go of stdin. A rejection cannot escape either - both settle paths release.
+    // main is async, so the release below has to wait for it rather than run alongside: the
+    // documented order is write the line, THEN let go of stdin. A rejection cannot escape either - both settle paths release.
     const release = () => {
       process.exitCode = 0;
       // Rendering alone does not end the process: the `data` listener below keeps the readable

@@ -15,10 +15,7 @@
 - [RISK-DSOFFLOAD-003 — The shared DeepSeek backend is fragile and unmetered](#risk-dsoffload-003-the-shared-deepseek-backend-is-fragile-and-unmetered)
 - [RISK-GRAPHPUSH-001 — Automatic push drags a full global MERGE behind every commit](#risk-graphpush-001-automatic-push-drags-a-full-global-merge-behind-every-commit)
 - [RISK-GRAPHPUSH-002 — Driver recovery installs a package as a side effect of a commit](#risk-graphpush-002-driver-recovery-installs-a-package-as-a-side-effect-of-a-commit)
-- [RISK-GSDEXEC-001 — `gsd-executor-decomposing.md` is a full fork with no inheritance, will drift](#risk-gsdexec-001-gsd-executor-decomposingmd-is-a-full-fork-with-no-inheritance-will-drift)
-- [RISK-GSDSURFACE-001 — Two independent layers set the GSD profile, and the overlay wins](#risk-gsdsurface-001-two-independent-layers-set-the-gsd-profile-and-the-overlay-wins)
-- [RISK-GSDSURFACE-002 — The profile flag and marker semantics are verified against one gsd-core version](#risk-gsdsurface-002-the-profile-flag-and-marker-semantics-are-verified-against-one-gsd-core-version)
-- [RISK-GSDSURFACE-003 — Raising the profile restores agent files without this bundle's patches](#risk-gsdsurface-003-raising-the-profile-restores-agent-files-without-this-bundles-patches)
+- [RISK-GSDPURGE-001 — the `gsd-*` name patterns remove a user's own artefact that shares the prefix](#risk-gsdpurge-001-the-gsd-name-patterns-remove-a-users-own-artefact-that-shares-the-prefix)
 - [RISK-HARNESS-001 — `Connection closed mid-response` truncates a turn, and the bundle cannot retry it](#risk-harness-001-connection-closed-mid-response-truncates-a-turn-and-the-bundle-cannot-retry-it)
 - [RISK-LADDER-001 — Every rung switch starts a fresh prefix and pays a cache write](#risk-ladder-001-every-rung-switch-starts-a-fresh-prefix-and-pays-a-cache-write)
 - [RISK-LADDER-002 — Attempt counting is a rule for the orchestrator, not enforced](#risk-ladder-002-attempt-counting-is-a-rule-for-the-orchestrator-not-enforced)
@@ -47,14 +44,10 @@
 - [RISK-ULTRAPOWERS-004 — Keep-list rot devalues the completeness check](#risk-ultrapowers-004-keep-list-rot-devalues-the-completeness-check)
 - [RISK-ULTRAPOWERS-006 — Agent registry adds resident context cost every session](#risk-ultrapowers-006-agent-registry-adds-resident-context-cost-every-session)
 - [RISK-ULTRAPOWERS-008 — Upstream may change its licence or its direction](#risk-ultrapowers-008-upstream-may-change-its-licence-or-its-direction)
-- [RISK-ULTRAPOWERS-010 — `/gsd-update` reinstalls gsd-core at any time](#risk-ultrapowers-010-gsd-update-reinstalls-gsd-core-at-any-time)
 - [RISK-ULTRAPOWERS-011 — `/up-update update` cannot land an update that re-authors a delta](#risk-ultrapowers-011-up-update-update-cannot-land-an-update-that-re-authors-a-delta)
 - [RISK-USAGELOG-001 — Reintroducing the token-usage log reverses a phase-19 decision](#risk-usagelog-001-reintroducing-the-token-usage-log-reverses-a-phase-19-decision)
 - [RISK-VARIANT-001 — Variant switch could delete a file the user hand-edited under `~/.claude`](#risk-variant-001-variant-switch-could-delete-a-file-the-user-hand-edited-under-claude)
 - [RISK-VARIANT-002 — `managedPlugins` marketplace ids can drift from the live marketplace](#risk-variant-002-managedplugins-marketplace-ids-can-drift-from-the-live-marketplace)
-- [RISK-VARIANT-003 — The gsd-core detector edits hook entries this bundle does not own](#risk-variant-003-the-gsd-core-detector-edits-hook-entries-this-bundle-does-not-own)
-- [RISK-VARIANT-004 — `/gsd-update` reinstalls gsd-core behind the detector's back](#risk-variant-004-gsd-update-reinstalls-gsd-core-behind-the-detectors-back)
-- [RISK-VARIANT-005 — A declined prune of `gsd-defaults.partial.json` is re-offered on every non-`full` run](#risk-variant-005-a-declined-prune-of-gsd-defaultspartialjson-is-re-offered-on-every-non-full-run)
 - [RISK-VERBOSITY-001 — "Terse" verbosity axis slides into minification or drops load-bearing intent](#risk-verbosity-001-terse-verbosity-axis-slides-into-minification-or-drops-load-bearing-intent)
 
 ### Deferred
@@ -82,13 +75,20 @@
 - [RISK-FALLOW-001 — `fallow.enabled` is set optimistically, not gated on binary presence](#risk-fallow-001-fallowenabled-is-set-optimistically-not-gated-on-binary-presence)
 - [RISK-GRAPHPUSH-003 — graphify export neo4j --push writes every node and then never returns](#risk-graphpush-003-graphify-export-neo4j---push-writes-every-node-and-then-never-returns)
 - [RISK-GRAPHPUSH-004 — every commit prunes and re-pushes the whole graph, leaving Neo4j gutted for the duration](#risk-graphpush-004-every-commit-prunes-and-re-pushes-the-whole-graph-leaving-neo4j-gutted-for-the-duration)
-- [RISK-GSDPURGE-001 — the `gsd-*` name patterns remove a user's own artefact that shares the prefix](#risk-gsdpurge-001-the-gsd-name-patterns-remove-a-users-own-artefact-that-shares-the-prefix)
+- [RISK-GSDEXEC-001 — `gsd-executor-decomposing.md` is a full fork with no inheritance, will drift](#risk-gsdexec-001-gsd-executor-decomposingmd-is-a-full-fork-with-no-inheritance-will-drift)
+- [RISK-GSDSURFACE-001 — Two independent layers set the GSD profile, and the overlay wins](#risk-gsdsurface-001-two-independent-layers-set-the-gsd-profile-and-the-overlay-wins)
+- [RISK-GSDSURFACE-002 — The profile flag and marker semantics are verified against one gsd-core version](#risk-gsdsurface-002-the-profile-flag-and-marker-semantics-are-verified-against-one-gsd-core-version)
+- [RISK-GSDSURFACE-003 — Raising the profile restores agent files without this bundle's patches](#risk-gsdsurface-003-raising-the-profile-restores-agent-files-without-this-bundles-patches)
 - [RISK-HOOKSTDIN-001 — `token-usage-log.mjs` throws on a literal `null` on stdin](#risk-hookstdin-001-token-usage-logmjs-throws-on-a-literal-null-on-stdin)
 - [RISK-INITSTACK-001 — `/init-stack` GSD-free rewrite deleted steps 6-11; ~24 stale references + 2 dropped capabilities](#risk-initstack-001-init-stack-gsd-free-rewrite-deleted-steps-6-11-24-stale-references-2-dropped-capabilities)
 - [RISK-STATUSLINE-001 — the context-window size field name is documented, not observed](#risk-statusline-001-the-context-window-size-field-name-is-documented-not-observed)
 - [RISK-TOKENLOG-001 — Scraped model pricing can silently break](#risk-tokenlog-001-scraped-model-pricing-can-silently-break)
 - [RISK-ULTRAPOWERS-002 — Rebrand is machine-wide and cannot be gated per project](#risk-ultrapowers-002-rebrand-is-machine-wide-and-cannot-be-gated-per-project)
 - [RISK-ULTRAPOWERS-003 — Blind replacement would break `superpowers:` skill resolution](#risk-ultrapowers-003-blind-replacement-would-break-superpowers-skill-resolution)
+- [RISK-ULTRAPOWERS-010 — `/gsd-update` reinstalls gsd-core at any time](#risk-ultrapowers-010-gsd-update-reinstalls-gsd-core-at-any-time)
+- [RISK-VARIANT-003 — The gsd-core detector edits hook entries this bundle does not own](#risk-variant-003-the-gsd-core-detector-edits-hook-entries-this-bundle-does-not-own)
+- [RISK-VARIANT-004 — `/gsd-update` reinstalls gsd-core behind the detector's back](#risk-variant-004-gsd-update-reinstalls-gsd-core-behind-the-detectors-back)
+- [RISK-VARIANT-005 — A declined prune of `gsd-defaults.partial.json` is re-offered on every non-`full` run](#risk-variant-005-a-declined-prune-of-gsd-defaultspartialjson-is-re-offered-on-every-non-full-run)
 
 ## Active
 ### RISK-BOOTSTRAP-001 — Remote code execution via `curl|bash` / `irm|iex` bootstrap
@@ -302,117 +302,6 @@
   fail-soft skip carrying the command to run, never a throw, and never blocks the commit.
 - **Residual:** Accepted. The alternative is a chain that silently stops working after a routine
   upgrade, which is the failure this phase exists to end.
-
-
-### RISK-GSDEXEC-001 — `gsd-executor-decomposing.md` is a full fork with no inheritance, will drift
-
-- **Status:** Active
-- **Context:** `payload/agents/gsd-executor-decomposing.md` duplicates the entirety of
-  `gsd-executor.md`'s execution machinery (commit protocol, deviation rules 1-4, TDD flow,
-  checkpoint protocol, worktree safety assertions) because Claude Code agent files have no
-  inheritance/include mechanism for another agent's full body — only prose `@`-references to
-  shared reference docs, which `gsd-executor.md` doesn't itself use for these sections. Every
-  future upstream `gsd-core` fix to `gsd-executor.md` (numbered fixes like #2924/#3097/#3542/
-  #3678 already baked into the copy as of 2026-07-17) will NOT automatically reach the fork.
-- **Mitigation:** `gsd-executor-decomposing.md`'s frontmatter `description` points at
-  `.ultrapowers/archive/specs/2026-07-17-executor-task-decomposition-design.md`'s sync procedure —
-  when `apply-gsd-agent-patches.mjs`/`gsd-agent-patches.mjs`'s `PATCHES` registry gains a new or
-  upgraded entry for `gsd-executor.md`, the same patch must be manually re-applied (or the
-  equivalent prose change hand-ported) to `gsd-executor-decomposing.md`, skipping only the two
-  delta sections (`tools:`/`description` frontmatter and the `<task_stage_decomposition>` block
-  that replaces `<no_recursive_agent_spawn>`). No automated drift check exists yet. Status nuance (migrated 2026-07-31): accepted
-- **Residual:** silent drift between the two files is possible until a human notices (e.g. a
-  `verify_isolated="true"` plan hits a bug already fixed in plain `gsd-executor`). Accepted as
-  the cost of the only mechanism that gives a genuinely structural (tools-grant-based, not
-  prose-based) depth-3 cap — see `rules-src/gsd.md`'s "The one sanctioned depth-3 exception"
-  section for why the alternative (a prose-conditional single file) was rejected.
-
-- **Resync 2026-08-19 (gsd-core 1.10.0):** the residual predicted above had already happened. The
-  fork was 297 lines behind and missing whole 1.9-1.10 mechanisms — the task `<precondition>`
-  check, `type="tracer"` and its feedback gate, the MVP+TDD runtime gate, and four
-  `references/*.md` includes. It also carried `context-mode-routing-block` at v1 while the
-  registry had moved to v2. Regenerated from 1.10.0's `gsd-executor.md` rather than hand-merged,
-  and the residual diff against upstream is now exactly the fork's own deltas and nothing else.
-- **Resync 2026-08-20 (gsd-core 1.11.0):** regenerated again by the recipe below, which held
-  without change — all six deviation classes still apply to 1.11.0 verbatim, including the three
-  U+FFFD characters upstream still ships in place of an arrow. What the fork gained is the
-  `gate="blocking-human"` contract (#3210): a checkpoint carrying that gate is never
-  auto-approved, in any mode. Until this resync the fork lacked it, so a `verify_isolated` plan
-  running under the fork in auto-mode would have auto-approved the package-legitimacy checkpoint
-  that plain `gsd-executor` refuses — a hole in the chain that stops an unattended run installing
-  a package no human vetted, not a cosmetic ten-line lag.
-- **The "two deltas" in the 2026-07-17 spec undercounts.** Six classes of deviation had to be
-  re-applied, and a future resync that honours only the documented two silently loses four:
-  1. frontmatter: `name`, `description`, `tools:` (+`Agent`, +context-mode), `effort: high`;
-  2. `<no_recursive_agent_spawn>` replaced by `<task_stage_decomposition>`, plus the
-     `verify_isolated="true"` branch ahead of the `tdd="true"` one in `execute_tasks`;
-  3. all `~/.claude/gsd-core/` rewritten to `$HOME/.claude/gsd-core/` — `~` does not expand in an
-     `@`-include on Windows (9 sites in 1.10.0);
-  4. a `<role>` paragraph saying when the orchestrator spawns this fork instead of plain
-     `gsd-executor`;
-  5. the four `/gsd:<command>` references rewritten to `/gsd-<command>`: GSD is installed by npx
-     here, so its surface is skill names, not plugin-namespaced commands;
-  6. gsd-core 1.10.0 ships three U+FFFD replacement characters where an arrow belongs
-     (`RED doesn't fail ??? investigate`, `agents/gsd-executor.md`). The fork repairs it rather
-     than importing the corruption. Worth reporting upstream.
-- **Recipe that produced this, in order:** take upstream `gsd-executor.md`; apply deviations 3, 5
-  and 6 as whole-file rewrites; run `applyGsdAgentPatches` against it under the name
-  `gsd-executor.md` so the nine executor patches land at the registry's own anchors; then apply
-  deviations 1, 2 and 4. Deviation 2 is what removes the `executor-no-recursive-agent-spawn` span
-  the patch pass just inserted, so it must run after it, not before.
-
-
-### RISK-GSDSURFACE-001 — Two independent layers set the GSD profile, and the overlay wins
-
-- **Status:** Active
-- **Context:** `gsd-core` resolves its installed skill/agent set from two places. The installer
-  writes `<configDir>/.gsd-profile` (`writeActiveProfile`, driven by `--profile=`), while
-  `/gsd-surface` writes `<configDir>/.gsd-surface.json` (`baseProfile`, `disabledClusters`) and
-  re-stages from it. The overlay is applied after the install-time profile, so a bundle-driven
-  `--profile=standard` run against a stale overlay produces a set matching neither. A second
-  asymmetry compounds it: `resolveEffectiveProfile` treats a marker of `full` as absent but
-  honours any lower marker, so a plain re-install can lower the profile and never raise it —
-  raising requires passing `--profile=` explicitly every time.
-- **Mitigation:** phase 14 makes the bundle own exactly one layer: it drives `.gsd-profile`
-  through the installer flag and treats `.gsd-surface.json` as state to clear before the run,
-  never to write. The apply path always passes `--profile=` explicitly rather than relying on
-  the marker.
-- **Residual:** a hand-run `/gsd-surface disable <cluster>` between two bundle runs still
-  diverges from the dial until the next apply. The drift note in `session-init.mjs` reports it;
-  nothing prevents it.
-
-
-### RISK-GSDSURFACE-002 — The profile flag and marker semantics are verified against one gsd-core version
-
-- **Status:** Active
-- **Context:** the `--profile=` flag, the `.gsd-profile` marker precedence, the prune-before-
-  re-stage behaviour and the per-profile skill/agent counts were all read out of
-  `@opengsd/gsd-core@1.9.1`. `gsd-core` is an npx tool on `@latest`, not a pinned dependency, and
-  the repo's own probe copy under `.test/gsd-marketplace-probe/` is `1.7.0-rc.6` — the `next`
-  tag, two minor versions behind, with a materially different `standard` closure. Planning off
-  the probe copy would have produced the wrong recommendation, and did in
-  `.claude/_analize/optimizations.md`.
-- **Mitigation:** the phase-14 e2e test drives the real installer into a temp `--config-dir` and
-  asserts the counts, so a semantics change fails a test rather than silently reshaping the
-  machine. Related: `RISK-ULTRAPOWERS-010` and `RISK-VARIANT-004` (`/gsd-update` reinstalls
-  `gsd-core` outside this bundle's control).
-- **Residual:** the test asserts today's numbers. An upstream change that moves `gsd-code-review`
-  or `gsd-verify-work` out of the `standard` closure invalidates the recommendation to run
-  `standard`, not just the test.
-
-
-### RISK-GSDSURFACE-003 — Raising the profile restores agent files without this bundle's patches
-
-- **Status:** Active
-- **Context:** the installer deletes every `agents/gsd-*.md` and re-stages the profile's set on
-  each run. Files restored by a profile raise are `gsd-core`'s originals, so this bundle's
-  content patches (`hooks/lib/gsd-agent-patches.mjs`, `gsd-workflow-patches.mjs`,
-  `gsd-skill-patches.mjs`) are gone from them. The SessionStart check in `session-init.mjs` then
-  reports pending patches on every session until someone runs `/init-session`.
-- **Mitigation:** the phase-14 apply path runs `apply-gsd-agent-patches.mjs` as its own step,
-  after the installer and before the restart notice.
-- **Residual:** curated (`CURATED:NOEDIT`) agent files are skipped by the apply path by design,
-  so a raise that restores one leaves a warning only a human can clear.
 
 
 ### RISK-HARNESS-001 — `Connection closed mid-response` truncates a turn, and the bundle cannot retry it
@@ -986,22 +875,6 @@
   version we last merged, which is the whole point of holding the objects ourselves.
 
 
-### RISK-ULTRAPOWERS-010 — `/gsd-update` reinstalls gsd-core at any time
-
-- **Status:** Active
-- **Context:** the detector only observes divergence at the moment `setup.mjs` runs. `/gsd-update`
-  is a separate tool the user can run whenever they like, and it will happily reinstall gsd-core
-  into a `base`/`lite` machine minutes after the detector removed it. Between two `setup.mjs` runs
-  the machine simply drifts, and nothing reports it.
-- **Mitigation:** none beyond re-running `node setup.mjs`, which reports the divergence again and
-  re-offers the removal. The removal is cheap to repeat because it is a move into a dated trash
-  batch, not a destructive uninstall. Status nuance (migrated 2026-07-31): accepted, 2026-07-28
-- **Residual:** deliberately not fixed. Enforcing gsd-core's absence at session start would mean a
-  hook that polices another product's installation on every session — a standing background
-  behaviour to remove software the user may have just deliberately installed. That is a worse
-  trade than periodic drift, and it is out of scope for this feature.
-
-
 ### RISK-ULTRAPOWERS-011 — `/up-update update` cannot land an update that re-authors a delta
 
 - **Status:** Active
@@ -1092,64 +965,6 @@
   completes. On the bulk path the same wrong id would instead surface as a printed manual command
   the user runs by hand, catching the failure before it executes. Accepted; revisit by
   confirming the id on a machine that has `gsd` installed via the marketplace.
-
-
-### RISK-VARIANT-003 — The gsd-core detector edits hook entries this bundle does not own
-
-- **Status:** Active
-- **Context:** the planned `base`/`lite` gsd-core detector removes `settings.json` hook entries
-  that reference `hooks/gsd-*`. Every other write in `setup.mjs` goes through `mentionsOurs(e)`
-  (`setup.mjs:824-847`), which matches only basenames drawn from `settings.partial.json` — so
-  foreign entries are left alone by construction. The detector is the first place that
-  deliberately matches something this bundle never installed, and gsd-core owns 12 live
-  registrations there.
-- **Mitigation:** the edit fires only under both gates — profile is `base`/`lite` **and**
-  `~/.claude/gsd-core/VERSION` exists — and only after explicit consent (`--replace-all` /
-  `--merge-all` deliberately do **not** grant it; `--uninstall-gsd` is the scripted path). A copy
-  of `settings.json` is written into the same `.cleanup-trash/<ts>/` batch before the edit, so
-  `restoreBatch()` restores registrations and files together inside the 7-day window. Status nuance (migrated 2026-07-31): accepted at design time, 2026-07-28
-- **Residual:** a hand-added hook entry that happens to reference a `gsd-*` script would be
-  removed with the rest. It is restorable from the batch, but the user is not asked about it
-  separately. Accepted: the alternative is leaving dead registrations pointing at deleted files.
-
-
-### RISK-VARIANT-004 — `/gsd-update` reinstalls gsd-core behind the detector's back
-
-- **Status:** Active
-- **Context:** gsd-core updates through its own `/gsd-update`, not through `setup.mjs`. On a
-  `base`/`lite` machine where the detector already removed it, a later `/gsd-update` — or any
-  fresh gsd-core install — puts all 71 skills, 34 agents and 23 hooks back, plus their
-  `settings.json` registrations.
-- **Mitigation:** none beyond re-detection. The detector observes the divergence at the next
-  `setup.mjs` run and offers removal again; nothing enforces the absence continuously. Status nuance (migrated 2026-07-31): accepted, 2026-07-28
-- **Residual:** between two `setup.mjs` runs the machine can sit in a state the chosen profile
-  says it should not be in, with no signal. A session-start guard was considered and left out of
-  scope — it would put a foreign-product check on every session start for a condition the user
-  creates deliberately.
-
-
-### RISK-VARIANT-005 — A declined prune of `gsd-defaults.partial.json` is re-offered on every non-`full` run
-
-- **Status:** Active
-- **Context:** `pruneStale()` adds `gsd-defaults.partial.json` to its candidate set unconditionally
-  whenever `VARIANT !== "full"` (`setup.mjs:532`). The file is a `full`-only mirror written straight
-  into `~/.claude`, never through `placeFile()` — and `placeFile()` plus the assembled `CLAUDE.md`
-  are the only two writers that push into `manifestNow`. Being untracked is also *why* the candidate
-  is hardcoded rather than derived: there is no manifest entry whose disappearance would put it on
-  the list. Every later gate then declines to apply to it — the `variantExcluded` branch skips the
-  "still referenced in bundle" check, and with no recorded hash the "modified since install" check
-  has nothing to compare — so it reaches the removal list on every `base`/`lite` run. Declining is
-  honoured and the file survives, which is exactly what makes the next run list it again.
-  Pre-existing since `a58bfe9` (2026-07-22); not introduced by the gsd-core detector, which only
-  reads `pruneStale()`'s result.
-- **Mitigation:** none, and none is needed for safety. The file is offered, never removed without a
-  `y` or a bulk flag, and `existsSync` drops it from the candidate set the moment it does go —
-  accepting the prune once ends the offer permanently, as does deleting the mirror by hand. Status nuance (migrated 2026-07-31): accepted, 2026-07-29
-- **Residual:** noise, not data loss — one extra line under "stale files no longer in the bundle" on
-  every `base`/`lite` run, for a user who keeps declining. The real fix is to record the mirror in
-  the manifest when `full` writes it, so its staleness is derived like every other file's instead of
-  hardcoded; that changes what `manifestNow` means (files this bundle *ships*, not files it writes)
-  and was too broad to make inside the gsd-core detector's branch.
 
 
 ### RISK-VERBOSITY-001 — "Terse" verbosity axis slides into minification or drops load-bearing intent
@@ -1830,3 +1645,188 @@
   The table was reverted in `47db796`; its review had already proven by execution that the
   enumeration could not be completed — four path shapes fell through to `brand` and were
   rewritten into paths that never resolve.
+
+
+### RISK-GSDEXEC-001 — `gsd-executor-decomposing.md` is a full fork with no inheritance, will drift
+
+- **Status:** Closed (2026-10-18) — GSD left the bundle in phase 26.
+- **Context:** `payload/agents/gsd-executor-decomposing.md` duplicates the entirety of
+  `gsd-executor.md`'s execution machinery (commit protocol, deviation rules 1-4, TDD flow,
+  checkpoint protocol, worktree safety assertions) because Claude Code agent files have no
+  inheritance/include mechanism for another agent's full body — only prose `@`-references to
+  shared reference docs, which `gsd-executor.md` doesn't itself use for these sections. Every
+  future upstream `gsd-core` fix to `gsd-executor.md` (numbered fixes like #2924/#3097/#3542/
+  #3678 already baked into the copy as of 2026-07-17) will NOT automatically reach the fork.
+- **Mitigation:** `gsd-executor-decomposing.md`'s frontmatter `description` points at
+  `.ultrapowers/archive/specs/2026-07-17-executor-task-decomposition-design.md`'s sync procedure —
+  when `apply-gsd-agent-patches.mjs`/`gsd-agent-patches.mjs`'s `PATCHES` registry gains a new or
+  upgraded entry for `gsd-executor.md`, the same patch must be manually re-applied (or the
+  equivalent prose change hand-ported) to `gsd-executor-decomposing.md`, skipping only the two
+  delta sections (`tools:`/`description` frontmatter and the `<task_stage_decomposition>` block
+  that replaces `<no_recursive_agent_spawn>`). No automated drift check exists yet. Status nuance (migrated 2026-07-31): accepted
+- **Residual:** silent drift between the two files is possible until a human notices (e.g. a
+  `verify_isolated="true"` plan hits a bug already fixed in plain `gsd-executor`). Accepted as
+  the cost of the only mechanism that gives a genuinely structural (tools-grant-based, not
+  prose-based) depth-3 cap — see `rules-src/gsd.md`'s "The one sanctioned depth-3 exception"
+  section for why the alternative (a prose-conditional single file) was rejected.
+
+- **Resync 2026-08-19 (gsd-core 1.10.0):** the residual predicted above had already happened. The
+  fork was 297 lines behind and missing whole 1.9-1.10 mechanisms — the task `<precondition>`
+  check, `type="tracer"` and its feedback gate, the MVP+TDD runtime gate, and four
+  `references/*.md` includes. It also carried `context-mode-routing-block` at v1 while the
+  registry had moved to v2. Regenerated from 1.10.0's `gsd-executor.md` rather than hand-merged,
+  and the residual diff against upstream is now exactly the fork's own deltas and nothing else.
+- **Resync 2026-08-20 (gsd-core 1.11.0):** regenerated again by the recipe below, which held
+  without change — all six deviation classes still apply to 1.11.0 verbatim, including the three
+  U+FFFD characters upstream still ships in place of an arrow. What the fork gained is the
+  `gate="blocking-human"` contract (#3210): a checkpoint carrying that gate is never
+  auto-approved, in any mode. Until this resync the fork lacked it, so a `verify_isolated` plan
+  running under the fork in auto-mode would have auto-approved the package-legitimacy checkpoint
+  that plain `gsd-executor` refuses — a hole in the chain that stops an unattended run installing
+  a package no human vetted, not a cosmetic ten-line lag.
+- **The "two deltas" in the 2026-07-17 spec undercounts.** Six classes of deviation had to be
+  re-applied, and a future resync that honours only the documented two silently loses four:
+  1. frontmatter: `name`, `description`, `tools:` (+`Agent`, +context-mode), `effort: high`;
+  2. `<no_recursive_agent_spawn>` replaced by `<task_stage_decomposition>`, plus the
+     `verify_isolated="true"` branch ahead of the `tdd="true"` one in `execute_tasks`;
+  3. all `~/.claude/gsd-core/` rewritten to `$HOME/.claude/gsd-core/` — `~` does not expand in an
+     `@`-include on Windows (9 sites in 1.10.0);
+  4. a `<role>` paragraph saying when the orchestrator spawns this fork instead of plain
+     `gsd-executor`;
+  5. the four `/gsd:<command>` references rewritten to `/gsd-<command>`: GSD is installed by npx
+     here, so its surface is skill names, not plugin-namespaced commands;
+  6. gsd-core 1.10.0 ships three U+FFFD replacement characters where an arrow belongs
+     (`RED doesn't fail ??? investigate`, `agents/gsd-executor.md`). The fork repairs it rather
+     than importing the corruption. Worth reporting upstream.
+- **Recipe that produced this, in order:** take upstream `gsd-executor.md`; apply deviations 3, 5
+  and 6 as whole-file rewrites; run `applyGsdAgentPatches` against it under the name
+  `gsd-executor.md` so the nine executor patches land at the registry's own anchors; then apply
+  deviations 1, 2 and 4. Deviation 2 is what removes the `executor-no-recursive-agent-spawn` span
+  the patch pass just inserted, so it must run after it, not before.
+
+
+### RISK-GSDSURFACE-001 — Two independent layers set the GSD profile, and the overlay wins
+
+- **Status:** Closed (2026-10-18) — GSD left the bundle in phase 26.
+- **Context:** `gsd-core` resolves its installed skill/agent set from two places. The installer
+  writes `<configDir>/.gsd-profile` (`writeActiveProfile`, driven by `--profile=`), while
+  `/gsd-surface` writes `<configDir>/.gsd-surface.json` (`baseProfile`, `disabledClusters`) and
+  re-stages from it. The overlay is applied after the install-time profile, so a bundle-driven
+  `--profile=standard` run against a stale overlay produces a set matching neither. A second
+  asymmetry compounds it: `resolveEffectiveProfile` treats a marker of `full` as absent but
+  honours any lower marker, so a plain re-install can lower the profile and never raise it —
+  raising requires passing `--profile=` explicitly every time.
+- **Mitigation:** phase 14 makes the bundle own exactly one layer: it drives `.gsd-profile`
+  through the installer flag and treats `.gsd-surface.json` as state to clear before the run,
+  never to write. The apply path always passes `--profile=` explicitly rather than relying on
+  the marker.
+- **Residual:** a hand-run `/gsd-surface disable <cluster>` between two bundle runs still
+  diverges from the dial until the next apply. The drift note in `session-init.mjs` reports it;
+  nothing prevents it.
+
+
+### RISK-GSDSURFACE-002 — The profile flag and marker semantics are verified against one gsd-core version
+
+- **Status:** Closed (2026-10-18) — GSD left the bundle in phase 26.
+- **Context:** the `--profile=` flag, the `.gsd-profile` marker precedence, the prune-before-
+  re-stage behaviour and the per-profile skill/agent counts were all read out of
+  `@opengsd/gsd-core@1.9.1`. `gsd-core` is an npx tool on `@latest`, not a pinned dependency, and
+  the repo's own probe copy under `.test/gsd-marketplace-probe/` is `1.7.0-rc.6` — the `next`
+  tag, two minor versions behind, with a materially different `standard` closure. Planning off
+  the probe copy would have produced the wrong recommendation, and did in
+  `.claude/_analize/optimizations.md`.
+- **Mitigation:** the phase-14 e2e test drives the real installer into a temp `--config-dir` and
+  asserts the counts, so a semantics change fails a test rather than silently reshaping the
+  machine. Related: `RISK-ULTRAPOWERS-010` and `RISK-VARIANT-004` (`/gsd-update` reinstalls
+  `gsd-core` outside this bundle's control).
+- **Residual:** the test asserts today's numbers. An upstream change that moves `gsd-code-review`
+  or `gsd-verify-work` out of the `standard` closure invalidates the recommendation to run
+  `standard`, not just the test.
+
+
+### RISK-GSDSURFACE-003 — Raising the profile restores agent files without this bundle's patches
+
+- **Status:** Closed (2026-10-18) — GSD left the bundle in phase 26.
+- **Context:** the installer deletes every `agents/gsd-*.md` and re-stages the profile's set on
+  each run. Files restored by a profile raise are `gsd-core`'s originals, so this bundle's
+  content patches (`hooks/lib/gsd-agent-patches.mjs`, `gsd-workflow-patches.mjs`,
+  `gsd-skill-patches.mjs`) are gone from them. The SessionStart check in `session-init.mjs` then
+  reports pending patches on every session until someone runs `/init-session`.
+- **Mitigation:** the phase-14 apply path runs `apply-gsd-agent-patches.mjs` as its own step,
+  after the installer and before the restart notice.
+- **Residual:** curated (`CURATED:NOEDIT`) agent files are skipped by the apply path by design,
+  so a raise that restores one leaves a warning only a human can clear.
+
+
+### RISK-ULTRAPOWERS-010 — `/gsd-update` reinstalls gsd-core at any time
+
+- **Status:** Closed (2026-10-18) — GSD left the bundle in phase 26.
+- **Context:** the detector only observes divergence at the moment `setup.mjs` runs. `/gsd-update`
+  is a separate tool the user can run whenever they like, and it will happily reinstall gsd-core
+  into a `base`/`lite` machine minutes after the detector removed it. Between two `setup.mjs` runs
+  the machine simply drifts, and nothing reports it.
+- **Mitigation:** none beyond re-running `node setup.mjs`, which reports the divergence again and
+  re-offers the removal. The removal is cheap to repeat because it is a move into a dated trash
+  batch, not a destructive uninstall. Status nuance (migrated 2026-07-31): accepted, 2026-07-28
+- **Residual:** deliberately not fixed. Enforcing gsd-core's absence at session start would mean a
+  hook that polices another product's installation on every session — a standing background
+  behaviour to remove software the user may have just deliberately installed. That is a worse
+  trade than periodic drift, and it is out of scope for this feature.
+
+
+### RISK-VARIANT-003 — The gsd-core detector edits hook entries this bundle does not own
+
+- **Status:** Closed (2026-10-18) — GSD left the bundle in phase 26.
+- **Context:** the planned `base`/`lite` gsd-core detector removes `settings.json` hook entries
+  that reference `hooks/gsd-*`. Every other write in `setup.mjs` goes through `mentionsOurs(e)`
+  (`setup.mjs:824-847`), which matches only basenames drawn from `settings.partial.json` — so
+  foreign entries are left alone by construction. The detector is the first place that
+  deliberately matches something this bundle never installed, and gsd-core owns 12 live
+  registrations there.
+- **Mitigation:** the edit fires only under both gates — profile is `base`/`lite` **and**
+  `~/.claude/gsd-core/VERSION` exists — and only after explicit consent (`--replace-all` /
+  `--merge-all` deliberately do **not** grant it; `--uninstall-gsd` is the scripted path). A copy
+  of `settings.json` is written into the same `.cleanup-trash/<ts>/` batch before the edit, so
+  `restoreBatch()` restores registrations and files together inside the 7-day window. Status nuance (migrated 2026-07-31): accepted at design time, 2026-07-28
+- **Residual:** a hand-added hook entry that happens to reference a `gsd-*` script would be
+  removed with the rest. It is restorable from the batch, but the user is not asked about it
+  separately. Accepted: the alternative is leaving dead registrations pointing at deleted files.
+
+
+### RISK-VARIANT-004 — `/gsd-update` reinstalls gsd-core behind the detector's back
+
+- **Status:** Closed (2026-10-18) — GSD left the bundle in phase 26.
+- **Context:** gsd-core updates through its own `/gsd-update`, not through `setup.mjs`. On a
+  `base`/`lite` machine where the detector already removed it, a later `/gsd-update` — or any
+  fresh gsd-core install — puts all 71 skills, 34 agents and 23 hooks back, plus their
+  `settings.json` registrations.
+- **Mitigation:** none beyond re-detection. The detector observes the divergence at the next
+  `setup.mjs` run and offers removal again; nothing enforces the absence continuously. Status nuance (migrated 2026-07-31): accepted, 2026-07-28
+- **Residual:** between two `setup.mjs` runs the machine can sit in a state the chosen profile
+  says it should not be in, with no signal. A session-start guard was considered and left out of
+  scope — it would put a foreign-product check on every session start for a condition the user
+  creates deliberately.
+
+
+### RISK-VARIANT-005 — A declined prune of `gsd-defaults.partial.json` is re-offered on every non-`full` run
+
+- **Status:** Closed (2026-10-18) — GSD left the bundle in phase 26.
+- **Context:** `pruneStale()` adds `gsd-defaults.partial.json` to its candidate set unconditionally
+  whenever `VARIANT !== "full"` (`setup.mjs:532`). The file is a `full`-only mirror written straight
+  into `~/.claude`, never through `placeFile()` — and `placeFile()` plus the assembled `CLAUDE.md`
+  are the only two writers that push into `manifestNow`. Being untracked is also *why* the candidate
+  is hardcoded rather than derived: there is no manifest entry whose disappearance would put it on
+  the list. Every later gate then declines to apply to it — the `variantExcluded` branch skips the
+  "still referenced in bundle" check, and with no recorded hash the "modified since install" check
+  has nothing to compare — so it reaches the removal list on every `base`/`lite` run. Declining is
+  honoured and the file survives, which is exactly what makes the next run list it again.
+  Pre-existing since `a58bfe9` (2026-07-22); not introduced by the gsd-core detector, which only
+  reads `pruneStale()`'s result.
+- **Mitigation:** none, and none is needed for safety. The file is offered, never removed without a
+  `y` or a bulk flag, and `existsSync` drops it from the candidate set the moment it does go —
+  accepting the prune once ends the offer permanently, as does deleting the mirror by hand. Status nuance (migrated 2026-07-31): accepted, 2026-07-29
+- **Residual:** noise, not data loss — one extra line under "stale files no longer in the bundle" on
+  every `base`/`lite` run, for a user who keeps declining. The real fix is to record the mirror in
+  the manifest when `full` writes it, so its staleness is derived like every other file's instead of
+  hardcoded; that changes what `manifestNow` means (files this bundle *ships*, not files it writes)
+  and was too broad to make inside the gsd-core detector's branch.

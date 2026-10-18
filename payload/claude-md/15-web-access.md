@@ -1,5 +1,5 @@
 ---
-profiles: [base, full]
+profiles: [base]
 ---
 ## WEB ACCESS (tool routing)
 - Library/framework/API docs: Context7 first.

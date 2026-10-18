@@ -1,6 +1,6 @@
 // Anchored, idempotent graft of "query Pro Max first" guidance into Impeccable's reference
 // docs. Survives `npx impeccable update` (which clobbers reference/*.md) by re-apply from the
-// updater's afterUpdate. Same shape as gsd-agent-patches.mjs: sentinel = already-applied guard,
+// updater's afterUpdate. Sentinel = already-applied guard,
 // anchor = where to insert, missing anchor = skip (never corrupt).
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";

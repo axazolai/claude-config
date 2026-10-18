@@ -40,7 +40,7 @@
 **Interfaces:**
 - Produces:
   - `BUNDLE_RELS: string[]`, `RETIRED_HOOK_FILES: string[]` (`["gsd-config-patch.mjs", "db-live-access-gate.mjs"]`), `STATE_KEYS: string[]`
-  - `stripGsdSettings(settings) -> { settings, removed: string[] }` — never mutates its input
+  - `stripGsdSettings(settings, claudeDir) -> { settings, removed: string[] }` — never mutates its input
   - `stripProjectInitGsd(state) -> { state, removedKeys: string[] }` — keys as `"<project>:<key>"`
   - `planGsdPurge({ claudeDir, homeDir, list, exists, settings = null, projectInit = null }) -> { paths: string[], settings: { next, changed, removed }, state: { next, changed, removedKeys } }` — `list(absDir) -> string[]` (`[]` when missing), `exists(absPath) -> boolean`; `paths` absolute, claudeDir entries sorted, `homeDir/.gsd` last
   - `isEmptyPlan(plan) -> boolean`
@@ -79,14 +79,34 @@ const PATTERNS = [ // [dir under claudeDir ("" = claudeDir), entry-name test]
   ["hooks/lib", (n) => n.startsWith("gsd-")],
 ];
 // gsd-core registers `"…/node" "…/hooks/gsd-x.js"` as one command; this bundle uses command + args.
-const GSD_HOOK_REF = /(^|[\s\\/"'])hooks[\\/]gsd-[^\\/"'\s]+/;
-const RETIRED_REF = new RegExp(`(^|[\\s\\\\/"'])(${RETIRED_HOOK_FILES.map((f) => f.replace(/\./g, "\\.")).join("|")})($|[\\s"'])`);
+// Settings strings are matched on path segments: a boundary is a separator, quote, parenthesis,
+// whitespace or string start, and `/` and `\` both separate. Product names and the `.gsd` directory
+// match anywhere. Bundle and gsd-* names match only directly under the config dir: a `.claude`
+// segment or the configured claudeDir.
+const BOUND = String.raw`(?:^|[\s"'(\\/])`;
+const SEP = String.raw`[\\/]`;
+const NAME_END = String.raw`(?![\w.-])`;
+const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const segsRe = (p) => p.replace(/\\/g, "/").split("/").filter(Boolean).map(esc).join(SEP);
+const PRODUCT_RE = new RegExp(`${BOUND}(?:gsd-core|get-shit-done|@opengsd)|${BOUND}\\.gsd${NAME_END}`, "i");
+const PATH_NAMES = [
+  ...BUNDLE_RELS.map((r) => segsRe(r) + NAME_END),
+  ...RETIRED_HOOK_FILES.map((f) => segsRe(`hooks/${f}`) + NAME_END),
+  ...["gsd-", "agents/gsd-", "skills/gsd-", "hooks/gsd-", "hooks/lib/gsd-"].map(segsRe),
+  segsRe("commands/gsd") + NAME_END,
+];
+const purgedMatcher = (claudeDir) => {
+  const cfg = [`${BOUND}\\.claude`];
+  if (claudeDir) cfg.push(String.raw`(?:^|[\s"'(])[\\/]*` + segsRe(String(claudeDir)));
+  const pathRe = new RegExp(`(?:${cfg.join("|")})${SEP}(?:${PATH_NAMES.join("|")})`, "i");
+  return (s) => PRODUCT_RE.test(s) || pathRe.test(s);
+};
 const GSD_STATUSLINE = /gsd-statusline\.js|gsd-context-meter/;
-const GSD_PATH = /gsd-core|get-shit-done|(^|[\\/])\.gsd([\\/]|$)|hooks[\\/]gsd-/;
 const strs = (o) => [o?.command, ...(Array.isArray(o?.args) ? o.args : [])].map((s) => String(s ?? ""));
-const namesGsdHook = (h) => strs(h).some((s) => GSD_HOOK_REF.test(s) || RETIRED_REF.test(s));
 
-export function stripGsdSettings(settings) {
+export function stripGsdSettings(settings, claudeDir) {
+  const named = purgedMatcher(claudeDir);
+  const namesGsdHook = (h) => strs(h).some((s) => named(s));
   const out = JSON.parse(JSON.stringify(settings || {}));
   const removed = [];
   for (const [event, entries] of Object.entries(out.hooks && typeof out.hooks === "object" ? out.hooks : {})) {
@@ -111,13 +131,13 @@ export function stripGsdSettings(settings) {
   for (const kind of ["allow", "deny", "ask"]) {
     const list = out.permissions?.[kind];
     if (!Array.isArray(list)) continue;
-    const kept = list.filter((p) => !GSD_PATH.test(String(p)));
+    const kept = list.filter((p) => !named(String(p)));
     if (kept.length === list.length) continue;
     removed.push(`permissions.${kind}: ${list.length - kept.length}`);
     out.permissions[kind] = kept;
   }
   for (const [k, v] of Object.entries(out.env && typeof out.env === "object" ? out.env : {}))
-    if (GSD_PATH.test(String(v))) { delete out.env[k]; removed.push(`env.${k}`); }
+    if (named(String(v))) { delete out.env[k]; removed.push(`env.${k}`); }
   return { settings: out, removed };
 }
 
@@ -136,11 +156,13 @@ export function planGsdPurge({ claudeDir, homeDir, list, exists, settings = null
   const rels = new Set();
   for (const [dir, match] of PATTERNS) for (const n of list(at(dir))) if (match(n)) rels.add(dir ? `${dir}/${n}` : n);
   for (const rel of BUNDLE_RELS) if (exists(at(rel))) rels.add(rel);
-  for (const dir of EMPTIED_DIRS)
-    if (exists(at(dir)) && list(at(dir)).every((n) => rels.has(`${dir}/${n}`))) rels.add(dir);
+  for (const dir of EMPTIED_DIRS) {
+    const names = list(at(dir));
+    if (names.length && names.every((n) => rels.has(`${dir}/${n}`))) rels.add(dir);
+  }
   const paths = [...rels].sort().map(at);
   if (exists(join(homeDir, ".gsd"))) paths.push(join(homeDir, ".gsd"));
-  const s = settings ? stripGsdSettings(settings) : { settings, removed: [] };
+  const s = settings ? stripGsdSettings(settings, claudeDir) : { settings, removed: [] };
   const st = projectInit ? stripProjectInitGsd(projectInit) : { state: projectInit, removedKeys: [] };
   return {
     paths,
@@ -185,7 +207,7 @@ export function formatGsdPurge(plan, dry) {
 - `migrateProjectModelConfig` is gone and `migrateSettingsModel` behaves as before (its existing tests pass unchanged).
 
 - [ ] **Step 1: Implement** — remove, by function or block:
-  - `session-init.mjs`: `VARIANT`/`FULL` (≈L46-55); `looksGsd()` and its use in the root `CLAUDE.md` auto-mark (≈L112-115, L192-203); risk-register discovery and the `add-risk` spawn (≈L117-167); the `.planning/CLAUDE.md` `claudeMdExcludes` write (≈L174-190); the fallow gap check (≈L296-333); the dynamic-import patch-check block (≈L335-432); the `test_command`/`build_command` note (≈L434-455); hint text naming `/gsd-*`. The `/init-mcp` suggestion (≈L254) loses its `FULL &&` condition and keeps the rest. Keep `.planning` as a `findRoot` marker (spec § 7).
+  - `session-init.mjs`: `VARIANT`/`FULL` (≈L46-55); `looksGsd()` and its use in the root `CLAUDE.md` auto-mark (≈L112-115, L192-203); risk-register discovery and the `add-risk` spawn (≈L117-167); the `.planning/CLAUDE.md` `claudeMdExcludes` write (≈L174-190); the fallow gap check (≈L296-333); the dynamic-import patch-check block (≈L335-432); the `test_command`/`build_command` note (≈L434-455); hint text naming `/gsd-*`. The `/init-mcp` suggestion (≈L254) loses its `FULL &&` condition and keeps the rest; the suggestion is gated on `commands/init-mcp.md` existing in the config dir. Keep `.planning` as a `findRoot` marker (spec § 7).
   - `statusline.mjs`: `renderHookPatches`, `renderGsd`, `gsdPercent`, `gsdState`, `gsdActive`, `hookPatchStatuses` and their two slots in `render()`; the phase segment from `lib/phase-segment.mjs` stays. `status-project-progress.md` description: "Show or hide the statusline phase counter".
   - `init-stack.mjs`: `migrateProjectModelConfigFile` and `syncGsdContextModeAgents` with their calls; `commands/init-stack.md` lines about the `.planning` re-migration; drop the matching budget exception in `variants.test.mjs` if it names that text.
   - `model-migration.mjs`: `PROJECT_OVERRIDE_MIGRATIONS`, `migrateProjectModelConfig`, the GSD sentences of the header comment.

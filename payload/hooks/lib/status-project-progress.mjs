@@ -1,4 +1,4 @@
-// User-wide switch for the statusline's progress segments (gsd milestone bar, ultrapowers phase
+// User-wide switch for the statusline's progress segment (ultrapowers phase
 // counter). /status-project-progress writes it; the statusline reads it. Default on.
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";

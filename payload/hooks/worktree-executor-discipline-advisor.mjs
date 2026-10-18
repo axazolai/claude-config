@@ -6,9 +6,8 @@
 // stdin-driven, single-pass advisories with no state to share:
 //
 //   1. Worktree-parallelism discipline (Bash only, gated on cwd looking like a Claude Code
-//      agent worktree: `.claude/worktrees/agent-*`) - see rules-src/gsd.md "Parallel worktree
-//      waves" and the gsd-executor.md prose patches (gsd-agent-patches.mjs) this hook backs
-//      up with a harness-level nudge instead of relying on prose alone:
+//      agent worktree: `.claude/worktrees/agent-*`) - a harness-level nudge for parallel worktree
+//      waves, instead of relying on prose alone:
 //        - a pnpm/npm/yarn install command (pnpm without enableGlobalVirtualStore, or any
 //          npm/yarn install, still pays the full per-worktree cost; even with the shared
 //          store on, Windows can serialize/fail with EPERM under concurrent installs)
@@ -63,13 +62,12 @@ if (toolName === "Bash" && inAgentWorktree) {
         ? "worktree-discipline: pnpm install inside a parallel-wave worktree is expected and should be " +
           "fast (seconds) IF the project's pnpm-workspace.yaml has enableGlobalVirtualStore: true and the " +
           "orchestrator already resolved dependencies on the base branch before dispatch. If this install " +
-          "is running minutes, that prerequisite is probably missing - see rules-src/gsd.md 'Parallel " +
-          "worktree waves'. Never force-clear node_modules with Remove-Item -Recurse -Force/rm -rf on " +
+          "is running minutes, that prerequisite is probably missing - verify before waiting it out. Never force-clear node_modules with Remove-Item -Recurse -Force/rm -rf on " +
           "Windows regardless - pnpm's internal reparse-point links make that unsafe."
         : "worktree-discipline: this is an npm/yarn install running inside a parallel-wave worktree - " +
           "there's no shared-store fast path for these like pnpm's enableGlobalVirtualStore, so every " +
-          "worktree in a wave pays the full install cost independently (see rules-src/gsd.md 'Parallel " +
-          "worktree waves'). Budget wave time for it, or consider whether this task needs worktree " +
+          "worktree in a wave pays the full install cost independently " +
+          "(parallel worktree waves). Budget wave time for it, or consider whether this task needs worktree " +
           "isolation at all."
     );
   }
@@ -81,8 +79,8 @@ if (toolName === "Bash" && inAgentWorktree) {
       "worktree-discipline: this test invocation doesn't show a visible scoping flag (--filter/" +
       "--testPathPattern/--related/-k/-m, or a specific test file). If this runs the full suite, " +
       "scope it to this plan's own files_modified instead - a full-suite run inside every worker of " +
-      "a wave has been observed costing tens of minutes per worker (see rules-src/gsd.md 'Parallel " +
-      "worktree waves'). Defer full-suite runs to end-of-phase verification or the CI gate."
+      "a wave has been observed costing tens of minutes per worker " +
+      "(parallel worktree waves). Defer full-suite runs to end-of-phase verification or the CI gate."
     );
   }
 

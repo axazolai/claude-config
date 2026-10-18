@@ -93,6 +93,10 @@ Paths, each included only when it exists:
   settings merge then installs the bundle's own);
 - `permissions` entries and `env` values that name a purged path are removed.
 
+Names in these settings strings are matched only under the config dir (a `.claude` segment or the
+configured directory), except the product names `gsd-core`, `get-shit-done`, `@opengsd` and the
+`.gsd` directory.
+
 State edits: the keys `gsdModelConfigPatched`, `gsdWorkflowConfigPatched` and
 `gsdInitStackGapLastCheck` are removed from every project entry in `project-init.json`.
 

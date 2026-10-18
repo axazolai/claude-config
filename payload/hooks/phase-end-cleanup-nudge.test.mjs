@@ -140,13 +140,11 @@ test("@important enabled-check cascades project settings.json -> settings.local.
   rmSync(rootProject, { recursive: true, force: true });
 });
 
-test("@important lite resolves without the phase-end cleanup nudge hook; base and full ship it", () => {
+test("@important lite resolves without the phase-end cleanup nudge hook; base ships it", () => {
   const lite = resolveVariant({ repoRoot: REPO, variant: "lite" }).rels;
   const base = resolveVariant({ repoRoot: REPO, variant: "base" }).rels;
-  const full = resolveVariant({ repoRoot: REPO, variant: "full" }).rels;
   assert.ok(!lite.includes("hooks/phase-end-cleanup-nudge.mjs"));
   assert.ok(base.includes("hooks/phase-end-cleanup-nudge.mjs"));
-  assert.ok(full.includes("hooks/phase-end-cleanup-nudge.mjs"));
 });
 
 test("@important malformed hook input exits 0 with no output", () => {

@@ -1,9 +1,6 @@
-// Deploy-time old-model migrator (Phase 5 Part B). Two pure, value-compare functions — same
-// non-clobber ethos as the §6.1 frontmatter setter: only a KNOWN-old value ever moves; anything
-// the user chose deliberately is reported/returned unchanged. No I/O here; callers (setup.mjs and
-// bin/init-stack.mjs) own reads/writes/prompts. Not gsd-prefixed, so it ships in every profile;
-// the project-config function's GSD role names are inert data in base/lite (never invoked there —
-// bin/init-stack.mjs only calls it behind a `.planning/config.json` runtime guard).
+// Deploy-time old-model migrator. One pure, value-compare function — same non-clobber ethos as the
+// §6.1 frontmatter setter: only a KNOWN-old value ever moves; anything the user chose deliberately
+// is returned unchanged. No I/O here; the caller (setup.mjs) owns reads/writes/prompts.
 
 // ---- session model (settings.json "model") ----
 // Tier-preserving: an old opus id -> claude-opus-5-5, an old sonnet id -> claude-sonnet-5-5, an old
@@ -29,32 +26,4 @@ export function migrateSettingsModel(model) {
     }
   }
   return { value: model, changed: false };
-}
-
-// ---- project .planning/config.json model_overrides (§6.3 re-migration) ----
-// Per-role old -> new; a role only moves when it currently holds the known-old value.
-const PROJECT_OVERRIDE_MIGRATIONS = {
-  "gsd-pattern-mapper": { from: "haiku", to: "sonnet" },
-  "gsd-integration-checker": { from: "haiku", to: "sonnet" },
-  "gsd-nyquist-auditor": { from: "haiku", to: "sonnet" },
-  "gsd-ui-checker": { from: "haiku", to: "sonnet" },
-  "gsd-ui-auditor": { from: "haiku", to: "sonnet" },
-  "gsd-verifier": { from: "sonnet", to: "opus" },
-};
-
-export function migrateProjectModelConfig(config) {
-  const changes = [];
-  const overrides = config && config.model_overrides;
-  if (!overrides || typeof overrides !== "object") return { config, changes };
-
-  // Shallow-clone so the input object is never mutated.
-  const nextOverrides = { ...overrides };
-  for (const [role, { from, to }] of Object.entries(PROJECT_OVERRIDE_MIGRATIONS)) {
-    if (nextOverrides[role] === from) {
-      nextOverrides[role] = to;
-      changes.push({ role, from, to });
-    }
-  }
-  if (!changes.length) return { config, changes };
-  return { config: { ...config, model_overrides: nextOverrides }, changes };
 }

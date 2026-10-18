@@ -1,5 +1,5 @@
 ---
-profiles: [base, full]
+profiles: [base]
 ---
 ## SCRATCHPAD CLEANUP
 - With ultrapowers active, a phase ends with the `scratch-prune` skill: after the final

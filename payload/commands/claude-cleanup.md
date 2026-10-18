@@ -17,8 +17,7 @@ for 7 days before an automatic retention sweep purges it.
   Age-guarded like sessions/temp: children under 7 days old are kept (this protects the
   running session's transient files), children 7 days or older are proposed (no list-checker
   tier — straight to the removal set).
-- **age** — `file-history`, `jobs`, `tasks`, `backups`, `gsd-user-files-backup`,
-  `gsd-migration-journal`. Only children older than 14 days are proposed.
+- **age** — `file-history`, `jobs`, `tasks`, `backups`. Only children older than 14 days are proposed.
 - **session** — `projects/<slug>/<uuid>{.jsonl,/}`. The literal `memory` entry is always
   skipped. Age-bucketed: under 7 days old is kept automatically (never proposed), 7–14 days
   goes to the list-checker, over 14 days is proposed automatically.

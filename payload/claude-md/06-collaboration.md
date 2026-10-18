@@ -1,5 +1,5 @@
 ---
-profiles: [full, base]
+profiles: [base]
 ---
 ## COLLABORATION CONTRACT (default)
 - When the answer has options, present each option with what it affects, THEN ask.

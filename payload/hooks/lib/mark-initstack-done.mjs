@@ -4,7 +4,7 @@
 // Called as step 7 of payload/commands/init-stack.md's own instructions - NOT a registered
 // Claude Code hook, just a plain script run once per /init-stack invocation.
 // Idempotent: only writes if the flag isn't already set, matching every other one-time flag in
-// the shared ~/.claude/state/project-init.json file (see session-init.mjs, gsd-config-patch.mjs).
+// the shared ~/.claude/state/project-init.json file (see session-init.mjs).
 import { readFileSync, existsSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, resolve, dirname } from "node:path";
@@ -30,7 +30,7 @@ const root = findRoot(process.cwd());
 const stateFile = join(CLAUDE_DIR, "state", "project-init.json");
 const state = existsSync(stateFile) ? (safe(() => readJSON(stateFile)) || {}) : {};
 // The unlocked read here only avoids taking the lock for nothing; the flag is re-checked and set
-// on the fresh on-disk copy inside it, so a concurrent session-init/gsd-config-patch write to
+// on the fresh on-disk copy inside it, so a concurrent session-init write to
 // project-init.json is merged onto rather than clobbered.
 if (!state[root] || !state[root].initStackRun) {
   updateJsonFile(stateFile, (st) => {

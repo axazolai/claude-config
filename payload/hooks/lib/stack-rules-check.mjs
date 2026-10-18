@@ -72,7 +72,6 @@ const ROOT_PATTERNS = [
   ["nx", /^nx\.json$/],
   ["pnpm-ws", /^pnpm-workspace\.yaml$/],
   ["docker", /^Dockerfile|^docker-compose.*\.ya?ml$/],
-  ["gsd", /^\.planning$/],
 ];
 const NESTED_PATHS = [
   ["android", "app/src/main/AndroidManifest.xml"],
