@@ -46,7 +46,8 @@ From the inventory of 2026-10-18 (read-only exploration of the repo and of this 
   `09-plugins.full.md` are deleted; `profiles: [base, full]` becomes `profiles: [base]` in the
   shared fragments; `assemble-claude-md.mjs` accepts only `base` and `lite` overrides.
 - Full-only files that stay, now in `base`: `hooks/ci-watch-nudge.mjs`,
-  `hooks/worktree-executor-discipline-advisor.mjs` (its messages lose the GSD references).
+  `hooks/worktree-executor-discipline-advisor.mjs` (its messages lose the GSD references). `lite`
+  keeps not shipping them: both move into `lite`'s own `exclude`.
 - Full-only files deleted: `hooks/db-live-access-gate.mjs`, `skills/using-git-worktrees/`,
   `commands/init-session.md`, `references/`.
 - The `/init-mcp` suggestion at session start is shown in every profile that ships `/init-mcp`.
@@ -100,8 +101,8 @@ State edits: the keys `gsdModelConfigPatched`, `gsdWorkflowConfigPatched` and
 - Runs on every install, after the graphify purge and before the settings merge and
   `pruneStale()`.
 - A non-empty plan prints every path and settings/state removal, then deletes each listed path,
-  writes one backup of `settings.json` before changing it, and writes `settings.json` and the state
-  file atomically.
+  writes one backup of `settings.json` (`settings.json.pre-gsd-purge`) before changing it, and
+  writes `settings.json` and the state file through the installer's `write()`.
 - `--dry-run` prints the plan and changes nothing.
 - An empty plan prints nothing and writes nothing.
 - `gsd-config-patch.mjs` and `db-live-access-gate.mjs` join `RETIRED_HOOK_FILES`.

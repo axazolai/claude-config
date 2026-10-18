@@ -1,6 +1,6 @@
 ---
 updated: 2026-10-18
-current: null
+current: "26"
 deployed_through: "24"
 phases:
   - { phase: "01", slug: graphify-neo4j, status: complete, delivery: merged }

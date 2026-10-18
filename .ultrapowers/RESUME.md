@@ -8,10 +8,9 @@ status is — this file answers what is owed, what was ruled, and what must not 
 
 ## Summary
 
-As of 2026-10-18: a three-part task (A → C → B) is in flight on `master`, outside the phase
-tree. A (model routing for Haiku 5.5) and C (save points) are done in `payload/` with the full
-suite green (656/656), committed as `f29c728` and `7364097`, and **undeployed**. B (remove GSD and the `full`
-profile) is next and has not been brainstormed yet.
+As of 2026-10-18: A (model routing for Haiku 5.5) and C (save points) are committed on `master`
+(`f29c728`, `7364097`) and **undeployed**. B is phase 26 (`26-remove-gsd`): spec approved, plan
+written, execution not started, no branch yet.
 
 Earlier summary, 2026-07-31: Nothing is running, and the phase queue is empty — phases 10, 11 and 12 were all specified,
 implemented and merged on 2026-07-31. `master` carries them but has **not** been pushed since
@@ -25,14 +24,9 @@ migration shipped as phase 10's first task.
 
 ## Open
 
-- **B: remove GSD and the `full` profile.** Architectural: brainstorm → `NN-SPEC.md` → plan. About
-  68 tracked files mention GSD. Open questions: the fate of the full-only files that are not GSD
-  (`commands/init-session.md`, `skills/using-git-worktrees`, `references/**`,
-  `hooks/db-live-access-gate.mjs`, `hooks/ci-watch-nudge*`,
-  `hooks/worktree-executor-discipline-advisor.mjs`); what `setup.mjs` cleans on install (GSD
-  agents, hooks, skills, settings registrations, `gsd-core`, statusline segments, per-project
-  `.planning/config.json` patches); and the GSD sections in `model-selection-policy` and
-  `model-migration.mjs`.
+- **Phase 26: choose the execution method and run the plan.** `.ultrapowers/phases/26-remove-gsd/26-PLAN.md`,
+  five test-after tasks from Task 1. Subagent-driven or native is chosen at the start of that
+  session; a phase branch is created then.
 - **Deploy A and C.** Committed on `master` (`f29c728`, `7364097`), not deployed: `node setup.mjs`
   (answer `r` on `CLAUDE.md`), then a restart.
 - **Restart Claude Code after the 2026-09-20 deploy.** Phase 16's `/scratch-prune` skill and the
@@ -129,6 +123,13 @@ fixed on 2026-07-31, the second still stands:
 
 Compressed once paid: name, one line, the date. The reasoning that got each one done is in
 its commit — these lines exist so a reader can see it happened at all.
+
+- **Phase 26 designed, 2026-10-18.** Decisions: profiles `base` and `lite` only, a recorded `full`
+  resolves to `base`; `ci-watch-nudge` and `worktree-executor-discipline-advisor` move into `base`,
+  `db-live-access-gate`, `using-git-worktrees`, `/init-session` and `references/` go; every install
+  purges GSD traces automatically and permanently (`gsd-purge.mjs`, a pure plan beside
+  `graphify-purge.mjs`), with one `settings.json.pre-gsd-purge` backup; user projects are never
+  touched. New risk `RISK-GSDPURGE-001`; eight GSD risks close when the phase ships.
 
 - **C: save points, 2026-10-18.** `payload/claude-md/17-save-points.md`, base and full only (lite
   has ultrapowers disabled). Save points: a plan written to its file, the end of a phase, a
