@@ -10,13 +10,13 @@ import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, readdirSync, rmSyn
 import { join, dirname, relative } from "node:path";
 import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
-import { resolveChain, classify, gather, cleanNonplugin, deepMerge, splitId, keepPlugin, apply, grab, main, readMaxPluginTier, migrateProjectModelConfigFile, gatherSkills, installSkills, installedSkillNames } from "./init-stack.mjs";
+import { resolveChain, classify, gather, cleanNonplugin, deepMerge, splitId, keepPlugin, apply, grab, main, readMaxPluginTier, gatherSkills, installSkills, installedSkillNames } from "./init-stack.mjs";
 import { detect } from "./lib/stack-markers.mjs";
 
 const REPO_TEMPLATES_DIR = join(dirname(fileURLToPath(import.meta.url)), "..", "setting-templates");
 const REPO_LIBRARY_DIR = join(dirname(fileURLToPath(import.meta.url)), "..", "skill-library");
 
-// Every test that touches subprocess-guarded paths (installMissing/syncGsdContextModeAgents)
+// Every test that touches subprocess-guarded paths (installMissing)
 // relies on this: never let the suite shell out to `claude plugin install`/marketplace add or
 // spawn node for real. Mirrors setup.mjs's CLAUDE_SETUP_SKIP_PLUGINS=1 hermetic-mode pattern.
 process.env.CLAUDE_INIT_STACK_SKIP_SUBPROCESS = "1";
@@ -213,60 +213,6 @@ test("@important readMaxPluginTier: corrupt (invalid-JSON) manifest degrades to 
   writeFileSync(join(configDir, "state", "bundle-manifest.json"), "{ not valid json", "utf8");
   assert.doesNotThrow(() => readMaxPluginTier(configDir));
   assert.equal(readMaxPluginTier(configDir), undefined);
-});
-
-// ---------- §6.3 project model-config re-migration (Phase 5 Part B) ----------
-function makeProjectRoot(configJson) {
-  const root = mkdtempSync(join(tmpdir(), "init-stack-planning-"));
-  if (configJson !== undefined) {
-    mkdirSync(join(root, ".planning"), { recursive: true });
-    writeFileSync(join(root, ".planning", "config.json"), configJson, "utf8");
-  }
-  return root;
-}
-
-test("@important migrateProjectModelConfigFile: rewrites old §6.3 overrides in .planning/config.json", () => {
-  const root = makeProjectRoot(JSON.stringify({
-    model_overrides: {
-      "gsd-pattern-mapper": "haiku", "gsd-ui-auditor": "haiku",
-      "gsd-verifier": "sonnet", "gsd-planner": "opus",
-    },
-  }, null, 2));
-  try {
-    const { changes } = migrateProjectModelConfigFile(root);
-    assert.equal(changes.length, 3);
-    const written = JSON.parse(readFileSync(join(root, ".planning", "config.json"), "utf8"));
-    assert.equal(written.model_overrides["gsd-pattern-mapper"], "sonnet");
-    assert.equal(written.model_overrides["gsd-ui-auditor"], "sonnet");
-    assert.equal(written.model_overrides["gsd-verifier"], "opus");
-    assert.equal(written.model_overrides["gsd-planner"], "opus", "untouched role preserved");
-  } finally {
-    rmSync(root, { recursive: true, force: true });
-  }
-});
-
-test("@important migrateProjectModelConfigFile: idempotent second run makes no changes", () => {
-  const root = makeProjectRoot(JSON.stringify({ model_overrides: { "gsd-verifier": "sonnet" } }));
-  try {
-    migrateProjectModelConfigFile(root);
-    const before = readFileSync(join(root, ".planning", "config.json"), "utf8");
-    const { changes } = migrateProjectModelConfigFile(root);
-    assert.deepEqual(changes, []);
-    assert.equal(readFileSync(join(root, ".planning", "config.json"), "utf8"), before, "no rewrite");
-  } finally {
-    rmSync(root, { recursive: true, force: true });
-  }
-});
-
-test("@critical migrateProjectModelConfigFile: malformed config is left untouched, never throws", () => {
-  const root = makeProjectRoot("{ not valid json");
-  try {
-    assert.doesNotThrow(() => migrateProjectModelConfigFile(root));
-    assert.deepEqual(migrateProjectModelConfigFile(root).changes, []);
-    assert.equal(readFileSync(join(root, ".planning", "config.json"), "utf8"), "{ not valid json");
-  } finally {
-    rmSync(root, { recursive: true, force: true });
-  }
 });
 
 // Task 7: setup.mjs drives marketplace registration off these same helpers rather than a second,

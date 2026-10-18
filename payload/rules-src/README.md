@@ -25,8 +25,7 @@ no off switch. Delivery works by compilation instead:
 - A **cross-cutting** rule (no language prefix) applies by concern, on top of language
   rules: `testing.md` and `security.md` always; `docker.md` / `ci.md` / `monorepo.md` /
   `api-contracts.md` / `mobile.md` when their signature files exist; `design-fidelity.md`
-  when any UI stack is detected (react/next/react-native/flutter/wpf/ios/android);
-  `gsd.md` when `.planning/` exists.
+  when any UI stack is detected (react/next/react-native/flutter/wpf/ios/android).
 - `paths:` frontmatter in each rule is selection METADATA (which files the rule targets),
   kept for the compiler and for readers — Claude Code does not read it here.
 - Rules are context, not enforcement. For hard gates (block an action every time) use a
@@ -78,7 +77,6 @@ no off switch. Delivery works by compilation instead:
 | `monorepo.md` | cross-cutting: `turbo.json`, `pnpm-workspace.yaml`, `nx.json` |
 | `node.telegram.md` | `bot.ts`/`bot.js`, `telegraf.config.*` |
 | `python.telegram.md` | `bot.py`, `handlers/**` |
-| `gsd.md` | GSD projects: `.planning/` exists |
 
 ## Building stack-rules (compiler instructions)
 

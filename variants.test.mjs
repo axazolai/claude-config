@@ -46,17 +46,6 @@ test("@important globToRe: * does not cross /, ** does", () => {
 // forbidden: the Python implementation is deleted, so the unified doc invokes
 // `node ~/.claude/bin/init-stack.mjs` only.
 
-// Budgeted exceptions: token -> how many occurrences of it this file is allowed to carry.
-// A budget, not an exemption - exceeding it still fails, so a NEW leak of the same token is
-// caught while the reviewed one is permitted.
-//
-// `commands/init-stack.md` is unified across profiles and legitimately names GSD once: the
-// `.planning/config.json` `model_overrides` re-migration it documents (Phase 5 Part B, 0db8c6b)
-// genuinely ships in lite - `bin/init-stack.mjs` and `bin/lib/model-migration.mjs` are both in
-// the resolved lite set, verified 2026-07-27. Deleting the sentence would document lite as not
-// doing something it does; rewording it to drop the word would only hide the token, since
-// `.planning/` IS the GSD marker. The other twelve tokens stay fully enforced on this file.
-
 // Scope is deliberately NOT all of `skills/` — `skills/update-changelog/**` legitimately
 // mentions "GSD" (it's the changelog-writer's own instruction to STRIP any mention of GSD from
 // user-facing release notes, e.g. SKILL.md's "of every trace of AI tooling, GSD, ..." and

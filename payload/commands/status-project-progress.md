@@ -1,5 +1,5 @@
 ---
-description: Show or hide the statusline progress segments (gsd milestone bar, phase counter) — on | off; no argument shows the current state
+description: Show or hide the statusline phase counter — on | off; no argument shows the current state
 argument-hint: "[on|off]"
 allowed-tools: Bash(node *)
 ---

@@ -22,7 +22,7 @@ export function main(argv = process.argv.slice(2), cwd = process.cwd()) {
   let r;
   try { r = setTddMode(root, cmd === "enable"); }
   catch (e) { console.error(`ultrapowers-tdd: ${e.message}`); return 1; }
-  console.log(`Testing mode: ${r.mode} (${r.file})${r.gsdSynced ? "; .planning/config.json workflow.tdd_mode synced" : ""}`);
+  console.log(`Testing mode: ${r.mode} (${r.file})`);
   return 0;
 }
 

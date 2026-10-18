@@ -6,7 +6,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, utimesSync
 import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { renderUpdates, renderGsd, render, renderHookPatches } from "./statusline.mjs";
+import { renderUpdates, render } from "./statusline.mjs";
 
 const strip = (s) => s.replace(/\x1b\[[0-9;]*m/g, "");
 
@@ -19,19 +19,9 @@ test("@important up to two components are named, the rest collapse", () => {
 // renderSdd, renderPhase and roadmapPhases moved to lib/phase-segment.mjs and are tested there.
 // What stays here is the entry point's behaviour, which is what this file is for.
 
-test("@important the gsd bar is full only at 100% and empty only at 0%", () => {
-  const bar = (percent) => /\[(.*?)\]/.exec(renderGsd({ milestone: "v1", phase: "1", status: "x", percent }))[1];
-  assert.equal(bar(0), "░░░");
-  assert.equal(bar(1), "█░░");
-  assert.equal(bar(83), "██░");
-  assert.equal(bar(99), "██░");
-  assert.equal(bar(100), "███");
-});
-
 test("@important the pure renderers never throw on absent or malformed input", () => {
   assert.equal(renderUpdates("context-mode"), "");
   assert.equal(renderUpdates({}), "");
-  assert.doesNotThrow(() => renderGsd());
   assert.doesNotThrow(() => render());
 });
 
@@ -43,14 +33,6 @@ const write = (path, text) => { mkdirSync(dirname(path), { recursive: true }); w
 const dir = (...parts) => { const p = join(TMP, ...parts); mkdirSync(p, { recursive: true }); return p; };
 
 const EMPTY_CLAUDE_DIR = dir("claude-empty");
-// The gsd segment requires gsd-core installed, so every gsd assertion needs a claudeDir that has it.
-const GSD_CLAUDE_DIR = dir("claude-gsd-core");
-// A fixture that carries gsd-core must also carry its isolation guard, or the hook-patch alarm
-// correctly reports "inert" and shows up in the rendered line. Already-patched = silent.
-const PATCHED_GUARD = "// gsd-hook-version: 1.11.0\n" +
-  "const EXECUTOR_SUBAGENT_TYPES = new Set(['gsd-executor', 'gsd-executor-decomposing']);\n";
-write(join(GSD_CLAUDE_DIR, "gsd-core", "VERSION"), "1.8.0\n");
-write(join(GSD_CLAUDE_DIR, "hooks", "gsd-agent-isolation-guard.js"), PATCHED_GUARD);
 
 function runEntry(input, { claudeDir = EMPTY_CLAUDE_DIR, env: extraEnv = {} } = {}) {
   const env = { ...process.env, CLAUDE_CONFIG_DIR: claudeDir };
@@ -165,7 +147,7 @@ test("@important entry point: a foreign ledger cannot take the segment however n
 // This is the defect the phase was opened for: with no phase resolvable the bar used to render
 // the newest ledger's tally, which belonged to finished work.
 test("@important entry point: the same input renders the same line twice", () => {
-  const root = dir("gsd-proj");
+  const root = dir("same-input-proj");
   const input = payload(root, { context_window: { remaining_percentage: 72.3, total_tokens: 200000 } });
   assert.equal(runEntry(input).stdout, runEntry(input).stdout);
 });
@@ -229,19 +211,6 @@ test("@important entry point: a pending observation is promoted and cleared", ()
   assert.equal(after.models["claude-opus-5[1m]"].tokens, 400000);
 });
 
-/* ---------- gsd hook-patch alarm: only the states that need a human ---------- */
-
-test("@important diverged is surfaced — upstream rewrote the line the patch reasons about", () => {
-  const out = renderHookPatches({ "isolation-guard-decomposing-executor": "diverged" });
-  assert.match(out, /gsd-patch/);
-  assert.match(out, /diverged/);
-});
-
-test("@important the alarm segment reaches the rendered line", () => {
-  const line = render({ model: "Opus", hookPatches: { x: "diverged" } });
-  assert.match(line, /diverged/);
-});
-
 test("@important the ds segment renders between context and project", () => {
   const line = render({ model: "M", context: "CTX", ds: "DSX", project: "PROJ" });
   assert.ok(line.indexOf("CTX") < line.indexOf("DSX"), "ds after context");
@@ -257,4 +226,17 @@ test("@important entry point: status-project-progress off hides the phase segmen
   assert.doesNotMatch(strip(runEntry(payload(root), { claudeDir: cd }).stdout), /my-plan/);
   write(join(cd, "state", "status-project-progress.json"), JSON.stringify({ enabled: true }));
   assert.match(strip(runEntry(payload(root), { claudeDir: cd }).stdout), /my-plan/);
+});
+
+test("@important entry point: a .planning tree with gsd-core installed shows no milestone bar and no patch alarm, the phase segment stays", () => {
+  const root = dir("planning-proj");
+  write(join(root, ".planning", "config.json"), "{}");
+  write(join(root, ".planning", "STATE.md"), "---\nmilestone: v9.9\nactive_phase: 3\nstatus: executing\npercent: 40\n---\n");
+  write(join(root, ".ultrapowers", "ROADMAP.md"), ["---", "current: null", "phases:",
+    '  - { phase: "01", slug: my-plan, status: complete }', "---", "", "# Roadmap"].join("\n"));
+  const cd = dir("cd-gsd-core");
+  write(join(cd, "gsd-core", "VERSION"), "1.8.0\n");
+  const out = strip(runEntry(payload(root), { claudeDir: cd }).stdout);
+  assert.doesNotMatch(out, /v9\.9|\[[█░]{3}\]|gsd-patch|⚠/);
+  assert.match(out, /my-plan/);
 });

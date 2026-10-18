@@ -23,13 +23,13 @@ test("@important no config resolves to off", () => {
 test("@important level applies to main and any agent", () => {
   const r = root({ level: "full" });
   assert.equal(resolveVerbosityLevel("main", r), "full");
-  assert.equal(resolveVerbosityLevel("gsd-executor", r), "full");
+  assert.equal(resolveVerbosityLevel("general-purpose", r), "full");
   rmSync(r, { recursive: true, force: true });
 });
 
 test("@important per-agent override wins over level", () => {
-  const r = root({ level: "full", overrides: { "gsd-planner": "off" } });
-  assert.equal(resolveVerbosityLevel("gsd-planner", r), "off");
+  const r = root({ level: "full", overrides: { "Plan": "off" } });
+  assert.equal(resolveVerbosityLevel("Plan", r), "off");
   rmSync(r, { recursive: true, force: true });
 });
 
