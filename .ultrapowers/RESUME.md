@@ -8,6 +8,13 @@ status is — this file answers what is owed, what was ruled, and what must not 
 
 ## Summary
 
+As of 2026-10-25: the ultrapowers bureaucracy audit is done (reports in
+`.claude/.scratchpad/adhoc/2026-10-25-ultrapowers-audit/`); the fork is BEHIND upstream
+(6.4.1 → 7.0.1) and a rebuild refuses until 8 deltas are re-authored. Three workstreams were
+agreed, in order: (1) drop bundle profiles — plan written, `27-PLAN.md`, not started; (2) minimal
+process-document model, then re-author the deltas; (3) rebuild the fork on 7.0.1 and publish.
+Uncommitted in the working tree: the CLAUDE.md fragment trim of 2026-10-25 (20 files) and the plan.
+
 As of 2026-10-18, latest: phase 25, A, C and phase 26 are **deployed** (`node setup.mjs
 --replace-all` at `42c88f4`, waterline 26; `docs/2026-10-18-deploy-impact-through-phase-26.md`).
 The session default model is now `sonnet` by the user's choice of 2026-10-18; `scrapling`,
@@ -35,6 +42,14 @@ migration shipped as phase 10's first task.
 
 ## Open
 
+- **Run phase 27 (`.ultrapowers/phases/27-drop-profiles/27-PLAN.md`).** Choose the execution
+  method, branch `phase-27-drop-profiles` from `master`, execute the five tasks. First commit the
+  2026-10-25 CLAUDE.md fragment trim that is still uncommitted on `master`.
+- **Design the minimal process-document model** (one plan per task, unique info per document,
+  rewrite in place, bugs fixed in-work, risks closed or delegated), then re-author deltas
+  007/008/010/014 and retire the rest that upstream 7.0.1 made obsolete.
+- **Rebuild the fork on 7.0.1**: classify the 1 + 24 + 25 inventory paths, `/up-update update`,
+  publish on the user's yes, then `/plugin update`.
 - **Restart Claude Code** so the deployed hooks, `CLAUDE.md` and MCP servers load. `/hooks`
   should show PreToolUse x11, PostToolUse x4, PostToolUseFailure x1, SubagentStop x1, PreCompact
   x1, SessionStart x1, SubagentStart x1. (The push and the post-push prune are done — see Done.)
