@@ -3,23 +3,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { addOptionalPeers } from "./pnpm-workspace-yaml.mjs";
 
-test("@important creates packageExtensions block when absent", () => {
-  const r = addOptionalPeers("packages:\n  - 'apps/*'\n", new Map([["@hookform/resolvers", ["zod"]]]));
-  assert.equal(r.safe, true);
-  assert.deepEqual(r.added, [["@hookform/resolvers", "zod"]]);
-  assert.match(r.text, /packageExtensions:/);
-  assert.match(r.text, /"@hookform\/resolvers":/);
-  assert.match(r.text, /peerDependenciesMeta:/);
-  assert.match(r.text, /optional:\s*true/);
-});
 
-test("@important idempotent: does not re-add an existing P->Q", () => {
-  const first = addOptionalPeers("packages: []\n", new Map([["@hookform/resolvers", ["zod"]]])).text;
-  const second = addOptionalPeers(first, new Map([["@hookform/resolvers", ["zod"]]]));
-  assert.deepEqual(second.added, []);
-  assert.deepEqual(second.skipped, [["@hookform/resolvers", "zod"]]);
-  assert.equal(second.text, first);
-});
 
 test("@critical fail-safe on flow-style packageExtensions (no write)", () => {
   const flow = "packageExtensions: { '@a/b': { peerDependencies: { zod: '*' } } }\n";

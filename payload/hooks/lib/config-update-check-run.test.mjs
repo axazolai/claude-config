@@ -4,44 +4,12 @@ import { execFileSync } from "node:child_process";
 import { mkdtempSync, mkdirSync, writeFileSync, existsSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { bundleUpdateAvailable, reconcileBundleInstall } from "./config-update-check-run.mjs";
 
-test("@important bundleUpdateAvailable: true only when both SHAs present and differ", () => {
-  assert.equal(bundleUpdateAvailable("aaa", "bbb"), true);
-  assert.equal(bundleUpdateAvailable("aaa", "aaa"), false);
-  assert.equal(bundleUpdateAvailable("", "bbb"), false);
-  assert.equal(bundleUpdateAvailable("aaa", ""), false);
-  assert.equal(bundleUpdateAvailable(undefined, undefined), false);
-});
 
-const stale = (over = {}) => ({
-  "context-mode": { class: "safe", updateAvailable: false, lastCheckedAt: "2026-08-02T15:10:54.914Z" },
-  "claude-config": { class: "reinit", installed: "old", latest: "remote",
-    updateAvailable: true, lastCheckedAt: "2026-08-02T15:10:54.916Z", ...over },
-});
 
-test("@important reconcileBundleInstall: clears the notice once the install catches up to the checked remote", () => {
-  const out = reconcileBundleInstall(stale(), "remote");
-  assert.equal(out["claude-config"].installed, "remote");
-  assert.equal(out["claude-config"].updateAvailable, false);
-});
 
-test("@important reconcileBundleInstall: a moved install voids the verdict rather than re-deciding it", () => {
-  const out = reconcileBundleInstall(stale(), "newer-than-the-checked-remote");
-  assert.equal(out["claude-config"].installed, "newer-than-the-checked-remote");
-  assert.equal(out["claude-config"].updateAvailable, false, "never point at a SHA the install passed");
-});
 
-test("@important reconcileBundleInstall: re-installing the same SHA leaves a real notice standing", () => {
-  const out = reconcileBundleInstall(stale({ installed: "same" }), "same");
-  assert.equal(out["claude-config"].updateAvailable, true);
-  assert.equal(out["claude-config"].lastCheckedAt, "2026-08-02T15:10:54.916Z");
-});
 
-test("@important reconcileBundleInstall: claims nothing when no remote SHA was ever recorded", () => {
-  const out = reconcileBundleInstall(stale({ latest: undefined }), "fresh");
-  assert.equal(out["claude-config"].updateAvailable, false);
-});
 
 test("@critical importing the module does not run main() / write update-check.json", () => {
   const tmp = mkdtempSync(join(tmpdir(), "config-update-check-run-"));

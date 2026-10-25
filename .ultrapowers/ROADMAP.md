@@ -1,7 +1,7 @@
 ---
-updated: 2026-10-25
+updated: 2026-10-26
 current: null
-deployed_through: "26"
+deployed_through: "27"
 phases:
   - { phase: "01", slug: graphify-neo4j, status: complete, delivery: merged }
   - { phase: "02", slug: ai-development-mode, status: complete, delivery: merged }
@@ -28,7 +28,7 @@ phases:
   - { phase: "24", slug: model-ladder, status: complete, delivery: merged }
   - { phase: "25", slug: deepseek-offload, status: complete, delivery: merged }
   - { phase: "26", slug: remove-gsd, status: complete, delivery: merged }
-  - { phase: "27", slug: drop-profiles, status: complete, delivery: branch }
+  - { phase: "27", slug: drop-profiles, status: complete, delivery: merged }
 ---
 
 # Roadmap

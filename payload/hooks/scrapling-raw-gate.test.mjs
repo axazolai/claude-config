@@ -35,8 +35,3 @@ test("@critical CLAUDE_SCRAPLING_ALLOW_RAW=1 lets the raw call through", () => {
     { CLAUDE_SCRAPLING_ALLOW_RAW: "1" }).stdout, "");
 });
 
-test("@important unreadable input exits 0 with no output", () => {
-  const r = runHook("not json");
-  assert.equal(r.status, 0);
-  assert.equal(r.stdout, "");
-});

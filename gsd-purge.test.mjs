@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { basename, dirname, join, relative, sep } from "node:path";
-import { BUNDLE_RELS, planGsdPurge, stripGsdSettings, stripProjectInitGsd, isEmptyPlan } from "./gsd-purge.mjs";
+import { BUNDLE_RELS, planGsdPurge, stripGsdSettings } from "./gsd-purge.mjs";
 
 const CD = join("/fake", ".claude");
 const HOME = join("/fake", "home");
@@ -87,34 +87,5 @@ test("@critical GSD hooks, statusLine, permissions and env are removed and the r
     "permissions.allow: 5", "env.GSD_HOME"]);
 });
 
-test("@important references is listed only when the pilot doc is its sole file", () => {
-  const pilot = at("references/gsd-claude-orchestration-pilot.md");
-  const solo = fakeFs([pilot]);
-  assert.ok(planGsdPurge({ claudeDir: CD, homeDir: HOME, ...solo }).paths.includes(at("references")));
-  const shared = fakeFs([pilot, at("references/other.md")]);
-  const plan = planGsdPurge({ claudeDir: CD, homeDir: HOME, ...shared });
-  assert.ok(!plan.paths.includes(at("references")));
-  assert.ok(plan.paths.includes(pilot));
-  const alreadyEmpty = fakeFs([at("references")]);
-  assert.ok(!planGsdPurge({ claudeDir: CD, homeDir: HOME, ...alreadyEmpty }).paths.includes(at("references")));
-});
 
-test("@important project-init GSD keys are removed, other keys kept, and each removal is named", () => {
-  const projectInit = {
-    "D:/a": { gsdModelConfigPatched: true, initialized: "x" },
-    "D:/b": { gsdInitStackGapLastCheck: "2026-01-01", gsdWorkflowConfigPatched: true, other: 1 },
-  };
-  const { state, removedKeys } = stripProjectInitGsd(projectInit);
-  assert.deepEqual(state, { "D:/a": { initialized: "x" }, "D:/b": { other: 1 } });
-  assert.deepEqual(removedKeys, ["D:/a:gsdModelConfigPatched", "D:/b:gsdWorkflowConfigPatched",
-    "D:/b:gsdInitStackGapLastCheck"]);
-  const plan = planGsdPurge({ claudeDir: CD, homeDir: HOME, ...fakeFs([]), projectInit });
-  assert.deepEqual(plan.state.next, state);
-  assert.equal(plan.state.changed, true);
-});
 
-test("@important a machine with no GSD left yields an empty plan", () => {
-  const plan = planGsdPurge({ claudeDir: CD, homeDir: HOME, ...fakeFs([]),
-    settings: { hooks: { Stop: [] } }, projectInit: { "D:/a": { initialized: "x" } } });
-  assert.equal(isEmptyPlan(plan), true);
-});

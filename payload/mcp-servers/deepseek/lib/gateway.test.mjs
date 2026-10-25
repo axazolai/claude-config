@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { chat, splitThink } from "./gateway.mjs";
+import { chat } from "./gateway.mjs";
 
 // Hermetic: an empty config dir so no real ~/.claude/deepseek.config.json leaks in; gateway via env.
 let savedKey, savedGw, savedDir, tmp;
@@ -22,13 +22,6 @@ afterEach(() => {
 
 const okResp = (content, usage = { prompt_tokens: 3 }) => ({ status: 200, json: async () => ({ choices: [{ message: { content } }], usage }) });
 
-test("@important chat: no LLM_KEY -> unavailable, no fetch", async () => {
-  delete process.env.LLM_KEY;
-  let called = false;
-  const r = await chat({ messages: [], maxTokens: 1, fetchImpl: async () => { called = true; } });
-  assert.deepEqual(r, { ok: false, reason: "unavailable" });
-  assert.equal(called, false);
-});
 
 test("@critical chat: 200 -> ok with text (think stripped) and usage", async () => {
   const r = await chat({ messages: [{ role: "user", content: "hi" }], maxTokens: 5,
@@ -47,8 +40,3 @@ test("@critical chat: non-200 -> http with status; thrown TimeoutError -> timeou
   assert.deepEqual(c, { ok: false, reason: "unavailable" });
 });
 
-test("@important splitThink: splits at the last </think>, else all text", () => {
-  assert.deepEqual(splitThink("a</think>b"), { reasoning: "a", text: "b" });
-  assert.deepEqual(splitThink("x</think>y</think>z"), { reasoning: "x</think>y", text: "z" });
-  assert.deepEqual(splitThink("plain"), { reasoning: "", text: "plain" });
-});

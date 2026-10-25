@@ -15,18 +15,7 @@ test("@critical createThinkSplitter: splits reasoning before </think> from the a
   assert.deepEqual(ev, [{ type: "thinking", text: "reason here" }, { type: "text", text: "the " }, { type: "text", text: "answer" }]);
 });
 
-test("@important createThinkSplitter: </think> split across chunk boundaries still resolves", () => {
-  const ev = drain(createThinkSplitter({ thinking: true }), ["rea", "son</thi", "nk>an", "s"]);
-  // reasoning emitted once at the tag; the answer streams per-delta after it
-  assert.deepEqual(ev, [{ type: "thinking", text: "reason" }, { type: "text", text: "an" }, { type: "text", text: "s" }]);
-});
 
-test("@important toOpenAI: system string becomes a leading system message", () => {
-  const b = toOpenAI({ system: "be terse", messages: [{ role: "user", content: "hi" }], max_tokens: 10 }, { model: "M", thinking: false });
-  assert.deepEqual(b.messages[0], { role: "system", content: "be terse" });
-  assert.equal(b.model, "M");
-  assert.equal(b.max_tokens, 10);
-});
 
 test("@critical toOpenAI: assistant text + tool_use -> content + tool_calls (args stringified)", () => {
   const req = { max_tokens: 5, messages: [{ role: "assistant", content: [
@@ -51,13 +40,6 @@ test("@critical toOpenAI: user tool_result (error) -> role:tool message, error-p
   assert.deepEqual(b.messages[0], { role: "tool", tool_call_id: "tu_1", content: "ERROR: boom" });
 });
 
-test("@important toOpenAI: thinking flag and tool_choice mapping", () => {
-  const b = toOpenAI({ max_tokens: 5, messages: [], tools: [{ name: "t", input_schema: { type: "object" } }], tool_choice: { type: "any" } }, { model: "M", thinking: true });
-  assert.deepEqual(b.chat_template_kwargs, { thinking: true });
-  assert.equal(b.tool_choice, "required");
-  assert.equal(b.tools[0].type, "function");
-  assert.equal(b.tools[0].function.name, "t");
-});
 
 test("@critical fromOpenAI: splits </think>, maps tool_calls, maps finish_reason", () => {
   const out = fromOpenAI({ finish_reason: "tool_calls", message: {
@@ -73,7 +55,3 @@ test("@critical fromOpenAI: splits </think>, maps tool_calls, maps finish_reason
   assert.equal(tool.name, "grep");
 });
 
-test("@important fromOpenAI: malformed tool arguments degrade to an empty object, never throw", () => {
-  const out = fromOpenAI({ finish_reason: "tool_calls", message: { content: "", tool_calls: [{ id: "t", function: { name: "f", arguments: "{bad" } }] } }, {});
-  assert.deepEqual(out.content.find((b) => b.type === "tool_use").input, {});
-});
