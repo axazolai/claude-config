@@ -90,26 +90,25 @@ Otherwise, run after every `git push`, in this order:
   otherwise the whole change.
 - At that point, in this order:
   1. Reconcile: a decision made during the work that changed behaviour, scope or an interface is
-     written into the spec and/or plan first.
-  2. Drain the bug log for this unit (see `CONVENTIONS` → bug log).
-  3. Write the tests: one per behaviour or acceptance criterion the spec or plan states. A
-     behaviour the spec does not state gets no test; if it matters, it goes into the spec first.
-  4. Run them.
-  5. Review.
+     written into the plan first (a `Ruling:` line under the task).
+  2. Write the tests: one per behaviour or acceptance criterion the plan states. A behaviour the
+     plan does not state gets no test; if it matters, it goes into the plan first.
+  3. Run them.
+  4. Review.
 - No RED step. Before finishing a test file, run the mutation check: for each realistic mutation
   of the code — wrong constant or argument, wrong branch, missing side effect, empty or default
   return, missing validation — at least one test fails. A mutation nothing catches is either a
   stated behaviour left unprotected (add its test) or a behaviour outside the spec (leave it).
-- A fixed bug gets a test only when it broke behaviour the spec states; that behaviour's test is
-  the regression test. A standalone bug fix with no spec takes the report's expected behaviour as
-  its spec: one test, after the fix.
+- A fixed bug gets a test only when it broke behaviour the plan states; that behaviour's test is
+  the regression test. A standalone bug fix with no plan takes the report's expected behaviour as
+  its plan: one test, after the fix.
 
 ### Both modes
-- A decision that changed behaviour, scope or an interface goes into the spec/plan before the
-  tests that cover it; the bug log applies (`CONVENTIONS` → bug log).
+- A decision that changed behaviour, scope or an interface goes into the plan before the tests
+  that cover it; a bug found during the work is fixed in the work (`CONVENTIONS`).
 - Any failure a run shows, including one you did not cause, is reported by name.
-- A reviewer finding about behaviour the spec is silent on goes to the user, who puts it into the
-  spec (then it gets a test) or rejects it.
+- A reviewer finding about behaviour the plan is silent on goes to the user, who puts it into the
+  plan (then it gets a test) or rejects it.
 - Exceptions (covered by the e2e/integration test of the behavior they enable, not a
   dedicated unit test on themselves): pure wiring/config (DI providers/module registration,
   Dockerfile, docker-compose.yml), trivial DTO mappers, pure getters/passthroughs with no

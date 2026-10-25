@@ -374,7 +374,6 @@ installed.
     deny-curated-claude-md.mjs           # blocks edits to a curated CLAUDE.md (any location)
     protected-guard.mjs                  # refuses to edit/delete/move paths listed in `.protected`
     secrets-gate.mjs                     # blocks `git commit` when secrets are found in staged
-    decision-records-nudge.mjs           # PreToolUse: lints a staged risk register / ADR / glossary
     scratchpad-layout-guard.mjs          # PreToolUse: denies a write/command outside the .scratchpad layout
     worktree-executor-discipline-advisor.mjs # advisory: worktree discipline + large-Read backstop
     bg-supervision-nudge.mjs             # PreToolUse: nudge to wrap run_in_background in supervise-bg
@@ -384,7 +383,7 @@ installed.
     prune-tests-nudge.mjs                 # PostToolUse: after `git push` — nudge to prune untagged tests
     scrapling-raw-gate.mjs               # PreToolUse: deny Scrapling with main_content_only=false
     web-block-nudge.mjs                  # PostToolUse(+Failure): block/JS shell → retry through Scrapling
-    phase-end-cleanup-nudge.mjs          # PostToolUse: a closed phase (NN-SUMMARY.md) nudges /scratch-prune
+    phase-end-cleanup-nudge.mjs          # PostToolUse: a closed phase (ROADMAP row → complete) nudges /scratch-prune
     pnpm-phantom-fix-hook.mjs            # PostToolUse: phantom-dependency scan after an install
     inject-axes.mjs                      # SessionStart + SubagentStart: rule-axis injector (see below)
     session-init.mjs                     # SessionStart: project bootstrap
@@ -415,7 +414,6 @@ installed.
     scratch-prune.mjs                    # the /scratch-prune engine: layout-aware scans + harness scans + promote → tools/
     supervise-bg.mjs                     # background-command wrapper: timeout + staleness watchdog
     pnpm-phantom-scan.mjs, pnpm-phantom-fix-install.mjs, turbopack-gvs-check.mjs # pnpm/Turbopack
-    risks.mjs, adr.mjs, glossary.mjs     # decision-record CLIs (behind decision-records-nudge)
     up-update.mjs                        # checks/rebuilds the ultrapowers fork (the /up-update engine)
     ultrapowers-tdd.mjs                  # CLI behind /ultrapowers-tdd: show/switch the testing mode
     lib/                                 # libraries for the above (stack-markers, design-stack,
@@ -535,10 +533,7 @@ The repo is split into two zones:
   → `~/.claude/hooks/foo.mjs`).
 - **Repo root** — the installer's own meta, never copied: `setup.mjs`,
   `bootstrap.sh`/`bootstrap.ps1`, `README.md`, `settings.partial.json`,
-  this repo's own register
-  `.ultrapowers/RISK_REGISTER.md` (not to be confused with the installed `~/.claude/state/...`),
-  `docs/` and `.ultrapowers/` (reference material, design specs/plans, planning history —
-  outside distribution).
+  `docs/` and `.ultrapowers/` (this repo's phase plans, ROADMAP and RESUME — outside distribution).
 
 You can just drop your own files/folders into `payload/` — they'll be copied with structure
 preserved (`payload/commands/`, `payload/agents/`, extra `payload/skills/`, any of your own
@@ -736,7 +731,7 @@ Each file is self-documenting; this is only a coverage map, so the 30+ files are
 the README (source of truth: the `rules-src/*.md` themselves and their `README.md`).
 
 Design and rationale: `.ultrapowers/archive/specs/2026-07-12-stack-rules-design.md` (outside the
-distribution); risks — `RISK-STACKRULES-001/002` in `.ultrapowers/RISK_REGISTER.md`.
+distribution).
 
 ---
 
@@ -764,13 +759,6 @@ distribution); risks — `RISK-STACKRULES-001/002` in `.ultrapowers/RISK_REGISTE
   living on one machine is not a project rule — with `.gitignore` and `.protected` themselves
   left writable so the repair is possible. A nested `.protected` may extend **or** override what
   it inherits, which means it can also unprotect: that escape hatch is deliberate and known.
-- **decision-records-nudge.mjs** (PreToolUse: `Bash`). On a `git commit` that stages the risk
-  register, an ADR or the glossary, runs the matching lint and prints what is wrong together with
-  the command that fixes it. **Never blocks** — an unnormalised register is untidy, not
-  dangerous — and any error exits 0 silently. It reads the staged index, never the commit
-  message, so a message that happens to mention a record does not trip it. The three CLIs behind
-  it are `bin/risks.mjs` (`lint`, `normalize`, `add`), `bin/adr.mjs` (`new`, `lint`) and
-  `bin/glossary.mjs` (`lint`, `suggest`).
 - **secrets-gate.mjs** (PreToolUse: `Bash`). On `git commit`, scans `git diff --cached`: AWS
   keys, private keys, Slack/GitHub tokens, creds in connection strings, explicit secret
   assignments (env references are filtered out, for fewer false positives). If `gitleaks` is
@@ -900,33 +888,10 @@ from this bundle, driving your Claude Code" principle — here for findability:
      from `precompact-observe.mjs` for the current model (`~/.claude/state/autocompact.json`) →
      the capacity itself. The default is never a guessed reserve;
   4. **project** — the directory name only, no git branch;
-  5. **ultrapowers work status** — shown whenever `.ultrapowers/ROADMAP.md` progress exists.
-
-  Segment 5 selects a phase deterministically: `.ultrapowers/ROADMAP.md`'s frontmatter `current`,
-  else the single phase whose `status: running`. Zero or several matches means the tree does not
-  know which phase is in flight, and the segment renders the tally rather than guessing.
-
-  It has **three modes**, switched wholesale rather than by substituting parts:
-
-  - **executing** — `09 2/1/3 — phase-progress-segment`: done, in work, queued. A fourth number
-    is appended only when something is blocked, `09 2/1/3/1`. Done is green, the in-work position
-    is cyan — or **yellow** when any task is in a fix round — the queue is uncoloured and blocked
-    is red. Only the numbers are painted, never the separators.
-  - **named action** — `09 (planning) phase-progress-segment`, cyan, or red when the phase is
-    `blocked`. A phase with no `action` prints its id and name alone; the bar never invents a word
-    for what is happening.
-  - **tally** — `8/10 phase-progress-segment` between phases: every phase except `abandoned` ones,
-    named after the highest-numbered one.
-
-  The counters come from the **live SDD ledger** for the resolved phase, read structurally by
-  counting `task-N-brief.md` against `task-N-report.md` — no line of its prose is parsed, so its
-  wording can change freely. `NN-STATE.md` supplies `action`, `tasks_fixing` and `tasks_blocked`;
-  with no ledger present it answers alone. A ledger belonging to any other phase is never
-  consulted, which is what the bar used to get wrong: it picked by mtime, so a checkout could
-  change what it claimed and a finished plan's tally could be presented as live work.
-
-  Still **never a percentage**: a phase that retires a task states its tally in fields and its
-  reason in prose, and a derived percentage would under-report an already-finished phase.
+  5. **ultrapowers phase** — the slug of the phase in flight: `.ultrapowers/ROADMAP.md`'s
+     frontmatter `current`, else the single `phases:` row whose `status: running`; with no ROADMAP
+     or no phase in flight, the git branch name. One word, no counters; `/status-project-progress
+     off` hides the segment.
 
   Same key property throughout: any single source's error costs only its own segment, never the
   whole line — empty output and exit 0, the statusline never breaks.

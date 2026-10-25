@@ -10,7 +10,7 @@
   hard-debugging judgment start on rung-opus-medium with two attempts; logic or security review,
   verification and final review run on rung-opus-medium. After rung-opus-high fails, stop and
   report. `xhigh` and `max` only on the user's ask.
-- Brainstorming and plan or spec review in the main session: recommend the user set `/effort high`
+- Brainstorming and plan review in the main session: recommend the user set `/effort high`
   (one level up) and return to `medium` afterwards; only the user changes the main session's effort.
 - Ultrapowers subagent dispatches follow the role map in the `model-selection-policy` skill; it
   outranks the Model Selection section inside ultrapowers skills.

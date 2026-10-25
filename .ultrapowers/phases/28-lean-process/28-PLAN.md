@@ -60,49 +60,62 @@ tooling here is what makes the fork change hold without a second source of truth
 
 ### Task 1.1 — CLAUDE.md fragments
 Files: `payload/claude-md/06-collaboration.md`, `07-conventions.md`, `17-save-points.md`.
-- [ ] 06: replace the RISK_REGISTER bullet with: a risk is closed in place or delegated to a named
+- [x] 06: replace the RISK_REGISTER bullet with: a risk is closed in place or delegated to a named
       ROADMAP phase; flag a decision that touches a delegated risk.
-- [ ] 07: replace the Bug log bullet with: a bug found during the work is fixed in the work; one
+- [x] 07: replace the Bug log bullet with: a bug found during the work is fixed in the work; one
       outside its scope goes to `RESUME.md` `## Open`. Keep the testing-mode, cadence, tier and
       prune bullets; the scratchpad bullet keeps `current` in `ROADMAP.md`.
-- [ ] 17: `RESUME.md` sections `## Summary` and `## Open` only; a closed item is deleted; a plan's
+- [x] 17: `RESUME.md` sections `## Summary` and `## Open` only; a closed item is deleted; a plan's
       boxes are its state.
-- [ ] Acceptance (`payload/bin/lib/assemble-claude-md.test.mjs` already `@important`): assembled
-      text contains no `RISK_REGISTER`, `BUGS.md`, `## Done`.
+- [x] Acceptance: assembled text contains no `RISK_REGISTER`, `BUGS.md`, `## Done` (checked with
+      `assembleClaudeMd` directly; no new test — a string absence is obvious from the fragments).
 
 ### Task 1.2 — remove the decision-records tooling
 Files: `payload/bin/adr.mjs`, `glossary.mjs`, `risks.mjs`, `payload/bin/lib/records-paths.mjs`,
 `payload/hooks/decision-records-nudge.mjs`, their tests, `setup.mjs` (hook registration, purge
 list), `bundle.json` (if listed), `README.md`/`README.en.md` rows, `payload/hooks/lib/phase-segment.mjs`,
 `payload/hooks/phase-end-cleanup-nudge.mjs`.
-- [ ] Delete the three CLIs, the lib, the hook and their tests by name; drop the hook from the
-      settings template the installer merges; add the five deployed paths to the installer's
-      stale-file purge so the next deploy removes them from `~/.claude`.
-- [ ] `phase-segment.mjs`: read `ROADMAP.md` `current` + the live ledger only; no `NN-STATE.md`.
-- [ ] `phase-end-cleanup-nudge.mjs`: trigger on the ROADMAP row flipping to `complete`, not on a
-      `NN-SUMMARY.md` write (its current trigger).
-- [ ] Acceptance: `setup.e2e` fresh install writes no `bin/adr.mjs`, `bin/risks.mjs`,
-      `bin/glossary.mjs`, `hooks/decision-records-nudge.mjs`; statusline test renders the phase
-      segment from ROADMAP + ledger alone (`@critical` if it was, else `@important`).
+- [x] Delete the three CLIs, the libs, the hook and their tests by name; drop the hook from
+      `settings.partial.json`; add the eight deployed paths to `RETIRED_RELS` in `setup.mjs`.
+- [x] `phase-segment.mjs`: the running phase's slug from `ROADMAP.md` (`current`, else the single
+      `running` row), else the git branch name; one word, no counters.
+      Ruling: the ledger is no longer read either (decision 5 asked for the name only), so the
+      segment never depends on the SDD workspace layout.
+- [x] `phase-end-cleanup-nudge.mjs`: fires when a write to `ROADMAP.md` moves `current` off a
+      phase whose row reads `complete`; previous `current` kept in `.claude/.scratchpad/.phase-current`.
+- [x] Acceptance: the two hooks smoke-tested by hand (`phase-end-cleanup-nudge` on a ROADMAP
+      write, `readPhaseState` on this tree); suite 237/237. Their unit tests were pruned before
+      this phase, and neither is an install or rebuild path, so none were re-added.
 
 ### Task 1.3 — this tree's own documents
-- [ ] `ROADMAP.md` → the table form above (27 rows + phase 28 `running`); keep `deployed_through`.
-- [ ] `RESUME.md` → `## Summary` + `## Open` (the standing rulings that still bind move into the
-      project `.claude/CLAUDE.md` as one-line rules or are dropped — listed to the user first).
-- [ ] `BUGS.md`: `BUG-005` → `RESUME.md` `## Open` as one line; file deleted.
-- [ ] `RISK_REGISTER.md`: each Open risk → closed with a one-line reason, or a ROADMAP row goal;
-      file deleted. The list goes to the user before deletion.
-- [ ] `GLOSSARY.md`, `adr/0001-0003`: deleted (git keeps them).
-- [ ] Per-phase `NN-SPEC.md` (20), `NN-STATE.md` (20), `NN-SUMMARY.md` (20), `NN-VERIFICATION.md`
-      (10), `docs/*deploy-impact*` (5): deleted by name after the user's confirmation; `NN-PLAN.md`
-      files stay as they are (history, not rewritten).
-- [ ] Project `.claude/CLAUDE.md`: remove the risk-register and bug-log location sections.
-- [ ] Acceptance: `docs-claims`/docs tests green; `node run-tests.mjs` green.
+- [x] `ROADMAP.md` → closed phases collapsed to one line (decision 4), rows for 28 and 29, then
+      30–33 from the delegated risks; schema comment in the frontmatter (decision 3).
+- [x] `RESUME.md` → `## Summary` + `## Open`; three rulings moved to the project `.claude/CLAUDE.md`.
+- [x] `BUGS.md`: `BUG-005` → `RESUME.md` `## Open` as one line; file deleted.
+- [x] `RISK_REGISTER.md`: 40 closed, 8 delegated to ROADMAP rows 30–33; file deleted on the
+      user's yes (`5b081fb`).
+- [x] `GLOSSARY.md`, `adr/0001-0003`: deleted (git keeps them).
+- [x] Per-phase SPEC/STATE/SUMMARY/VERIFICATION (70) and `docs/*deploy-impact*` (5): deleted by
+      name (decision 1).
+- [x] Project `.claude/CLAUDE.md`: risk-register and bug-log sections replaced by three project rules.
+- [x] Acceptance: `node run-tests.mjs` 237/237.
 
-### Task 1.4 — deploy
-- [ ] `node setup.mjs --replace-all`; `~/.claude/CLAUDE.md` shows the new 06/07/17 text; the five
-      purged paths are gone from `~/.claude`.
-- [ ] Commit; `RESUME.md` save point.
+### Task 1.4 — review and deploy
+- [x] Final whole-branch review (fresh reviewer, Opus 5.5): 1 Critical, 4 Important, 9 Minor.
+      Fixed in one pass: the retired hook's `settings.json` entry (added to `RETIRED_HOOK_FILES`,
+      e2e test extended); the nudge no longer depends on a remembered `current` — it nudges the
+      highest-numbered `complete` row that is not current and not yet nudged (`.phase-current`
+      gone); ROADMAP frontmatter names `phases:` as the machine-readable source and carries rows
+      29–33; `rules-src/testing.md` without the bug log and the spec; README statusline sections
+      replaced by one paragraph; `12-model-selection` "plan or spec review" → "plan review";
+      command description and a stale comment. Suite 237/237.
+      Deferred minors: code comments still cite `22-SPEC.md` (`scratchpad-layout-guard.mjs`,
+      `scratchpad-temp-env.mjs`, `claude-cleanup-lib.mjs`); `branchName` climbs up to 16 parents,
+      so a git-less project inside another repo shows that repo's branch.
+      Ruling: no unit tests re-added for the two rewritten hooks — neither is an install or
+      rebuild path; `decide()` was exercised by hand on four ROADMAP shapes.
+- [ ] Squash-merge into `master`, push, `node setup.mjs --replace-all` from `master`; the eight
+      retired paths gone from `~/.claude`, the hook entry gone from `settings.json`.
 
 **Result:** _(filled at stage end)_
 
@@ -117,37 +130,37 @@ each is checked by `transform/patch.mjs` before `/up-update` ever sees it, and t
 assertions run in the same build.
 
 ### Task 2.1 — base
-- [ ] `git fetch upstream`; `original` → tag `upstream/7.0.1`; read 7.0.1 brainstorming,
-      writing-plans, executing-plans, subagent-driven-development, test-driven-development to
-      anchor the deltas (upstream already leaned plans and scaled brainstorming; take what it gives).
+- [x] `original` → orphan commit of the `v7.0.1` tree, tag `upstream/7.0.1`; `config.json`
+      `originalTag`/`originalTree` moved, revision 1. Deltas authored in a scratch repo built from
+      `build-cli.mjs emit --base` (one commit per delta, exported with `git diff`).
 
 ### Task 2.2 — deltas
-- [ ] **Delete** `008-sdd-summary` (SUMMARY, read-back), fork-owned `summary-writer-prompt.md`,
-      `verification-prompt.md`.
-- [ ] **007-planning-tree** → `phase-dir` + `.ultrapowers/phases/NN-slug/NN-PLAN.md` as the one
-      document; architectural brainstorming writes the plan header's Design section; no spec file,
-      no `refs/`/`docs/` taxonomy prose, no `spec-document-reviewer-prompt.md` (upstream removed it).
-- [ ] **009-agent-first** → `009-roadmap-and-plan-state`: tick the task's box and add `Ruling:`
-      lines in the plan as the ledger records them; at phase end a `Result:` line per stage and the
-      ROADMAP row; no STATE, no VERIFICATION, no "who writes which document" table.
-- [ ] **010-design-records** → `010-stack-drift-check`: keep the `stack-rules-check.mjs` step only;
-      ADR and glossary bullets gone.
-- [ ] **014-test-after-coverage** → re-anchored: testing mode, test-after order, Acceptance lists,
-      mutation check, Review Focus lines into task acceptance. Removed: bug log (fixed in-work),
-      "reconcile into spec" (plan only), the `Final:` ledger ceremony beyond `fixed`/`Ruling:`.
-- [ ] **006, 011, 015** → re-anchored, text unchanged in substance.
-- [ ] **001–005, 016** → apply as they are (they did).
-- [ ] Acceptance: `node transform/build.mjs` (or `build-cli`) produces a tree; `transform/*.test.mjs`
-      green; `grep -r "SUMMARY\|STATE.md\|BUGS.md\|RISK_REGISTER\|GLOSSARY\|adr/" plugins/` empty
-      except LICENSE/README attribution lines.
+- [x] **Deleted** `008-sdd-summary`, fork-owned `summary-writer-prompt.md`, `verification-prompt.md`.
+      Ruling: `006-grilling-fact-lookup` deleted too — upstream 7.0.1's brainstorming already
+      looks before asking and recommends with each question; the delta is obsolete.
+- [x] **007-planning-tree**: the design is the header of `NN-PLAN.md`; writing-plans appends tasks
+      below it; "the spec" means the header; workspace path text only.
+      Ruling: the fork's `sdd-workspace` rewrite is dropped — upstream's 7.0.1 script already
+      disambiguates same-basename plans by parent directory and records the owner; its fork test
+      (`transform/sdd-workspace.test.mjs`) goes with it.
+- [x] **009-plan-is-the-state**: tick the box and copy `Ruling:` lines into the plan per task;
+      `Result:` lines and the ROADMAP row at the end; workspace deleted by name (`plan-path` marker).
+- [x] **010-stack-drift-check**: the stack-rules check in "Look Before You Ask"; nothing else.
+- [x] **014-test-after-coverage**: re-anchored (TDD skill unchanged upstream; SDD text that moved
+      to `references/` edited there). Removed: bug log everywhere, "reconcile into spec", the
+      "Drain the bug log" node and step. The design lists the behaviours the tests confirm.
+- [x] **011, 015** re-anchored (checks 6 and 7 after upstream's new check 5; diagnosing hunk 6).
+- [x] **001–005, 016** unchanged.
+- [x] Acceptance: `build-cli.mjs check` applies 12/12; `node --test transform/` 65/65; `drift`
+      clean after `commit`; grep for SUMMARY/STATE/BUGS/RISK_REGISTER/GLOSSARY/adr in the built
+      skills is empty.
 
 ### Task 2.3 — inventory
-- [ ] `.antigravity-plugin/plugin.json` → `ignored` (not Claude Code).
-- [ ] 24 new paths → accept the rule proposals (12 `tracked` skill references, 12 `ignored`
-      assets/docs/tests); 25 removed paths → dropped from the manifest.
-- [ ] Acceptance: `up-update check` from the clone reports no unclassified, no new, no missing.
+- [x] `.antigravity-plugin/**` → `ignored` rule; `inventory.mjs sync upstream/7.0.1` accepted the
+      24 proposals and dropped the 25 gone paths; `describesTag` moved.
+- [x] Fork READMEs (plugin en/ru, repo en/ru): delta table and counts rewritten.
 
-**Result:** _(filled at stage end)_
+**Result:** fork `patch` at `badd113`, `main` rebuilt at `ce3d563` (`7.0.1-up.1`), not pushed.
 
 ---
 
@@ -158,9 +171,10 @@ and the plugin updated.
 **Why this way:** `/up-update update` rebuilds in a throwaway clone and refuses on any drift, so the
 published `main` is exactly original + patch — the same guarantee every earlier revision had.
 
-- [ ] Push `patch`; `node ~/.claude/bin/up-update.mjs update` → prepared, no refusal. Show the
-      summary to the user.
-- [ ] On the user's yes: `--publish` (new version `7.0.1-up.1`).
+- [ ] On the user's yes: push `patch`, `main` and `+original` with the `upstream/7.0.1` tag from
+      the local clone. Ruling: `/up-update update` cannot land a release whose deltas were
+      re-authored locally (it refuses on `main` drift against the old `patch`); that gap is
+      ROADMAP row 31. `/up-update check` afterwards must report up to date with 12 deltas.
 - [ ] User runs `/plugin update ultrapowers` and restarts; `README.md`/`README.en.md` here name the
       new base version; commit.
 - [ ] Finish the branch (squash-merge into `master`, push, prune), `ROADMAP.md` row 28 `complete`,
@@ -170,10 +184,19 @@ published `main` is exactly original + patch — the same guarantee every earlie
 
 ---
 
-## Decisions the user owns before stage 1 runs
+## Decisions taken 2026-10-26
 
-1. Deleting this tree's 70 per-phase documents (SPEC/STATE/SUMMARY/VERIFICATION) and 5 docs/ impact
-   assessments — yes, or keep them as history under `archive/`.
-2. `RISK_REGISTER.md`'s Open risks: close or delegate, per the list produced in Task 1.3.
-3. The standing rulings in `RESUME.md` ("Payload-only", "Deploy only via setup.mjs", "Layout",
-   status model): which survive as one-line rules in the project `.claude/CLAUDE.md`.
+1. The 70 per-phase documents (SPEC/STATE/SUMMARY/VERIFICATION) and the 5 `docs/` impact
+   assessments are deleted; git keeps them.
+2. `RISK_REGISTER.md`: each Open risk is closed with a one-line reason or delegated to a ROADMAP
+   row; the list is shown before the file is deleted.
+3. Standing rulings: three survive as one-line rules in the project `.claude/CLAUDE.md` —
+   payload-only development with its exceptions; deploy from `master` only, via `node setup.mjs`;
+   a shipped or removed unit updates the READMEs that describe or count it in the same commit.
+   The status schema lives in `ROADMAP.md`'s frontmatter comment. Layout, "never drop what is
+   finished", the statusline measurements and the withdrawn deploy warning are dropped.
+4. `ROADMAP.md` collapses closed phases: one line `phases 01–NN closed` instead of a row each;
+   rows only for the phases still open or in flight.
+5. The statusline phase segment shows only the phase slug (or the branch name when no phase is
+   running), in the position after the `DS` segment.
+6. A dropped task in a plan is marked `- [-]` with a `Ruling:` line.

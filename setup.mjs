@@ -56,7 +56,7 @@ import { normalizeGateway, DEFAULT_PORT } from "./payload/mcp-servers/deepseek/l
 import { reconcileBundleInstall } from "./payload/hooks/lib/config-update-check-run.mjs";
 
 // REPO_ROOT = where setup.mjs itself lives (installer meta: setup.mjs, README.md,
-// settings.partial.json, RISK_REGISTER*.md, bootstrap.sh/ps1, .gitignore - never mirrored).
+// settings.partial.json, bootstrap.sh/ps1, .gitignore - never mirrored).
 // SRC = REPO_ROOT/payload - everything that actually gets installed into ~/.claude
 // (hooks/, skills/, rules-src/, commands/, setting-templates/, bin/).
 // Kept as two separate constants (not one) because
@@ -74,7 +74,7 @@ const CDIR = process.env.CLAUDE_CONFIG_DIR || join(HOME, ".claude");
 const HOOKS = join(CDIR, "hooks");
 const SETTINGS = join(CDIR, "settings.json");
 const MANIFEST = join(CDIR, "state", "bundle-manifest.json");
-const RETIRED_HOOK_FILES = ["token-usage-log.mjs", ...GSD_RETIRED_HOOK_FILES];
+const RETIRED_HOOK_FILES = ["token-usage-log.mjs", "decision-records-nudge.mjs", ...GSD_RETIRED_HOOK_FILES];
 // Removed on purpose: pruned even when their basename still appears elsewhere in the bundle.
 const RETIRED_RELS = new Set([
   "hooks/token-usage-log.mjs",
@@ -83,6 +83,14 @@ const RETIRED_RELS = new Set([
   "hooks/lib/token-usage-shared.mjs",
   "skills/token-usage/SKILL.md",
   "skills/token-usage/scripts/report.mjs",
+  "bin/adr.mjs",
+  "bin/glossary.mjs",
+  "bin/risks.mjs",
+  "bin/lib/adr-lib.mjs",
+  "bin/lib/glossary-lib.mjs",
+  "bin/lib/records-paths.mjs",
+  "bin/lib/risk-register.mjs",
+  "hooks/decision-records-nudge.mjs",
 ]);
 // Files that OLDER bundles shipped and this one no longer does - seeded so a user upgrading from a
 // pre-manifest bundle still gets them pruned. ONLY list files this package exclusively owns (never
@@ -331,7 +339,7 @@ async function proposeConfigDir() {
 
 /* ---------- copy any bundle file into ~/.claude with conflict resolution ---------- */
 // Bundle-meta that must NOT be copied into ~/.claude (only matched at the archive root):
-const META = new Set(["setup.mjs", "README.md", "settings.partial.json", "RISK_REGISTER.md", "settings.json", "bootstrap.sh", "bootstrap.ps1"]);
+const META = new Set(["setup.mjs", "README.md", "settings.partial.json", "settings.json", "bootstrap.sh", "bootstrap.ps1"]);
 const copiedScripts = [];
 function* walkBundle(dir, rel = "") {
   for (const e of readdirSync(dir, { withFileTypes: true })) {

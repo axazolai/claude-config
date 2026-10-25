@@ -363,7 +363,6 @@ Claude Code. Живёт в [`axazolai/ultrapowers`](https://github.com/axazolai/
     deny-curated-claude-md.mjs           # блок правок курируемого CLAUDE.md (любая локация)
     protected-guard.mjs                  # отказ править/удалять/двигать пути из `.protected`
     secrets-gate.mjs                     # блок `git commit` при найденных секретах в staged
-    decision-records-nudge.mjs           # PreToolUse: линт риск-регистра/ADR/глоссария на коммите
     scratchpad-layout-guard.mjs          # PreToolUse: запись/команда вне раскладки .scratchpad — deny
     worktree-executor-discipline-advisor.mjs # advisory: дисциплина worktree + backstop больших Read
     bg-supervision-nudge.mjs             # PreToolUse: нудж обернуть run_in_background в supervise-bg
@@ -373,7 +372,7 @@ Claude Code. Живёт в [`axazolai/ultrapowers`](https://github.com/axazolai/
     prune-tests-nudge.mjs                 # PostToolUse: после `git push` — нудж вычистить непомеченные тесты
     scrapling-raw-gate.mjs               # PreToolUse: запрет Scrapling с main_content_only=false
     web-block-nudge.mjs                  # PostToolUse(+Failure): блок/JS-оболочка → повторить через Scrapling
-    phase-end-cleanup-nudge.mjs          # PostToolUse: закрытие фазы (NN-SUMMARY.md) → нудж /scratch-prune
+    phase-end-cleanup-nudge.mjs          # PostToolUse: закрытие фазы (строка ROADMAP → complete) → нудж /scratch-prune
     pnpm-phantom-fix-hook.mjs            # PostToolUse: скан фантомных зависимостей после install
     inject-axes.mjs                      # SessionStart + SubagentStart: инжектор осей правил (см. ниже)
     session-init.mjs                     # SessionStart: бутстрап проекта
@@ -404,7 +403,6 @@ Claude Code. Живёт в [`axazolai/ultrapowers`](https://github.com/axazolai/
     scratch-prune.mjs                    # движок /scratch-prune: раскладка + harness-сканы + promote → tools/
     supervise-bg.mjs                     # обёртка фоновой команды: timeout + staleness-watchdog
     pnpm-phantom-scan.mjs, pnpm-phantom-fix-install.mjs, turbopack-gvs-check.mjs # pnpm/Turbopack
-    risks.mjs, adr.mjs, glossary.mjs     # CLI решенческих записей (за ними — decision-records-nudge)
     up-update.mjs                        # проверка/пересборка форка ultrapowers (движок /up-update)
     ultrapowers-tdd.mjs                  # CLI для /ultrapowers-tdd: показать/переключить режим тестирования
     lib/                                 # библиотеки перечисленного выше (stack-markers, design-stack,
@@ -525,10 +523,7 @@ updated, M unchanged`, `rules-src: ...` и т.д.) — чтобы не прих�
   относительно `payload/` (т.е. `payload/hooks/foo.mjs` → `~/.claude/hooks/foo.mjs`).
 - **Корень репозитория** — мета самого установщика, никогда не копируется: `setup.mjs`,
   `bootstrap.sh`/`bootstrap.ps1`, `README.md`, `settings.partial.json`,
-  собственный реестр этого репозитория
-  `.ultrapowers/RISK_REGISTER.md` (не путать с установленным `~/.claude/state/...`),
-  `docs/` и `.ultrapowers/` (справочные материалы, дизайн-спеки/планы, история планирования —
-  вне дистрибуции).
+  `docs/` и `.ultrapowers/` (планы фаз, ROADMAP и RESUME этого репозитория — вне дистрибуции).
 
 Можно просто положить свои файлы/папки в `payload/` — они скопируются с сохранением структуры
 (`payload/commands/`, `payload/agents/`, доп. `payload/skills/`, любые свои файлы). Правила те же:
@@ -726,7 +721,7 @@ CLAUDE_STACK_RULES=0             # не проверять наличие сна
 README (источник истины — сами `rules-src/*.md` и их `README.md`).
 
 Дизайн и обоснование: `.ultrapowers/archive/specs/2026-07-12-stack-rules-design.md` (вне
-дистрибуции); риски — `RISK-STACKRULES-001/002` в `.ultrapowers/RISK_REGISTER.md`.
+дистрибуции).
 
 ---
 
@@ -755,13 +750,6 @@ README (источник истины — сами `rules-src/*.md` и их `REA
   `.protected` остаются доступными для записи, иначе починка невозможна. Вложенный `.protected`
   может расширять **или** переопределять унаследованное, то есть и снимать защиту: это осознанно
   принятая лазейка.
-- **decision-records-nudge.mjs** (PreToolUse: `Bash`). На `git commit`, который стейджит
-  риск-регистр, ADR или глоссарий, запускает соответствующий линтер и печатает, что не так, вместе
-  с командой, которая это чинит. **Никогда не блокирует** — ненормализованный регистр неопрятен,
-  но не опасен — и при любой ошибке молча выходит с кодом 0. Читает staged-индекс, а не сообщение
-  коммита, поэтому сообщение, случайно упоминающее запись, его не задевает. За ним стоят три CLI:
-  `bin/risks.mjs` (`lint`, `normalize`, `add`), `bin/adr.mjs` (`new`, `lint`) и
-  `bin/glossary.mjs` (`lint`, `suggest`).
 - **secrets-gate.mjs** (PreToolUse: `Bash`). На `git commit` сканирует `git diff --cached`:
   AWS-ключи, приватные ключи, токены Slack/GitHub, креды в строках подключения, явные присваивания
   секретов (env-ссылки отфильтровываются, чтобы меньше ложных). Если установлен `gitleaks` — он
@@ -894,34 +882,9 @@ probe только пишет по строке на каждое срабаты
      `precompact-observe.mjs` для текущей модели (`~/.claude/state/autocompact.json`) → сама
      вместимость. Дефолт — не угаданный резерв;
   4. **проект** — только имя папки, без ветки git;
-  5. **статус работы ultrapowers** — показывается, пока есть прогресс в
-     `.ultrapowers/ROADMAP.md`.
-
-  Сегмент 5 выбирает фазу детерминированно: фронтматтер `current` из `.ultrapowers/ROADMAP.md`,
-  иначе — единственная фаза со `status: running`. Ноль или несколько совпадений означают, что
-  дерево не знает, какая фаза в работе, и сегмент показывает талли, а не догадку.
-
-  У него **три режима**, и переключаются они целиком, а не подстановкой частей:
-
-  - **исполнение** — `09 2/1/3 — phase-progress-segment`: сделано, в работе, в очереди. Четвёртое
-    число дописывается, только если что-то заблокировано, `09 2/1/3/1`. Сделано — зелёное, позиция
-    «в работе» — cyan или **жёлтая**, если хоть одна задача в фикс-цикле, очередь без цвета,
-    блокировка — красная. Красятся только числа, никогда разделители.
-  - **именованное действие** — `09 (planning) phase-progress-segment`, cyan, или красное при
-    `status: blocked`. Фаза без `action` печатает только id и имя: бар не выдумывает слово для
-    того, что происходит.
-  - **талли** — `8/10 phase-progress-segment` между фазами: все фазы, кроме `abandoned`, с именем
-    последней по номеру.
-
-  Счётчики приходят из **живого SDD-ledger** разрешённой фазы и читаются структурно — счётом
-  `task-N-brief.md` против `task-N-report.md`; ни одна строка его прозы не парсится, поэтому
-  формулировки в нём можно менять свободно. `NN-STATE.md` даёт `action`, `tasks_fixing` и
-  `tasks_blocked`; если ledger'а нет, он отвечает один. Ledger другой фазы не читается никогда —
-  именно это бар раньше делал неверно: выбор шёл по mtime, чекаут менял то, что бар утверждает, а
-  талли завершённого плана выдавался за живую работу.
-
-  По-прежнему **никогда не процент**: фаза со снятой (`tasks_dropped`) задачей формулирует счёт в
-  полях, а причину — прозой, и вычисленный процент занижал бы уже завершённую фазу.
+  5. **фаза ultrapowers** — слаг фазы в работе: фронтматтер `current` из `.ultrapowers/ROADMAP.md`,
+     иначе — единственная строка `phases:` со `status: running`; без ROADMAP или без фазы в работе —
+     имя ветки git. Одно слово, без счётчиков; `/status-project-progress off` скрывает сегмент.
 
   Ключевое свойство сохранилось: ошибка любого источника стоит только своего сегмента, никогда
   всей строки — пустой вывод и код 0, statusline не ломается никогда.

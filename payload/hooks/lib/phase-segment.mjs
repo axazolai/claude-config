@@ -1,42 +1,15 @@
-// Renders the ultrapowers work segment. Three modes, switched wholesale: in two of them the
-// leading token is one phase's id, in the third it is a tally across all phases, and those are
-// different kinds of thing in the same position.
+// Renders the ultrapowers work segment: the slug of the phase in flight, read from
+// `.ultrapowers/ROADMAP.md` (`current`, else the single `running` row); when no phase is in
+// flight, the git branch name. One word, no counters.
 import { readFileSync, existsSync, readdirSync } from "node:fs";
-import { join } from "node:path";
-
-const C = { green: "32", cyan: "36", yellow: "33", red: "31" };
-const paint = (s, colour) => `\x1b[${colour}m${s}\x1b[0m`;
-const num = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0);
-
-export function renderPhaseSegment(state) {
-  const s = state && typeof state === "object" && !Array.isArray(state) ? state : {};
-  if (s.mode === "tally") {
-    if (!s.name || !Number.isFinite(Number(s.phasesTotal))) return "";
-    return `${paint(num(s.phasesDone), C.green)}/${num(s.phasesTotal)} ${s.name}`;
-  }
-  if (!s.id || !s.name) return "";
-  const c = s.counts;
-  const queued = c ? num(c.queued) : -1;
-  // A negative queue means the fields contradict each other. Printing arithmetic that is
-  // provably wrong is worse than printing none, so it degrades to the action mode.
-  if (s.mode === "executing" && c && queued >= 0) {
-    const fixing = num(c.fixing);
-    const inWork = num(c.active) + fixing;
-    const blocked = num(c.blocked);
-    const cells = [
-      paint(num(c.done), C.green),
-      paint(inWork, fixing > 0 ? C.yellow : C.cyan),
-      String(queued),
-    ];
-    if (blocked > 0) cells.push(paint(blocked, C.red));
-    return `${s.id} ${cells.join("/")} — ${s.name}`;
-  }
-  if (!s.action) return `${s.id} ${s.name}`;
-  return `${s.id} (${paint(s.action, s.status === "blocked" ? C.red : C.cyan)}) ${s.name}`;
-}
+import { join, resolve, dirname } from "node:path";
 
 const safe = (fn, fallback = null) => { try { return fn(); } catch { return fallback; } };
 const read = (p) => safe(() => readFileSync(p, "utf8"), "") ?? "";
+
+export function renderPhaseSegment(state) {
+  return state && typeof state === "object" && state.name ? String(state.name) : "";
+}
 
 export function frontmatter(text) {
   const m = /^---\r?\n([\s\S]*?)\r?\n---/.exec(String(text ?? ""));
@@ -63,66 +36,48 @@ export function roadmapPhases(text) {
   });
 }
 
-// Structural, never prose: briefs give the total, reports give the done count, and a brief
-// without its report is a task in flight. The ledger's wording can change freely.
-function ledgerCounts(tree, id, slug) {
-  const dir = join(tree, "sdd", `phases-${id}-${slug}`);
-  if (!existsSync(dir)) return null;
-  const names = safe(() => readdirSync(dir), []) ?? [];
-  const briefs = new Set(), reports = new Set();
-  for (const n of names) {
-    const b = /^task-(\d+)-brief\.md$/.exec(n);
-    if (b) briefs.add(Number(b[1]));
-    const r = /^task-(\d+)-report\.md$/.exec(n);
-    if (r) reports.add(Number(r[1]));
+// `.git` is a directory in a normal checkout and a `gitdir: <path>` file in a worktree.
+export function branchName(root) {
+  let dir = resolve(root);
+  for (let i = 0; i < 16; i++) {
+    const g = join(dir, ".git");
+    if (existsSync(g)) {
+      let gitdir = g;
+      const pointer = safe(() => readFileSync(g, "utf8"), null);
+      if (typeof pointer === "string" && /^gitdir:/.test(pointer)) {
+        gitdir = resolve(dir, pointer.replace(/^gitdir:\s*/, "").trim());
+      }
+      const head = read(join(gitdir, "HEAD"));
+      const m = /^ref:\s*refs\/heads\/(.+)$/m.exec(head);
+      if (m) return m[1].trim();
+      const sha = head.trim();
+      return sha ? sha.slice(0, 7) : null;
+    }
+    const up = dirname(dir);
+    if (up === dir) break;
+    dir = up;
   }
-  if (!briefs.size) return null;
-  const done = [...briefs].filter((n) => reports.has(n)).length;
-  return { total: briefs.size, done, unreported: briefs.size - done };
-}
-
-function tallyState(rows) {
-  const live = rows.filter((r) => r.status !== "abandoned");
-  if (!live.length) return null;
-  const last = live.reduce((a, b) => (Number(b.phase) >= Number(a.phase) ? b : a));
-  return {
-    mode: "tally",
-    name: last.slug || null,
-    phasesDone: live.filter((r) => r.status === "complete").length,
-    phasesTotal: live.length,
-  };
+  return null;
 }
 
 export function readPhaseState(root) {
   const tree = join(root, ".ultrapowers");
   const roadmap = read(join(tree, "ROADMAP.md"));
-  if (!roadmap) return null;
-  const rows = roadmapPhases(roadmap);
-  let id = fmField(frontmatter(roadmap), "current");
-  if (!id) {
-    const running = rows.filter((r) => r.status === "running");
-    id = running.length === 1 ? running[0].phase : null;
+  if (roadmap) {
+    const rows = roadmapPhases(roadmap);
+    let id = fmField(frontmatter(roadmap), "current");
+    if (!id) {
+      const running = rows.filter((r) => r.status === "running");
+      id = running.length === 1 ? running[0].phase : null;
+    }
+    if (id) {
+      const row = rows.find((r) => r.phase === id);
+      if (row && row.slug) return { id, name: row.slug };
+      const dirs = safe(() => readdirSync(join(tree, "phases")), []) ?? [];
+      const dirName = dirs.find((n) => n.startsWith(`${id}-`));
+      if (dirName) return { id, name: dirName.slice(String(id).length + 1) };
+    }
   }
-  const row = id ? rows.find((r) => r.phase === id) : null;
-  const dirs = safe(() => readdirSync(join(tree, "phases")), []) ?? [];
-  const dirName = id ? dirs.find((n) => n.startsWith(`${id}-`)) : null;
-  if (!dirName) return tallyState(rows);
-
-  const slug = dirName.slice(String(id).length + 1);
-  const fm = frontmatter(read(join(tree, "phases", dirName, `${id}-STATE.md`)));
-  const base = { id, name: (row && row.slug) || slug, status: fmField(fm, "status"),
-    action: fmField(fm, "action") };
-  const ledger = ledgerCounts(tree, id, slug);
-  if (!ledger || !ledger.unreported) return { ...base, mode: "action" };
-
-  const n = (key) => Number(fmField(fm, key)) || 0;
-  const fixing = n("tasks_fixing"), blocked = n("tasks_blocked");
-  const active = ledger.unreported - fixing - blocked;
-  // `tasks_dropped` is deliberately NOT subtracted here. It belongs to a frontmatter tally,
-  // where the denominator counts tasks that were planned; the ledger's total counts briefs that
-  // were actually written, so a retired task is either already among the unreported briefs or
-  // was never in the total at all. Subtracting it a second time drives the queue negative and
-  // costs the segment its counters.
-  const queued = ledger.total - ledger.done - active - fixing - blocked;
-  return { ...base, mode: "executing", counts: { done: ledger.done, active, fixing, queued, blocked } };
+  const branch = branchName(root);
+  return branch ? { name: branch } : null;
 }

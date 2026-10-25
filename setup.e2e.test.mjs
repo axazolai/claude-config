@@ -156,12 +156,14 @@ test("@critical retired token-usage files are pruned even though their basenames
 test("@critical a retired hook's entries leave settings.json while the user's own hooks stay", () => {
   const dir = mkdtempSync(join(tmpdir(), "cc-retired-hook-"));
   const retired = { hooks: [{ type: "command", command: "node", args: [join(dir, "hooks", "token-usage-log.mjs")] }] };
+  const retiredRecords = { hooks: [{ type: "command", command: "node", args: [join(dir, "hooks", "decision-records-nudge.mjs")] }] };
   const mine = { hooks: [{ type: "command", command: "echo mine-stop" }] };
   writeFileSync(join(dir, "settings.json"),
-    JSON.stringify({ hooks: { Stop: [retired, mine], SubagentStop: [retired] } }, null, 2) + "\n");
+    JSON.stringify({ hooks: { Stop: [retired, mine], SubagentStop: [retired], PreToolUse: [retiredRecords] } }, null, 2) + "\n");
   assert.equal(run(dir, ["--merge-all"]).status, 0);
   const hooks = JSON.parse(readFileSync(join(dir, "settings.json"), "utf8")).hooks;
   assert.doesNotMatch(JSON.stringify(hooks), /token-usage-log/);
+  assert.doesNotMatch(JSON.stringify(hooks), /decision-records-nudge/);
   assert.deepEqual(hooks.Stop, [mine]);
   assert.match(JSON.stringify(hooks.SubagentStop), /rung-usage-log/);
   rmSync(dir, { recursive: true, force: true });

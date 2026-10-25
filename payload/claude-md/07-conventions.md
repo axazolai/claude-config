@@ -7,12 +7,9 @@
 - Testing mode: `.claude/ultrapowers.json` `"tdd": true` means `tdd`; no file or any other value
   means `test-after`. `/ultrapowers-tdd enable|disable` switches it; the user decides, never you.
   The steps of each mode: the ultrapowers:test-driven-development skill.
-- Bug log (`BUGS.md`, where the project `CLAUDE.md` says, else the project root): a bug found
-  during the work that does not block the next step goes to the bug log and the work continues;
-  a blocking bug is fixed at once. Entry: `BUG-NNN`, date, where, symptom, reproduction, unit of
-  work, status `Open`/`Fixed`. Before a unit's review, fix its open entries; at the end of the
-  work, before the final review, fix the rest. An entry outside the work's scope is listed to
-  the user instead of fixed. Fixed entries stay, compressed to a line.
+- A bug found during the work is fixed in the work, before that unit's review. A bug outside the
+  work's scope becomes one line in `.ultrapowers/RESUME.md` `## Open`; it is never logged beside
+  the work.
 - Test cadence: never run tests per edit. Run them only at a completion boundary (the change
   stands as a working whole) or on a direct ask to commit, push, test, or review. While
   debugging a known failure, re-run that one test freely.

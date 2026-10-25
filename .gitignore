@@ -19,3 +19,6 @@ node_modules/
 
 # Draft letter to service owners: internal addresses, never commit
 /docs/deepseek-letter-to-owners.md
+
+# phase 29 reference project (a copy of an external project; never committed)
+.ultrapowers/phases/29-logic-map/ref-project/

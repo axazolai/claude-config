@@ -1,5 +1,5 @@
 ---
-description: Show or hide the statusline phase counter — on | off; no argument shows the current state
+description: Show or hide the statusline phase segment (the running phase's slug, else the git branch) — on | off; no argument shows the current state
 argument-hint: "[on|off]"
 allowed-tools: Bash(node *)
 ---

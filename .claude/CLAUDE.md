@@ -21,14 +21,14 @@ Machine-side state that no bundle file produces (an MCP server someone added by 
 plugin enabled outside `bundle.json`) is the one exception, and it is not an excuse: say
 plainly that the change is machine-local and nothing in the project carries it.
 
-## Risk register location
+## Project rules
 
-This tree's risk register is `.ultrapowers/RISK_REGISTER.md`. The user-scope `~/.claude/CLAUDE.md` names `.planning/` or the project root; project
-scope outranks user scope on conflict.
-
-## Bug log location
-
-This tree's bug log is `.ultrapowers/BUGS.md`.
+- Development goes to `payload/` or the installer (`setup.mjs`, its tests, `bundle.json`,
+  `settings.partial.json`, the READMEs, `.ultrapowers/`); never to `~/.claude` or this repo's own
+  `.claude/` configuration.
+- Deploy from `master` only, via `node setup.mjs`; never from a feature branch.
+- A shipped or removed unit (hook, skill, command, CLI) updates the READMEs that describe or count
+  it, in the same commit.
 
 ## Running tests
 

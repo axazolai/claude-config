@@ -39,7 +39,7 @@ export function render({ updates, model, context, ds, project, up } = {}) {
     .join(DIM(" │ "));
 }
 
-// Phase resolution, the ledger and the three display modes all live in lib/phase-segment.mjs.
+// Phase resolution (ROADMAP `current`, else the git branch) lives in lib/phase-segment.mjs.
 // This file keeps the wiring only.
 
 function upState(root) {

@@ -1,23 +1,22 @@
 #!/usr/bin/env node
-// PostToolUse nudge (matcher: Write|Edit|MultiEdit). Fires once per phase when a
-// phase's <NN>-SUMMARY.md is written (.ultrapowers/phases/<NN>-<slug>/<NN>-SUMMARY.md) while
-// ultrapowers is enabled (22-SPEC.md §3.3): nudges the scratch-prune skill for that phase before
-// the branch finishes. Enabled-check cascades project .claude/settings.json ->
+// PostToolUse nudge (matcher: Write|Edit|MultiEdit). Fires once per phase: after a write to
+// `.ultrapowers/ROADMAP.md`, the highest-numbered row with `status: complete` that is not the
+// `current` phase and has not been nudged before gets a nudge to run the scratch-prune skill,
+// while ultrapowers is enabled. Enabled-check cascades project .claude/settings.json ->
 // .claude/settings.local.json -> user settings.json; the first file whose enabledPlugins carries
 // the key wins, true or false. Fail-open on unreadable input.
 import { readFileSync, writeFileSync, mkdirSync, realpathSync } from "node:fs";
 import { join, resolve, dirname } from "node:path";
 import { homedir } from "node:os";
 import { pathToFileURL } from "node:url";
+import { frontmatter, fmField, roadmapPhases } from "./lib/phase-segment.mjs";
 
 const CLAUDE_DIR = process.env.CLAUDE_CONFIG_DIR || join(homedir(), ".claude");
 const KEY = "ultrapowers@ultrapowers";
-const SUMMARY_RE = /^\.ultrapowers\/phases\/(\d+)-[^/]+\/(\d+)-SUMMARY\.md$/;
+const ROADMAP_REL = ".ultrapowers/ROADMAP.md";
 
-export function matchSummaryPath(relPath) {
-  const m = SUMMARY_RE.exec(String(relPath || "").replace(/\\/g, "/"));
-  if (!m || m[1] !== m[2]) return null;
-  return m[1];
+export function isRoadmapPath(relPath) {
+  return String(relPath || "").replace(/\\/g, "/") === ROADMAP_REL;
 }
 
 export function isEnabled(settingsList) {
@@ -30,32 +29,29 @@ export function isEnabled(settingsList) {
 }
 
 export function nudgeMessage(phase) {
-  return `Phase closed: run the scratch-prune skill now, before finishing the branch. ` +
-    `(/scratch-prune phase ${phase})`;
+  return `Phase ${phase} closed: run the scratch-prune skill for it. (/scratch-prune phase ${phase})`;
 }
 
-export function decide({ relPath, settingsList, doneSet }) {
-  const phase = matchSummaryPath(relPath);
-  if (!phase) return null;
+// Returns { phase, message } for the phase to nudge, else null.
+export function decide({ relPath, roadmapText, settingsList, doneSet }) {
+  if (!isRoadmapPath(relPath)) return null;
   if (!isEnabled(settingsList || [])) return null;
-  if ((doneSet || new Set()).has(phase)) return null;
-  return { phase, message: nudgeMessage(phase) };
+  const current = fmField(frontmatter(roadmapText), "current");
+  const done = doneSet || new Set();
+  const closed = roadmapPhases(roadmapText)
+    .filter((r) => r.status === "complete" && r.phase && r.phase !== current && !done.has(r.phase))
+    .sort((a, b) => Number(b.phase) - Number(a.phase));
+  if (!closed.length) return null;
+  return { phase: closed[0].phase, message: nudgeMessage(closed[0].phase) };
 }
 
-// Strips a leading UTF-8 BOM before parsing (session-init.mjs hits this on settings.json written
-// by an external Windows tool; a raw JSON.parse throws on it).
+// Strips a leading UTF-8 BOM before parsing (settings.json written by an external Windows tool).
 function readJson(p) {
   try { return JSON.parse(readFileSync(p, "utf8").replace(/^﻿/, "")); } catch { return null; }
 }
 
-function readDoneSet(markerPath) {
-  try { return new Set(readFileSync(markerPath, "utf8").split(/\r?\n/).filter(Boolean)); }
-  catch { return new Set(); }
-}
-
-function recordDone(markerPath, phase) {
-  mkdirSync(dirname(markerPath), { recursive: true });
-  writeFileSync(markerPath, `${phase}\n`, { flag: "a" });
+function readLines(p) {
+  try { return readFileSync(p, "utf8").split(/\r?\n/).filter(Boolean); } catch { return []; }
 }
 
 function toRel(root, rawPath) {
@@ -74,21 +70,25 @@ function main() {
 
   const root = resolve(process.env.CLAUDE_PROJECT_DIR || d.cwd || process.cwd());
   const relPath = toRel(root, rawPath);
-  if (!matchSummaryPath(relPath)) return; // cheap regex check before any file I/O below
+  if (!isRoadmapPath(relPath)) return; // cheap check before any file I/O below
 
-  const markerPath = join(root, ".claude", ".scratchpad", ".cleanup-done");
+  const donePath = join(root, ".claude", ".scratchpad", ".cleanup-done");
+  let roadmapText = "";
+  try { roadmapText = readFileSync(join(root, ROADMAP_REL), "utf8"); } catch { return; }
   const result = decide({
     relPath,
+    roadmapText,
     settingsList: [
       readJson(join(root, ".claude", "settings.json")),
       readJson(join(root, ".claude", "settings.local.json")),
       readJson(join(CLAUDE_DIR, "settings.json")),
     ],
-    doneSet: readDoneSet(markerPath),
+    doneSet: new Set(readLines(donePath)),
   });
   if (!result) return;
 
-  recordDone(markerPath, result.phase);
+  mkdirSync(dirname(donePath), { recursive: true });
+  writeFileSync(donePath, `${result.phase}\n`, { flag: "a" });
   process.stdout.write(JSON.stringify({
     hookSpecificOutput: { hookEventName: "PostToolUse", additionalContext: result.message },
   }));

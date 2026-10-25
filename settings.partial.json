@@ -21,12 +21,6 @@
         ]
       },
       {
-        "matcher": "Bash",
-        "hooks": [
-          { "type": "command", "command": "node", "args": ["<HOME>/.claude/hooks/decision-records-nudge.mjs"] }
-        ]
-      },
-      {
         "matcher": "Bash|Read",
         "hooks": [
           { "type": "command", "command": "node", "args": ["<HOME>/.claude/hooks/worktree-executor-discipline-advisor.mjs"] }
