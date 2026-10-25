@@ -1,4 +1,4 @@
-## SUDO ELEVATION (default; Windows)
+## SUDO ELEVATION (Windows)
 - Windows 11's inline `sudo` is OFF by default — verify with `sudo config` first; on
   "Sudo is disabled on this computer", tell the user and do NOT fall back to another
   elevation method.

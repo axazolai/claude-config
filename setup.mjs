@@ -657,8 +657,8 @@ async function main() {
   /* ---------- assemble + write ~/.claude/CLAUDE.md from per-profile fragments ----------
    * Replaces the old per-variant CLAUDE.md monoliths (payload/CLAUDE.md, payload-lite/CLAUDE.md):
    * the assembled text is built fresh every run from payload/claude-md/ fragments for VARIANT
-   * (assemble-claude-md.mjs), which already starts with the CURATED:NOEDIT marker + a GENERATED
-   * header - so this single step both installs the file AND guarantees the marker, no separate
+   * (assemble-claude-md.mjs), which already starts with the CURATED:NOEDIT marker
+   * - so this single step both installs the file AND guarantees the marker, no separate
    * "ensure marker" pass needed anymore. CLAUDE.md is deliberately NOT part of V.rels (payload/
    * claude-md/** is in alwaysExclude - it's a build input, never copied 1:1), so it is placed
    * here instead of through the placeFile() loop above - but it still goes through the same

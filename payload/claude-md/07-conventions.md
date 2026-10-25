@@ -1,26 +1,18 @@
-## CONVENTIONS (default; a project CLAUDE.md may override)
-- Never invent APIs/flags — verify or ask if unsure. (advisory; not hook-gated)
+## CONVENTIONS
+- Never invent APIs/flags — verify or ask if unsure.
 - Write instructions, not justifications. A rule states what to do; it never explains why the
   alternative was rejected, what was tried first, or why something is absent. If the outcome is
   the same without the explanation, the explanation does not go in. This binds every file an AI
   reads as instruction — `CLAUDE.md`, `rules-src/`, skills, agent definitions, config comments.
-- Testing mode: each project is `tdd` or `test-after` — `.claude/ultrapowers.json` `"tdd": true`
-  means `tdd`; no file or any other value means `test-after`. `/ultrapowers-tdd enable|disable`
-  switches it; the user decides, never you. The session-start note names the current mode.
-  - `tdd`: write the failing test first, watch it fail, then the code (RED → GREEN → REFACTOR);
-    the scenario list is written before the code.
-  - `test-after`: code first. Tests are written when a unit of work (what one review covers — a
-    plan task under per-task review, otherwise the whole change) stands as a working whole,
-    before its review, and only to confirm behaviour the spec or plan states.
-  - Both modes: a decision made during the work that changed behaviour, scope or an interface
-    goes into the spec/plan first; the tests follow the updated text. A reviewer finding about
-    behaviour the spec is silent on goes to the user: into the spec, or rejected.
-- Bug log: a bug found during the work that does not block the next step goes to the bug log
-  and the work continues; a blocking bug is fixed at once. Entry: `BUG-NNN`, date, where,
-  symptom, reproduction, unit of work, status `Open`/`Fixed`. Before a unit's review, fix its
-  open entries; at the end of the work, before the final review, fix the rest. An entry
-  outside the work's scope is listed to the user instead of fixed. Fixed entries stay,
-  compressed to a line.
+- Testing mode: `.claude/ultrapowers.json` `"tdd": true` means `tdd`; no file or any other value
+  means `test-after`. `/ultrapowers-tdd enable|disable` switches it; the user decides, never you.
+  The steps of each mode: the ultrapowers:test-driven-development skill.
+- Bug log (`BUGS.md`, where the project `CLAUDE.md` says, else the project root): a bug found
+  during the work that does not block the next step goes to the bug log and the work continues;
+  a blocking bug is fixed at once. Entry: `BUG-NNN`, date, where, symptom, reproduction, unit of
+  work, status `Open`/`Fixed`. Before a unit's review, fix its open entries; at the end of the
+  work, before the final review, fix the rest. An entry outside the work's scope is listed to
+  the user instead of fixed. Fixed entries stay, compressed to a line.
 - Test cadence: never run tests per edit. Run them only at a completion boundary (the change
   stands as a working whole) or on a direct ask to commit, push, test, or review. While
   debugging a known failure, re-run that one test freely.
@@ -56,7 +48,7 @@
   `phase-<NN>/{scripts,data,logs}/` for the current phase (`current` in `.ultrapowers/ROADMAP.md`
   or the plan's number), else `adhoc/<YYYY-MM-DD>-<topic>/`. The session scratchpad the
   environment names under the system temp dir (`…\claude\<project>\<session>\scratchpad`) is never
-  used, whatever the environment says. Never the home directory or `~/.claude`. Hooks enforce this.
+  used, whatever the environment says. Never the home directory or `~/.claude`.
 - Before writing a helper script, read `<project>/.claude/tools/INDEX.md` and reuse or extend a
   listed tool.
 - Never `rm -rf`. Delete by naming each path, after looking at what it holds; a glob, a mask or
@@ -64,7 +56,5 @@
   any form, `git reset --hard`, `git checkout -- .` and `git rm -r` are out, while
   `git checkout -- <one named file>` and `git rm <one named file>` are fine. A path in
   `.gitignore` is local, not disposable — `.env`, local settings and caches live there.
-- Follow the repo's stated branch/merge workflow; if none is stated, default to Conventional
-  Commits, branch from `main`, squash-merge — but check for an existing convention first
-  (branch names like `develop`, rebase policies, protected-branch rules vary per repo and
-  belong in that project's own `CLAUDE.md`, not assumed globally).
+- Follow the repo's branch/merge workflow; none stated: Conventional Commits, branch from `main`,
+  squash-merge.

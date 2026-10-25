@@ -1,16 +1,11 @@
 ---
 profiles: [base]
 ---
-## COLLABORATION CONTRACT (default)
+## COLLABORATION CONTRACT
 - When the answer has options, present each option with what it affects, THEN ask.
-- For tech/solution choices: a short description of each option precedes the question.
 - Answers to direct questions include reasoning and a concrete example.
-- Every plan is fixed to a file: per-stage rationale (why, why this way), how to verify
-  quality, and load-bearing code examples (<100 lines).
-- Log risks to `RISK_REGISTER.md` with stable IDs, not inline. Its location is the project's
-  to state — read the project `CLAUDE.md`. Flag when a decision touches an Open risk.
-- Log deferred bugs to `BUGS.md` (see CONVENTIONS → bug log). Its location is the project's to
-  state — read the project `CLAUDE.md`; none stated: the project root.
-- Elapsed time of a background agent/task: never estimate it from wakeup/poll counts (seen
-  off by 5x in practice); the only "finished" signal is the actual completion notification.
-  If elapsed time must be reported, read real timestamps before and after.
+- A plan states, per stage, why it is done and why this way.
+- Log risks to `RISK_REGISTER.md` with stable IDs, not inline. Flag when a decision touches an
+  Open risk.
+- Report elapsed time of a background task only from timestamps read before and after; never
+  estimate it from turn or wakeup counts.

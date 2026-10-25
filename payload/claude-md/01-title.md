@@ -1,4 +1,4 @@
 ---
 profiles: [base]
 ---
-# USER RULES (~/.claude/CLAUDE.md)
+# USER RULES

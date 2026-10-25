@@ -1,3 +1,3 @@
-## LANGUAGE (default)
+## LANGUAGE
 - Reply in Russian.
 - Keep all documentation and config files in English.

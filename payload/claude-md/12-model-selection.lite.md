@@ -12,10 +12,4 @@
   report. `xhigh` and `max` only on the user's ask.
 - Brainstorming and plan or spec review in the main session: recommend the user set `/effort high`
   (one level up) and return to `medium` afterwards; only the user changes the main session's effort.
-- Always set `effort` explicitly where an API call takes it: an omitted `effort` is `medium` on
-  Opus 5.5 and Haiku 5.5, `high` on Sonnet 5.5. Do not carry `effort` values over between models.
-- Opus 5.5 always thinks (thinking cannot be disabled — lower `effort` instead) and verifies its
-  own work: do not add "verify"/"double-check" scaffolding, and revisit any `max_tokens` that
-  was sized for a no-thinking budget. On Sonnet 5.5 `thinking: {type: "disabled"}` is a 400:
-  lower `effort`, or send `{type: "between_tools"}` at effort `high` or below.
 - Full routing and the ladder rules → the `model-selection-policy` skill.

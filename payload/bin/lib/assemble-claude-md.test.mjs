@@ -26,15 +26,15 @@ test("@important base: shared + base side of split, lite-only section absent", (
   assert.match(o, /keeps-bg-elapsed/); assert.doesNotMatch(o, /no-bg-elapsed/); assert.doesNotMatch(o, /lite-only-section/);
 });
 const REAL = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "claude-md");
-test("@important real fragments: no GSD in base or lite; base keeps bg-elapsed; lite drops it + says 'lite variant'", () => {
+test("@important real fragments: no GSD in base or lite; base keeps bg-elapsed; lite drops it + says '(lite)'", () => {
   const base = assembleClaudeMd(REAL, "base"), lite = assembleClaudeMd(REAL, "lite");
   for (const o of [base, lite]) {
     assert.doesNotMatch(o, /rules-src\/gsd\.md/);
     assert.doesNotMatch(o, /\bgsd\b/i);
   }
-  assert.match(base, /Elapsed time of a background/);
-  assert.doesNotMatch(lite, /Elapsed time of a background/);
-  assert.match(lite, /lite variant/);
+  assert.match(base, /elapsed time of a background task/);
+  assert.doesNotMatch(lite, /elapsed time of a background task/);
+  assert.match(lite, /^# USER RULES \(lite\)$/m);
   for (const o of [base, lite]) { assert.match(o, /CURATED:NOEDIT/); assert.doesNotMatch(o, /^---$/m); }
 });
 
@@ -119,19 +119,3 @@ test("@important real fragments: no profile still carries the old .scratchpad/tm
   }
 });
 
-test("@important real fragments: the no-scaffolding rule is scoped to Opus 5.5+ only, in every profile", () => {
-  const base = assembleClaudeMd(REAL, "base"), lite = assembleClaudeMd(REAL, "lite");
-  for (const o of [base, lite]) {
-    assert.match(o, /Opus 5\.5 always thinks[\s\S]*?do not add "verify"\/"double-check" scaffolding/);
-  }
-});
-
-test("@important real fragments: base carries the SCRATCHPAD CLEANUP phase-cleanup bullet; lite does not", () => {
-  const base = assembleClaudeMd(REAL, "base"), lite = assembleClaudeMd(REAL, "lite");
-  for (const o of [base]) {
-    assert.match(o, /## SCRATCHPAD CLEANUP/);
-    assert.match(o, /the `scratch-prune` skill/);
-  }
-  assert.doesNotMatch(lite, /## SCRATCHPAD CLEANUP/);
-  assert.doesNotMatch(lite, /scratch-prune/);
-});

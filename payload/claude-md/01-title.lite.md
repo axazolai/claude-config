@@ -1,1 +1,1 @@
-# USER RULES (~/.claude/CLAUDE.md) — lite variant
+# USER RULES (lite)
