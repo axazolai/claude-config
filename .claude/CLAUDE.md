@@ -7,7 +7,7 @@ source. This rule outranks convenience, urgency and "just to test it".
 
 - **Never** `Write` or `Edit` any path under `~/.claude/`. Not to try something, not to fix
   it quickly, not once.
-- Change the source — `payload/`, `payload/setting-templates/`, `variants.json`, `setup.mjs`
+- Change the source — `payload/`, `payload/setting-templates/`, `bundle.json`, `setup.mjs`
   — then run `node setup.mjs` and let the installer carry it. A change that cannot reach a
   machine through the installer is not finished.
 - `~/.claude/CLAUDE.md` is assembled from `payload/claude-md/*.md`. Edit the fragment. The
@@ -18,7 +18,7 @@ source. This rule outranks convenience, urgency and "just to test it".
 - A live edit reaches no other machine and the next deploy erases it.
 
 Machine-side state that no bundle file produces (an MCP server someone added by hand, a
-plugin enabled outside `variants.json`) is the one exception, and it is not an excuse: say
+plugin enabled outside `bundle.json`) is the one exception, and it is not an excuse: say
 plainly that the change is machine-local and nothing in the project carries it.
 
 ## Risk register location

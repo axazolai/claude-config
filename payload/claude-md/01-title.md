@@ -1,4 +1,1 @@
----
-profiles: [base]
----
 # USER RULES

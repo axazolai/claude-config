@@ -1,6 +1,3 @@
----
-profiles: [base]
----
 # SAVE POINTS
 - Save points: a plan written to its file; the end of a phase; a finished part of a decomposed
   task. A save point does not commit.

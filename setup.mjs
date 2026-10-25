@@ -42,7 +42,7 @@ import { validateConfigDir } from "./payload/bin/lib/config-dir-validate.mjs";
 import { assembleClaudeMd } from "./payload/bin/lib/assemble-claude-md.mjs";
 import { migrateSettingsModel } from "./payload/bin/lib/model-migration.mjs";
 import { planGsdPurge, isEmptyPlan, formatGsdPurge, RETIRED_HOOK_FILES as GSD_RETIRED_HOOK_FILES } from "./gsd-purge.mjs";
-import { resolveVariant, filterPartialHooks, loadVariants, profilesOf, globToRe } from "./variants.mjs";
+import { resolveBundle, filterPartialHooks, loadBundle, globToRe } from "./bundle.mjs";
 import { buildPluginPlan, formatPlan, selectActions, describeAction } from "./plugin-reconcile.mjs";
 import { buildMcpPlan, formatMcpPlan, describeMcpAction, mcpAddArgs, mcpRemoveArgs, redactValues, postAddArgv,
   describePostAdd, quoteForCmd } from "./mcp-reconcile.mjs";
@@ -62,7 +62,7 @@ import { reconcileBundleInstall } from "./payload/hooks/lib/config-update-check-
 // Kept as two separate constants (not one) because
 // settings.partial.json below is read from REPO_ROOT, not SRC - it configures the installer,
 // it isn't itself installed. NOTE: payload/claude-md/ is a build input, not a copied rel -
-// ~/.claude/CLAUDE.md is assembled per-profile from those fragments (assemble-claude-md.mjs),
+// ~/.claude/CLAUDE.md is assembled from those fragments (assemble-claude-md.mjs),
 // not mirrored 1:1 like the rest of SRC - see the assemble+write step after the placeFile loop.
 const REPO_ROOT = dirname(fileURLToPath(import.meta.url));
 const SRC = join(REPO_ROOT, "payload");
@@ -95,18 +95,16 @@ const BULK = argv.has("--replace-all") ? "replace"
           : argv.has("--merge-all")   ? "merge"
           : argv.has("--skip-all")    ? "skip" : null;
 const DRY = argv.has("--dry-run");
-const VARIANT_ARG = (() => {
-  const a = [...argv].find((x) => x.startsWith("--variant="));
-  return a ? a.slice("--variant=".length) : null;
-})();
+// Accepted for one release and ignored: bootstrap one-liners in the wild still pass it.
+const VARIANT_FLAG = [...argv].some((x) => x.startsWith("--variant="));
 const ENABLE_UPDATE_CHECK_FLAG = argv.has("--enable-update-check");
 const ENABLE_POWERSHELL_TOOL_FLAG = argv.has("--enable-powershell-tool");
 const INTERACTIVE = !BULK && process.stdin.isTTY;
 const MD = argv.has("--md");
 const COLOR = !MD && !argv.has("--no-color") && !process.env.NO_COLOR && process.stdout.isTTY;
-// Resolved variant, hoisted to module scope so pruneStale()/settings-merge (later tasks) can see
-// them without threading through function args. Assigned (not re-declared) inside main().
-let VARIANT = null, V = null;
+// Resolved bundle, hoisted to module scope so pruneStale()/settings-merge can see it without
+// threading through function args. Assigned (not re-declared) inside main().
+let V = null;
 
 const log = (s = "") => process.stdout.write(s + "\n");
 const safe = (fn) => { try { return fn(); } catch { return undefined; } };
@@ -615,32 +613,9 @@ function reconcileUpdateState(installedSha) {
 async function main() {
   await proposeConfigDir();
 
-  // ---------- variant selection (spec § 9) ----------
-  const known = Object.keys(profilesOf(loadVariants(REPO_ROOT)));
-  const resolveProfile = (name, source) => {
-    if (!name) return null;
-    if (name === "full") { log(`profile "full" was removed; using "base"`); return "base"; }
-    if (known.includes(name)) return name;
-    if (source === "arg") { log(`Unknown --variant=${name}. Known: ${known.join(", ")}`); process.exit(1); }
-    log(`profile "${name}" is unknown; using "base"`);
-    return "base";
-  };
-  const oldManifestEarly = safe(() => JSON.parse(readFileSync(MANIFEST, "utf8")));
-  const installedVariant = oldManifestEarly ? (oldManifestEarly.profile || oldManifestEarly.variant || null) : null;
-  VARIANT = resolveProfile(VARIANT_ARG, "arg");
-  if (!VARIANT && INTERACTIVE) {
-    const def = resolveProfile(installedVariant, "manifest") || "base";
-    const a = (await ask(`  bundle profile [${known.join("/")}] (Enter = ${def}) > `)).trim().toLowerCase();
-    VARIANT = a === "full" || known.includes(a) ? resolveProfile(a, "prompt") : def;
-  }
-  if (!VARIANT) VARIANT = resolveProfile(installedVariant, "manifest") || "base";
-
-  const profileDef = profilesOf(loadVariants(REPO_ROOT))[VARIANT] || {};
-  V = resolveVariant({ repoRoot: REPO_ROOT, variant: VARIANT });
-  const installedResolved = installedVariant === "full" ? "base" : installedVariant;
-  if (installedResolved && installedResolved !== VARIANT)
-    log(`Switching variant: ${installedResolved} -> ${VARIANT} (surplus files listed for removal below)`);
-  log(`Variant: ${VARIANT} (${V.rels.length} files)`);
+  if (VARIANT_FLAG) log("profiles were removed; installing the bundle");
+  V = resolveBundle({ repoRoot: REPO_ROOT });
+  log(`Bundle: ${V.rels.length} files`);
 
   log(`Installing into ${CDIR}${DRY ? "  [DRY RUN]" : ""}`);
   mkdirSync(CDIR, { recursive: true });
@@ -654,19 +629,17 @@ async function main() {
   if (platform() !== "win32" && !DRY)
     for (const p of copiedScripts) safe(() => chmodSync(p, 0o755));
 
-  /* ---------- assemble + write ~/.claude/CLAUDE.md from per-profile fragments ----------
-   * Replaces the old per-variant CLAUDE.md monoliths (payload/CLAUDE.md, payload-lite/CLAUDE.md):
-   * the assembled text is built fresh every run from payload/claude-md/ fragments for VARIANT
-   * (assemble-claude-md.mjs), which already starts with the CURATED:NOEDIT marker
-   * - so this single step both installs the file AND guarantees the marker, no separate
-   * "ensure marker" pass needed anymore. CLAUDE.md is deliberately NOT part of V.rels (payload/
+  /* ---------- assemble + write ~/.claude/CLAUDE.md from fragments ----------
+   * The text is built fresh every run from payload/claude-md/ fragments (assemble-claude-md.mjs),
+   * which already starts with the CURATED:NOEDIT marker - so this single step both installs the
+   * file AND guarantees the marker. CLAUDE.md is deliberately NOT part of V.rels (payload/
    * claude-md/** is in alwaysExclude - it's a build input, never copied 1:1), so it is placed
    * here instead of through the placeFile() loop above - but it still goes through the same
    * curated-conflict tiering as any other curated file (unchanged -> no-op; new -> create; changed
    * -> diff + merge/replace/skip) so a hand-edited ~/.claude/CLAUDE.md is never silently clobbered.
    */
   {
-    const assembled = assembleClaudeMd(join(SRC, "claude-md"), VARIANT);
+    const assembled = assembleClaudeMd(join(SRC, "claude-md"));
     manifestNow.push({ rel: "CLAUDE.md", hash: sha(assembled) });
     const globalClaudeMd = join(CDIR, "CLAUDE.md");
     const curGlobal = read(globalClaudeMd);
@@ -880,12 +853,12 @@ async function main() {
     for (const f of RETIRED_HOOK_FILES) ourFiles.add(f);
     const mentionsOurs = (e) => (e.hooks || []).some(h => (h.args || []).some(a => ourFiles.has(String(a).split(/[\\/]/).pop())));
 
-    // Re-add side is variant-filtered: a lite install must not re-add base-only hook entries even
-    // though they're still present in the whole partial used above to strip stale entries.
-    const variantBasenames = new Set(V.rels.map((r) => r.split("/").pop()));
-    const partialHooksForVariant = filterPartialHooks(partial.hooks, variantBasenames);
+    // Re-add side is bundle-filtered: a hook whose script is not in the bundle (alwaysExclude)
+    // is not re-added, though the whole partial above still strips its stale entries.
+    const bundleBasenames = new Set(V.rels.map((r) => r.split("/").pop()));
+    const partialHooksForBundle = filterPartialHooks(partial.hooks, bundleBasenames);
 
-    for (const [ev, entries] of Object.entries(partialHooksForVariant)) {
+    for (const [ev, entries] of Object.entries(partialHooksForBundle)) {
       // claim our slots: drop any prior entry that references one of our hook files (stale paths,
       // old .sh, wrong home, or an event type it used to live under) - this both repairs the
       // "cannot find module" loader error on re-run and prevents duplicates when a hook's event
@@ -897,11 +870,11 @@ async function main() {
     // Also strip our entries from any event the partial no longer declares them under (handles a
     // hook moving OUT of an event entirely, not just being re-added to a different one above).
     for (const ev of Object.keys(merged.hooks)) {
-      if (ev in partialHooksForVariant) continue;
+      if (ev in partialHooksForBundle) continue;
       merged.hooks[ev] = (merged.hooks[ev] || []).filter(e => !mentionsOurs(e));
       // NOTE: deliberately NOT deleting now-empty event arrays here - delete+later-readd
-      // moves the key to the object tail and breaks the byte-identical full->lite->full
-      // settings.json round trip. An empty `TaskCreated: []` on lite is harmless residue.
+      // moves the key to the object tail and breaks the byte-identical settings.json round
+      // trip across re-runs. An empty `TaskCreated: []` is harmless residue.
     }
 
     merged.permissions = merged.permissions || {};
@@ -952,10 +925,10 @@ async function main() {
     // one. Unconditional today: no superseded id can equal the bundle-managed default (the
     // comparison is against the user's CURRENT value, not the migration target - reshaping the
     // default, e.g. to a full id, does not disable this). The only way to disable it is removing
-    // `sessionDefaults.model` from variants.json entirely.
+    // `sessionDefaults.model` from bundle.json entirely.
     if (typeof merged.model === "string") {
       const mm = migrateSettingsModel(merged.model);
-      const managedModel = (loadVariants(REPO_ROOT).sessionDefaults || {}).model;
+      const managedModel = (loadBundle(REPO_ROOT).sessionDefaults || {}).model;
       const coveredBySessionDefaults = managedModel !== undefined && managedModel !== merged.model;
       if (mm.changed && !coveredBySessionDefaults) {
         if (INTERACTIVE) {
@@ -995,7 +968,7 @@ async function main() {
   const curSettings = readJsonOrNull(SETTINGS);
   if (curSettings === null) skipInvalidSettings("plugin reconciliation");
   else {
-    const variantsFile = loadVariants(REPO_ROOT);
+    const variantsFile = loadBundle(REPO_ROOT);
     const managed = variantsFile.managedPlugins;
     const keepInstalled = variantsFile.keepInstalled || [];
     const cliProbe = process.env.CLAUDE_SETUP_SKIP_PLUGINS === "1"
@@ -1085,7 +1058,7 @@ async function main() {
   const cj = cjPath ? readJsonOrNull(cjPath) : {};
   if (cj === null) log("\n--- mcp reconciliation ---\n  cannot read .claude.json — MCP step skipped");
   else {
-    const rawManaged = loadVariants(REPO_ROOT).managedMcpServers || {};
+    const rawManaged = loadBundle(REPO_ROOT).managedMcpServers || {};
     // {{CLAUDE_DIR}} in a managed server's args resolves to the installed config dir: Claude Code
     // spawns the server command with no shell, so "~" would never expand.
     const managed = Object.fromEntries(Object.entries(rawManaged).map(([n, d]) =>
@@ -1139,7 +1112,7 @@ async function main() {
   /* ---------- session defaults: model and effortLevel are bundle-managed ---------- */
   if (cur === null) log("\n--- session defaults ---\n  settings.json: INVALID JSON - left untouched");
   else {
-    const managedDefaults = loadVariants(REPO_ROOT).sessionDefaults || {};
+    const managedDefaults = loadBundle(REPO_ROOT).sessionDefaults || {};
     const current = readJsonOrNull(SETTINGS) || {};
     const changes = buildSessionDefaultsPlan(current, managedDefaults);
     // The model-migration prompt above is skipped whenever this block covers `model`, so a
@@ -1175,10 +1148,10 @@ async function main() {
     }
   }
 
-  /* ---------- deepseek offload default (per profile) ---------- */
+  /* ---------- deepseek offload default ---------- */
   // Fallback level read by the per-project resolver when a project has no .claude/deepseek.json.
   {
-    const level = (loadVariants(REPO_ROOT).deepseekDefaults || {})[VARIANT];
+    const level = loadBundle(REPO_ROOT).deepseekDefault;
     if (level) {
       const p = join(CDIR, "deepseek-defaults.json");
       const cur = DRY ? null : readJsonOrNull(p);
@@ -1342,9 +1315,7 @@ async function main() {
   warnStatuslineNamesMissingFile();
   if (!DRY) {
     const installedSha = await resolveInstalledSha();
-    const maxPluginTier = profilesOf(loadVariants(REPO_ROOT))[VARIANT]?.maxPluginTier;
-    const manifestPayload = { files: manifestNow, profile: VARIANT, variant: VARIANT };
-    if (maxPluginTier !== undefined) manifestPayload.maxPluginTier = maxPluginTier;
+    const manifestPayload = { files: manifestNow };
     if (installedSha) {
       manifestPayload.installedSha = installedSha;
       manifestPayload.installedAt = new Date().toISOString();
@@ -1395,7 +1366,6 @@ async function main() {
   }
 
   log(`\n${DRY ? "DRY RUN complete (no files written)." : "Done."} Restart Claude Code (hooks load at startup).`);
-  log(`Variant: ${VARIANT}`);
   const hookCounts = partial && partial.hooks
     ? Object.entries(partial.hooks).map(([ev, entries]) => `${ev} x${entries.length}`).join(", ")
     : "see settings.partial.json";
@@ -1412,27 +1382,20 @@ async function main() {
   log("           - checks whether the compiled rules snapshot (.claude/stack-rules.md)");
   log("             exists; if not, suggests running /init-stack to generate it (no");
   log("             automatic staleness check - opt out: CLAUDE_STACK_RULES=0)");
-  if (VARIANT !== "lite") {
-    log("           - if the git remote is GitHub/GitLab or a DB dependency is detected");
-    log("             with no matching MCP wired: suggests /init-mcp (suggestion only,");
-    log("             installs nothing, rechecked every session)");
-  }
+  log("           - if the git remote is GitHub/GitLab or a DB dependency is detected");
+  log("             with no matching MCP wired: suggests /init-mcp (suggestion only,");
+  log("             installs nothing, rechecked every session)");
   log("         Toggles: CLAUDE_CURATED_AUTOINIT=0 (disables all of the above),");
   log("         CLAUDE_CURATED_AUTOMARK_ROOT=0, CLAUDE_MCP_SUGGEST=0.");
   log("");
-  if (VARIANT !== "lite") {
-    log("Step 3 - ONLY if the project needs stack-specific plugins (React, FastAPI, ...) -");
-    log("         this does NOT happen automatically. Run /init-stack in that project's");
-    log("         Claude Code session. It detects the stack, then asks you to run");
-    log("         'node ~/.claude/bin/init-stack.mjs -i' yourself in a real terminal");
-    log("         (interactive checklist) to install and enable the matching plugins.");
-    log("");
-    log("Step 4 - RESTART Claude Code again after /init-stack writes settings.json -");
-    log("         enabledPlugins resolves at startup too, same as step 1.");
-  } else {
-    log("Step 3 - For per-project stack rules run /init-stack in that project's session");
-    log("         (compiles .claude/stack-rules.md; no plugin machinery in lite).");
-  }
+  log("Step 3 - ONLY if the project needs stack-specific plugins (React, FastAPI, ...) -");
+  log("         this does NOT happen automatically. Run /init-stack in that project's");
+  log("         Claude Code session. It detects the stack, then asks you to run");
+  log("         'node ~/.claude/bin/init-stack.mjs -i' yourself in a real terminal");
+  log("         (interactive checklist) to install and enable the matching plugins.");
+  log("");
+  log("Step 4 - RESTART Claude Code again after /init-stack writes settings.json -");
+  log("         enabledPlugins resolves at startup too, same as step 1.");
   log("");
   log("Full reference (including the reconfigure/update table): README.md, section");
   log("'Order of operations'.");

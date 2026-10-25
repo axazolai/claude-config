@@ -1,5 +1,5 @@
 // init-stack: template inheritance resolver + gather (pure/read-only) PLUS the side-effecting
-// CLI/apply/install half and the profile-aware plugin tier filter.
+// CLI/apply/install half.
 // Ported 1:1 from payload/bin/init-stack.py: _vertical_ancestors, _resolve_chain, load_json,
 // classify, gather, gather_skills, resolved_autoenable, known_plugins, apply, install_missing,
 // _run_cmd/_run_marketplace_add, print_report/print_present/print_skills, main() CLI dispatch,
@@ -12,7 +12,7 @@
 // interaction is simplified. Non-interactive paths (--status/--apply-all/--enable/--remove/
 // report) are ported faithfully - these are what parity/scripts depend on.
 // Self-contained: ships inside payload/ (installed standalone into ~/.claude), so this must
-// NOT import from the repo-root variants.mjs (installer-meta, not shipped at runtime). Only
+// NOT import from the repo-root bundle.mjs (installer-meta, not shipped at runtime). Only
 // payload-internal siblings (./lib/*) and node:* built-ins.
 import { readFileSync, existsSync, readdirSync, mkdirSync, cpSync } from "node:fs";
 import { join, dirname, relative, basename } from "node:path";
@@ -150,16 +150,6 @@ export function resolveChain(relPath, { templatesDir = defaultTemplatesDir(), vi
   return chain;
 }
 
-// ---------- profile-aware plugin tier filter (spec §4) ----------
-// A plugin entry may carry {tier: "core"|"full"}; absent -> "core". maxPluginTier undefined/
-// absent -> no cap (keep everything, since "full" is the highest rank).
-const TIER_RANK = { core: 0, full: 1 };
-export function keepPlugin(entry, maxPluginTier) {
-  const t = (entry && entry.tier) || "core";
-  const max = maxPluginTier || "full";
-  return (TIER_RANK[t] ?? 0) <= (TIER_RANK[max] ?? 1);
-}
-
 // ---------- plugin classification ----------
 function catalogHas(marketplacesDir, mp, name) {
   const base = join(marketplacesDir, mp);
@@ -211,7 +201,6 @@ export function gather(
     installed = new Set(),
     known = new Set(),
     marketplacesDir = defaultMarketplacesDir(),
-    maxPluginTier,
   } = {},
 ) {
   const entries = [];
@@ -228,7 +217,6 @@ export function gather(
       for (const p of tpl.plugins || []) {
         const pid = p.id || "";
         if (!pid || seen.has(pid)) continue;
-        if (!keepPlugin(p, maxPluginTier)) continue;
         seen.add(pid);
         const state = classify(pid, { installed, known, marketplacesDir });
         entries.push({
@@ -321,20 +309,6 @@ export function installedSkillNames(root, configDirPath = configDir()) {
   return names;
 }
 
-// maxPluginTier is NOT installer-meta (variants.json isn't shipped into ~/.claude) - the
-// effective cap for an installed bundle is stamped into the bundle manifest at install time
-// (Task 8 writes it; older manifests simply lack the field -> undefined -> no cap, i.e. today's
-// full behavior until setup.mjs starts writing it). A missing manifest is already fail-soft
-// (loadJson returns {}); a CORRUPT (invalid-JSON) manifest must degrade the same way - init-stack
-// should never hard-fail just because the cap can't be read - so this also swallows loadJson's
-// parse-error throw and falls back to "no cap".
-export function readMaxPluginTier(configDirPath = configDir()) {
-  let manifest;
-  try { manifest = loadJson(join(configDirPath, "state", "bundle-manifest.json")); }
-  catch { return undefined; }
-  return manifest && typeof manifest === "object" ? manifest.maxPluginTier : undefined;
-}
-
 // ---------- recursive template scan (for the "other known plugins" opt-in list) ----------
 function allTemplateJsonFiles(dir) {
   const out = [];
@@ -374,8 +348,7 @@ export function resolvedAutoenable(stacks, { templatesDir = defaultTemplatesDir(
 // Every plugin declared ANYWHERE under templatesDir that isn't already in excludeIds (the
 // detected-stack set) - the "other known plugins" opt-in list. Deduped by id, classified,
 // carrying description + install commands. Read straight off the template files (not the
-// STACK_PATHS chain) so opt-in plugins that no stack auto-enables still surface. Subject to the
-// same tier filter as gather() so a lite install's opt-in list never offers a full-tier plugin.
+// STACK_PATHS chain) so opt-in plugins that no stack auto-enables still surface.
 export function knownPlugins(
   excludeIds,
   {
@@ -383,7 +356,6 @@ export function knownPlugins(
     installed = new Set(),
     known = new Set(),
     marketplacesDir = defaultMarketplacesDir(),
-    maxPluginTier,
   } = {},
 ) {
   const out = [];
@@ -394,7 +366,6 @@ export function knownPlugins(
     for (const p of tpl.plugins || []) {
       const pid = p.id || "";
       if (!pid || excludeIds.has(pid) || seen.has(pid)) continue;
-      if (!keepPlugin(p, maxPluginTier)) continue;
       seen.add(pid);
       const state = classify(pid, { installed, known, marketplacesDir });
       out.push({
@@ -879,10 +850,9 @@ function mainInner(argv, opts) {
     return 0;
   }
 
-  const maxPluginTier = opts.maxPluginTier !== undefined ? opts.maxPluginTier : readMaxPluginTier(configDirPath);
   // libraryDir threads through to offerSkills -> installSkills for `install.bundled` entries;
   // undefined here just means installSkills falls back to its own ~/.claude/skill-library/ default.
-  const gatherOpts = { templatesDir, installed, known, marketplacesDir, maxPluginTier, settingsFile, root, libraryDir: opts.libraryDir };
+  const gatherOpts = { templatesDir, installed, known, marketplacesDir, settingsFile, root, libraryDir: opts.libraryDir };
 
   if (argv[0] === "--apply-all") {
     const { entries } = gather(stacks, gatherOpts);

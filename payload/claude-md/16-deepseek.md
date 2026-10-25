@@ -1,7 +1,7 @@
 # DEEPSEEK OFFLOAD (local executor)
 
-The project's offload level is in `.claude/deepseek.json` (`level`), else the installed profile
-default. `/deep-model-effort [off|light|medium|heavy|full]` sets it; the session-start note and the
+The project's offload level is in `.claude/deepseek.json` (`level`), else the installed default
+(`~/.claude/deepseek-defaults.json`). `/deep-model-effort [off|light|medium|heavy|full]` sets it; the session-start note and the
 statusline `DS <level>` segment show it. When the `deepseek` MCP tools return `unavailable`, do the
 task yourself and do not retry.
 

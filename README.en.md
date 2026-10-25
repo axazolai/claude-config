@@ -20,9 +20,7 @@ After installing — **restart Claude Code** (hooks and settings are only read a
 - [Order of operations](#order-of-operations)
   - [Initial setup (new machine)](#initial-setup-new-machine)
   - [Reconfiguring](#reconfiguring)
-- [Bundle variants (base/lite)](#bundle-variants-baselite)
-  - [Selecting a variant](#selecting-a-variant)
-  - [Switching variants](#switching-variants)
+- [Bundle contents](#bundle-contents)
 - [Relocating `~/.claude` to another drive](#relocating-claude-to-another-drive)
 - [Additional subsystems (bin/commands/hooks)](#additional-subsystems-bincommandshooks)
 - [Why any of this (problem → solution)](#why-any-of-this-problem-solution)
@@ -124,19 +122,13 @@ changes).
    - **7. mark completion** — `hooks/lib/mark-initstack-done.mjs` (this is what lets the
      project's leanmode dial default to `full`).
 
-      `fallow` now reaches every profile through the plugin instead (delta `001-fallow-graft` in
+      `fallow` now arrives through the plugin instead (delta `001-fallow-graft` in
    the ultrapowers fork), and `claude_orchestration` was deliberately retired — see
    RISK-INITSTACK-001, closed 2026-07-27.
 4. **Restart Claude Code again** — `enabledPlugins` also only resolves at startup.
 
 Bottom line for a new machine: `setup.mjs` — once, `/init-stack` — per project (right after
 cloning the repo, or whenever it first needs plugins).
-
-> Step 3 and the whole "Reconfiguring" table below describe the **base**-profile `/init-stack`
-> (the Node script + plugin machinery). In the **lite** variant, `/init-stack` is not the same
-> thing: it only detects the stack and assembles `.claude/stack-rules.md`, with no
-> plugin install/enable step at all. Details and how to pick/switch the variant — "Bundle
-> variants" below.
 
 ### Reconfiguring
 
@@ -154,47 +146,42 @@ startup, there's no hot-reload.
 
 ---
 
-## Bundle variants (base/lite)
+## Bundle contents
 
-The bundle installs in one of two profiles. The choice isn't tied to the first install —
-switch at any time by re-running `setup.mjs`. The profiles live in `variants.json` (`lite`
-inherits `base` through `extends`; `exclude` wins over `include`).
+There is one bundle: `setup.mjs` installs every file under `payload/` except `alwaysExclude`.
+Its contents are described in `bundle.json`:
 
-- **base** (default) — everything this README describes: every hook, every command, every
-  skill. Plugins: `ultrapowers`, `context-mode`.
-- **lite** — base minus everything that needs heavy machinery (`variants.json → profiles.lite.exclude`):
-  - exactly one plugin, `context-mode`. `ultrapowers` **ships to disk but is not enabled**
-    (`variants.json → keepInstalled`), so bringing it back is one command rather than a
-    reinstall from the marketplace;
-  - exactly 7 hooks: `secrets-gate`, `deny-curated-claude-md`, `protected-guard`,
-    `decision-records-nudge`, `inject-axes`,
-    `precompact-observe`, `session-init` (the last one still runs, but skips
-    the `/init-mcp` suggestion — see "Project auto-init" below);
-  - `leanmode`; two "lazy" skills
-    (`model-selection-policy`, `update-changelog`);
-  - its own `/init-stack` — stack detection + assembling `.claude/stack-rules.md` only, no
-    Python/plugin machinery (see the callout in "Initial setup" above);
-  - its own `rules-src/README.md` and its own `model-selection-policy`, both
-    from the `payload-lite/` overlay layered on top of `payload/`. `CLAUDE.md` is NOT overlaid:
-    it is assembled fragment by fragment from `payload/claude-md/*.md` per profile
-    (`bin/lib/assemble-claude-md.mjs`, each fragment's `profiles:` frontmatter);
-  - **NOT included**, relative to base: the `schedulewakeup` nudge, `prune-tests-nudge`,
-    `ci-watch-nudge`, `worktree-executor-discipline-advisor`, the pnpm-phantom guard,
-    bg-supervision (`supervise-bg.mjs`), the Turbopack check, the `/init-mcp` and
-    `/pnpm-phantom-fix` commands, and the `/publish` skill.
+- `alwaysExclude` — `payload/` files that are not installed;
+- `plugins` — `ultrapowers`, `context-mode`;
+- `mcpServers` — `scrapling`, `context7`, `deepseek`;
+- `deepseekDefault` — the default DeepSeek offload level (`medium`);
+- `managedPlugins`, `marketplaces`, `forbiddenPlugins` — the plugins and marketplaces the
+  installer manages, and what it refuses to allow;
+- `keepInstalled` — plugins that stay on disk but disabled (`superpowers`);
+- `sessionDefaults` — `model` and `effortLevel` in `settings.json`;
+- `managedMcpServers` — the user-scope MCP servers the installer reconciles.
 
-The former `full` profile was removed. `--variant=full`, or a `full` left in an old manifest,
-resolves to `base` and prints `profile "full" was removed; using "base"`.
-
-No profile ships (`variants.json → alwaysExclude`): `hooks/task-lifecycle-probe*` (the
+Not installed (`bundle.json → alwaysExclude`): `hooks/task-lifecycle-probe*` (the
 `TaskCreated`/`TaskCompleted` schema probe — kept in the repo as a stub, never installed and
 never registered), `claude-md/**` (fragments are input to the `CLAUDE.md` build, not files for
 `~/.claude`), and `**.test.mjs`.
 
+The skills plugin is `ultrapowers@ultrapowers`; upstream `superpowers` stays installed but
+disabled (`keepInstalled`), so rollback is one command (see "`ultrapowers` replaces
+`superpowers`" below).
+
+Re-running `setup.mjs` prunes files that left the bundle: the list is built from the manifest
+`~/.claude/state/bundle-manifest.json`, and the installer asks for confirmation (`y/N`) before
+deleting. Files the manifest never recorded (your own) are never touched; curated files and files
+you edited by hand (the on-disk hash differs from the recorded one) are left out of the prune.
+
+After changes to `enabledPlugins`, hooks, MCP servers or `statusLine`, **restart Claude Code** —
+they don't hot-reload.
+
+
 ### `ultrapowers` replaces `superpowers`
 
-`base` uses **`ultrapowers@ultrapowers`** as the base skills plugin (in `lite` it
-ships to disk but stays disabled) — our fork of
+The base skills plugin is **`ultrapowers@ultrapowers`** — our fork of
 [`obra/superpowers`](https://github.com/obra/superpowers) (Jesse Vincent, MIT), narrowed to Claude
 Code. It lives in [`axazolai/ultrapowers`](https://github.com/axazolai/ultrapowers): branch
 `original` holds pristine upstream snapshots, `patch` holds the plugin map, the rename transform
@@ -207,7 +194,7 @@ own test suite, their docs and release tooling — is recorded as **deliberately
 reason on every rule. A file that appears upstream and lands in neither list blocks the build until
 a human classifies it.
 
-**Upstream is disabled, not uninstalled** (`variants.json → keepInstalled`): rollback is one
+**Upstream is disabled, not uninstalled** (`bundle.json → keepInstalled`): rollback is one
 command — re-enable `superpowers`, disable the fork — rather than a reinstall from the marketplace.
 Running both enabled is not the fallback: they share 14 skill names.
 
@@ -221,54 +208,6 @@ Updating is `/up-update`: `check` is read-only and runs from any project; `updat
 throwaway clone and either refuses with the condition that fired, or prepares the release and
 stops. Publishing needs an explicit `--publish`, and getting the new version onto a machine is a
 separate `/plugin update`.
-
-### Selecting a variant
-
-- Interactively: `node setup.mjs` asks `bundle profile [base/lite] (Enter = …)` — the default
-  (Enter) comes from whatever is already installed per
-  `~/.claude/state/bundle-manifest.json`'s `variant` field, or `base` on a fresh machine.
-- With a flag: `node setup.mjs --variant=lite` — skips the question.
-- No terminal and no flag (CI, non-TTY): keeps whatever variant is already installed, else
-  `base`.
-- Via bootstrap: POSIX — `curl ... | bash -s -- --variant=lite`; Windows —
-  `$env:CLAUDE_SETUP_ARGS='--variant=lite'; irm ... | iex` — the same flag-forwarding mechanism
-  as `--replace-all` (see "Install on a new machine" above). The bootstrap scripts themselves
-  weren't changed for variants — the flag just rides through to `setup.mjs` as usual.
-
-### Switching variants
-
-Reinstall: `node setup.mjs` (interactively pick the other variant, or pass
-`--variant=base`/`--variant=lite` directly). The installer:
-
-- finds files that aren't part of the new variant but are still on disk (surplus after the
-  switch), prints the list, and asks for confirmation before deleting (`y/N`) — the same prune
-  mechanism that cleans up stale bundle files in general (see "How the installer works" above).
-  **Curated files and files you've edited by hand** (on-disk hash doesn't match what the last
-  `setup.mjs` run recorded) are never pruned — they're left as-is even if the new variant
-  doesn't include them.
-- filters the hook entries in `settings.json` for the new variant: switching to base/lite drops
-  the hooks that profile does not ship, switching back restores them. The `statusLine` key no longer varies by profile —
-  the same `statusline.mjs` is registered on base and lite (see "What each hook does and why"
-  below), so switching variants leaves it alone; your own, non-bundle `statusLine` is still left
-  alone too.
-- reconciles the plugin set and prints a plan (what to install/remove, what to enable/disable)
-  — asks for confirmation (`y/N`) before calling `claude plugin install/uninstall`; if the
-  `claude` CLI isn't on PATH, it prints the commands for you to run by hand instead of
-  executing them.
-- reconciles the user-scope MCP servers from `managedMcpServers` in `variants.json`: base gets
-  `scrapling` (`uvx --from "scrapling[ai]" scrapling-mcp`, needs `uv`) and `context7`
-  (HTTP; the key comes from the `CONTEXT7_API_KEY` environment variable, and without it the
-  server is registered keyless), lite gets none. A configured server is never rewritten.
-  `--replace-all` adds what is missing and only prints removals as manual commands. Right after
-  `scrapling` is added, its stealth/dynamic browsers are downloaded
-  (`uvx --from "scrapling[ai]" scrapling install`); on failure the command is printed for a
-  manual run. A child profile without `mcpServers` inherits its parent's list. The key value never
-  appears in the output.
-- **requires restarting Claude Code** — as always, `enabledPlugins`, hooks, MCP servers, and
-  `statusLine` don't hot-reload.
-
-The `~/.claude/state/bundle-manifest.json` manifest stores a `variant` field — it decides the
-default offered on the next flag-less run.
 
 For tests there's a hermetic mode: `CLAUDE_SETUP_SKIP_PLUGINS=1` skips the plugin-reconciliation
 step entirely (including the `claude plugin list` probe), without touching the CLI;
@@ -329,7 +268,7 @@ tests `*.test.mjs`, run via `node run-tests.mjs` — `node --test` with temp dir
   PreToolUse nudge `schedulewakeup-loop-only-nudge` (ScheduleWakeup is for /loop pacing only; a
   tracked background task's completion re-invokes the model by itself, so polling wakeups are
   pure waste).
-- **Web access (base)** — the WEB ACCESS section of CLAUDE.md routes between Context7,
+- **Web access** — the WEB ACCESS section of CLAUDE.md routes between Context7,
   `ctx_fetch_and_index` and the Scrapling MCP; the PreToolUse gate `scrapling-raw-gate` denies
   `main_content_only=false` (it turns off the hidden-content sanitizer that defends against
   prompt injection; override: `CLAUDE_SCRAPLING_ALLOW_RAW=1`), and the PostToolUse /
@@ -382,8 +321,7 @@ tests `*.test.mjs`, run via `node run-tests.mjs` — `node --test` with temp dir
   with GitLab (`glab`), GitHub (`gh`), or plain git with no CI/CD — then publishing goes through
   git alone (branch merge, push, tag, no pipeline steps). Project settings live in
   `.claude/publish.json` (host/remote/branches/cli/ci/version/changelog/tests/merge), written by
-  a first-run interview and rebuilt with `--reconfigure`. Ships in base, not lite (see
-  "Bundle variants" above).
+  a first-run interview and rebuilt with `--reconfigure`.
 - **`skill-library/` and bundled stack skills** — a new top-level directory,
   `payload/skill-library/`, separate from `payload/skills/` (which loads straight from
   `~/.claude`): it holds skills that `/init-stack` COPIES into a specific project instead of
@@ -424,14 +362,13 @@ So this package does three things:
 
 ## What goes where
 
-What follows is the **base** profile (what `lite` drops from it — see "Bundle
-variants" above). The `*.test.mjs` files next to each script stay in the repo and are not
+What follows is the bundle layout. The `*.test.mjs` files next to each script stay in the repo and are not
 installed.
 
 ```
 ~/.claude/
   CLAUDE.md                              # your curated rules (contains the marker line);
-                                          #   assembled from payload/claude-md/*.md per profile
+                                          #   assembled from payload/claude-md/*.md
   settings.json                          # your file + pre-merged keys (hooks, permissions.deny)
   hooks/
     deny-curated-claude-md.mjs           # blocks edits to a curated CLAUDE.md (any location)
@@ -439,15 +376,15 @@ installed.
     secrets-gate.mjs                     # blocks `git commit` when secrets are found in staged
     decision-records-nudge.mjs           # PreToolUse: lints a staged risk register / ADR / glossary
     scratchpad-layout-guard.mjs          # PreToolUse: denies a write/command outside the .scratchpad layout
-    worktree-executor-discipline-advisor.mjs # (not in lite) advisory: worktree discipline + large-Read backstop
+    worktree-executor-discipline-advisor.mjs # advisory: worktree discipline + large-Read backstop
     bg-supervision-nudge.mjs             # PreToolUse: nudge to wrap run_in_background in supervise-bg
     background-sleep-guard.mjs           # PreToolUse: denies a background wait-only sleep/Start-Sleep/timeout
     schedulewakeup-loop-only-nudge.mjs   # PreToolUse: ScheduleWakeup is for /loop pacing only
-    ci-watch-nudge.mjs                   # (not in lite) PostToolUse: after `git push` — nudge to `gh run watch`
+    ci-watch-nudge.mjs                   # PostToolUse: after `git push` — nudge to `gh run watch`
     prune-tests-nudge.mjs                 # PostToolUse: after `git push` — nudge to prune untagged tests
-    scrapling-raw-gate.mjs               # PreToolUse: deny Scrapling with main_content_only=false (not in lite)
-    web-block-nudge.mjs                  # PostToolUse(+Failure): block/JS shell → retry through Scrapling (not in lite)
-    phase-end-cleanup-nudge.mjs          # PostToolUse: a closed phase (NN-SUMMARY.md) nudges /scratch-prune (not in lite)
+    scrapling-raw-gate.mjs               # PreToolUse: deny Scrapling with main_content_only=false
+    web-block-nudge.mjs                  # PostToolUse(+Failure): block/JS shell → retry through Scrapling
+    phase-end-cleanup-nudge.mjs          # PostToolUse: a closed phase (NN-SUMMARY.md) nudges /scratch-prune
     pnpm-phantom-fix-hook.mjs            # PostToolUse: phantom-dependency scan after an install
     inject-axes.mjs                      # SessionStart + SubagentStart: rule-axis injector (see below)
     session-init.mjs                     # SessionStart: project bootstrap
@@ -499,7 +436,7 @@ installed.
     update-changelog/SKILL.md            # /update-changelog — git history → changelog.json (RU entries)
     model-selection-policy/SKILL.md      # model routing + the effort ladder, split out of CLAUDE.md
     scratch-prune/SKILL.md               # /scratch-prune — the layout, phases, harness sessions; three invocation modes
-    publish/SKILL.md                     # /publish — release via launch keys dev|prod|fast|step (base, not lite)
+    publish/SKILL.md                     # /publish — release via launch keys dev|prod|fast|step
   skill-library/postgres/                # bundled skill for /init-stack's install.bundled — copied into
                                           #   a project (.claude/skills/), never loaded straight from ~/.claude
   rules-src/                             # stack rule sources — NOT auto-loaded by Claude Code;
@@ -644,8 +581,7 @@ the diff is already shown). `.mjs` are always updated. To skip/replace instead �
 
 Right after MCP reconciliation, `setup.mjs` also manages two scalar keys in
 `~/.claude/settings.json` — `model` and `effortLevel` — driven by `sessionDefaults` in
-`variants.json` (currently `{ "model": "sonnet", "effortLevel": "medium" }`), on every profile,
-base/lite alike:
+`bundle.json` (currently `{ "model": "sonnet", "effortLevel": "medium" }`):
 
 - An absent key is written, no prompt.
 - A key already at the managed value is left alone — no output for it.
@@ -664,8 +600,7 @@ it's unit-tested directly; `setup.mjs` only reads/writes `settings.json` and app
 it returns.
 
 `sonnet`/`medium` is also the bundle's own model-policy default as of this version (moved from
-Opus 5.5) — see `model-selection-policy/SKILL.md` and the `12-model-selection.md`/
-`12-model-selection.lite.md` CLAUDE.md fragments for the full policy.
+Opus 5.5) — see `model-selection-policy/SKILL.md` and the `12-model-selection.md` CLAUDE.md fragment for the full policy.
 
 ---
 
@@ -687,8 +622,7 @@ itself matches.
 The `session-init.mjs` hook fires at the start of EVERY session (state lives in
 `~/.claude/state/project-init.json`, but most steps below are NOT one-time — see why). It
 **deterministically fixes files** (doesn't rely on context injection — that can be dropped on
-fresh sessions sometimes). In the **lite** variant the `/init-mcp` suggestion below is skipped
-(the command is not shipped) — see "Bundle variants" above:
+fresh sessions sometimes):
 
 - **auto-marks** an unmarked root `CLAUDE.md` as curated.
   **Re-checked every session, idempotently** (used to be one-time on a project's first session
@@ -841,7 +775,7 @@ distribution); risks — `RISK-STACKRULES-001/002` in `.ultrapowers/RISK_REGISTE
   keys, private keys, Slack/GitHub tokens, creds in connection strings, explicit secret
   assignments (env references are filtered out, for fewer false positives). If `gitleaks` is
   installed, it's used additionally. The baseline regex always works, no dependencies.
-- **worktree-executor-discipline-advisor.mjs** (PreToolUse: `Bash|Read`; base, not shipped in lite). Purely **advisory** —
+- **worktree-executor-discipline-advisor.mjs** (PreToolUse: `Bash|Read`). Purely **advisory** —
   never blocks or asks, every path resolves to `allow`. Two independent, cheap single-pass stdin
   checks bundled in one file: **(1) parallel-worktree discipline** (`Bash` only, gated on the cwd
   looking like an agent worktree `.claude/worktrees/agent-*`) — catches `pnpm/npm/yarn install`
@@ -925,7 +859,7 @@ The "background-task supervision" family. Shared idea: a hung background job NEV
   `nodemon`/`vite`/`next dev` — a wall-clock watchdog would wrongly kill those), injects a
   non-blocking reminder to wrap it in `bin/supervise-bg.mjs` (`--stale`/`--timeout`/`--label`) —
   then a stall/timeout kills the job and returns a completion event. Fail-open: any error → exit 0.
-- **ci-watch-nudge.mjs** (PostToolUse: `Bash`; base, not shipped in lite). After a `git push` in a repo with GitHub Actions
+- **ci-watch-nudge.mjs** (PostToolUse: `Bash`). After a `git push` in a repo with GitHub Actions
   (`.github/workflows` up the tree), reminds me to watch CI to completion with a backgrounded
   `gh run watch <id> --exit-status` — which EXITS when CI finishes (pass/fail) and thereby
   re-invokes me: "did CI pass?" becomes a guaranteed push event instead of something I must
@@ -939,7 +873,7 @@ The "background-task supervision" family. Shared idea: a hung background job NEV
   so the prune's own push no longer raises it. The scan is bounded (400 directories, 300 files,
   512 KB per file) and skips `node_modules`/`dist`/`build` and the rest of the build output.
   Fail-open.
-A stub that **no profile installs** (`variants.json → alwaysExclude`):
+A stub that is **not installed** (`bundle.json → alwaysExclude`):
 `hooks/task-lifecycle-probe*` — the `TaskCreated`/`TaskCompleted` schema probe. Both events are
 in the public docs, but whether they're wired in the current harness build is unconfirmed, so
 the probe only appends one line per firing and decides nothing. It stays in the repo: to use it,
@@ -949,8 +883,7 @@ Not a hook in the `hooks.*` sense (a different `settings.json` mechanism — the
 `statusLine` key, not the `PreToolUse`/`PostToolUse`/event hooks above), but the same "a script
 from this bundle, driving your Claude Code" principle — here for findability:
 
-- **statusline.mjs** (`statusLine.command`, registered — see "How the installer works" above;
-  **both profiles** — `base`, `lite` — one renderer). The line renders itself, with no subprocess
+- **statusline.mjs** (`statusLine.command`, registered — see "How the installer works" above). The line renders itself, with no subprocess
   at all — five segments left to right, joined by a dim `│`:
   1. **pending component updates**, by **name** (`⬆ context-mode impeccable`), leftmost — not a
      count;
@@ -967,9 +900,7 @@ from this bundle, driving your Claude Code" principle — here for findability:
      from `precompact-observe.mjs` for the current model (`~/.claude/state/autocompact.json`) →
      the capacity itself. The default is never a guessed reserve;
   4. **project** — the directory name only, no git branch;
-  5. **ultrapowers work status** — on every profile except `lite`. The profile is read from
-     `~/.claude/state/bundle-manifest.json`; an absent or unreadable manifest fails **open** (the
-     segment shows) — only `lite` suppresses it.
+  5. **ultrapowers work status** — shown whenever `.ultrapowers/ROADMAP.md` progress exists.
 
   Segment 5 selects a phase deterministically: `.ultrapowers/ROADMAP.md`'s frontmatter `current`,
   else the single phase whose `status: running`. Zero or several matches means the tree does not

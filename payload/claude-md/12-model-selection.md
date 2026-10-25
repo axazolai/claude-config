@@ -1,6 +1,3 @@
----
-profiles: [base]
----
 # Model Selection Policy
 - DEFAULT executor: claude-sonnet-5-5. claude-haiku-5-5 for routine and small tasks:
   classification, extraction, summaries, code the plan carries, a small one-file change, small

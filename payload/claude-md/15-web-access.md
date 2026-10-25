@@ -1,6 +1,3 @@
----
-profiles: [base]
----
 ## WEB ACCESS (tool routing)
 - Library/framework/API docs: Context7 first.
 - A static page to read or search: `ctx_fetch_and_index`, then `ctx_search` - the page stays

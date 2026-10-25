@@ -7,12 +7,12 @@ const GOOD = `# Glossary
 ## bundle
 Everything this repository installs into ~/.claude, as one unit.
 
-## profile
-A named subset of the bundle: full, base or lite.
+## payload
+The source tree the bundle is assembled from.
 `;
 
 test("@important parses terms and their definitions", () => {
-  assert.deepEqual(parseGlossary(GOOD).map((e) => e.term), ["bundle", "profile"]);
+  assert.deepEqual(parseGlossary(GOOD).map((e) => e.term), ["bundle", "payload"]);
   assert.match(parseGlossary(GOOD)[0].definition, /installs into/);
 });
 
@@ -25,7 +25,7 @@ test("@important a duplicate term is reported", () => {
 });
 
 test("@important terms out of alphabetical order are reported", () => {
-  const out = `# Glossary\n\n## profile\nA subset.\n\n## bundle\nA unit.\n`;
+  const out = `# Glossary\n\n## payload\nA subset.\n\n## bundle\nA unit.\n`;
   assert.match(lintGlossary(out)[0].problem, /order/i);
 });
 

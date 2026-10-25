@@ -1,7 +1,7 @@
 // Pure plugin reconciliation plan (spec § 4). No fs/process access here — setup.mjs executes.
 //
-// `forbidden` is a stronger statement than "absent from this profile": the plugin must not exist
-// on the machine at all, so it is removed on sight and can never be installed — not by a profile
+// `forbidden` is a stronger statement than "not required": the plugin must not exist
+// on the machine at all, so it is removed on sight and can never be installed — not by the bundle
 // that names it, and not by keepInstalled. context7 is the case that motivated it: it is reached
 // through its MCP server, and the marketplace plugin of the same name shadows that.
 export function buildPluginPlan({ required, managed, enabledPlugins, installedIds, keepInstalled = [], forbidden = [], marketplaces, knownMarketplaces }) {
@@ -15,10 +15,10 @@ export function buildPluginPlan({ required, managed, enabledPlugins, installedId
   for (const name of required) {
     const id = managed[name];
     if (!id) continue;
-    // Defensive: a profile naming a forbidden plugin is a config error the variants test catches,
+    // Defensive: a bundle naming a forbidden plugin is a config error the bundle test catches,
     // but it must never be the thing that puts it back on the machine.
     if (banned.has(name)) {
-      notes.push(`${name} (${id}) is forbidden and was ignored: it is reached through its MCP server, not as a plugin - drop "${name}" from the profile`);
+      notes.push(`${name} (${id}) is forbidden and was ignored: it is reached through its MCP server, not as a plugin - drop "${name}" from bundle.json plugins`);
       continue;
     }
     // `claude plugin install` fails outright when the marketplace is unknown, so it goes first.
@@ -27,7 +27,7 @@ export function buildPluginPlan({ required, managed, enabledPlugins, installedId
       registered.add(marketplace);
       const source = (marketplaces || {})[marketplace];
       if (source) actions.push({ type: "marketplace_add", name, id, marketplace, source });
-      else notes.push(`marketplace "${marketplace}" is required by ${id} but is not registered and has no recorded source - add it to variants.json marketplaces, then re-run`);
+      else notes.push(`marketplace "${marketplace}" is required by ${id} but is not registered and has no recorded source - add it to bundle.json marketplaces, then re-run`);
     }
     if (cli && !installedIds.includes(id)) actions.push({ type: "install", name, id });
     else if (!cli && !(id in enabled)) notes.push(`if not installed yet, run: claude plugin install ${id}`);
@@ -83,5 +83,5 @@ export function describeAction(a) {
 
 export function formatPlan(actions, notes) {
   const lines = actions.map((a) => `  ${a.type.padEnd(9)} ${a.type === "marketplace_add" ? `${a.source} (marketplace "${a.marketplace}", needed by ${a.id})` : a.id}`);
-  return [...lines, ...notes.map((n) => `  NOTE: ${n}`)].join("\n") || "  (plugins already match the variant)";
+  return [...lines, ...notes.map((n) => `  NOTE: ${n}`)].join("\n") || "  (plugins already match the bundle)";
 }

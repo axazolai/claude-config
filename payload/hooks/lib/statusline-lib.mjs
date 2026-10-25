@@ -1,6 +1,6 @@
 // payload/hooks/lib/statusline-lib.mjs
-// Profile-neutral statusline logic: token/window formatting and the context segment,
-// shared by every profile's renderer (payload/hooks/statusline.mjs).
+// Statusline logic: token/window formatting and the context segment, used by the renderer
+// (payload/hooks/statusline.mjs).
 
 /** e.g. 123400 -> "123.4K" (thousands, always one decimal digit) */
 export function formatCurrentTokens(n) {

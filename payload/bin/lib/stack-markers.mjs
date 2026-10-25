@@ -1,7 +1,7 @@
 // Stack detection: file/dep markers -> stack ids, and stack id -> setting-template relpath.
 // Ported 1:1 from payload/bin/init-stack.py (STACK_PATHS :320-343, detect() :151-225 + helpers).
 // Self-contained: this module ships inside payload/ (installed standalone into ~/.claude), so it
-// must not import from the repo-root variants.mjs (installer-meta, not shipped at runtime).
+// must not import from the repo-root bundle.mjs (installer-meta, not shipped at runtime).
 import { readFileSync, readdirSync, existsSync } from "node:fs";
 import { join } from "node:path";
 
@@ -22,7 +22,7 @@ function readJson(p) {
 // Minimal fnmatch-equivalent (local, no repo-root import): "*" -> any run of chars, "?" -> one
 // char, case-insensitive (mirrors Python's fnmatch.fnmatch on Windows, our primary target).
 // Patterns here are always matched against a bare file/dir NAME, never a path, so unlike
-// variants.mjs's path-aware globToRe there's no "*" vs "/" distinction to make.
+// bundle.mjs's path-aware globToRe there's no "*" vs "/" distinction to make.
 function fnmatchOne(name, pattern) {
   const re = pattern.replace(/[.+^${}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*").replace(/\?/g, ".");
   return new RegExp(`^${re}$`, "i").test(name);

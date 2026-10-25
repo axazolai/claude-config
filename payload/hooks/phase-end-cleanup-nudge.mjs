@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// PostToolUse nudge (matcher: Write|Edit|MultiEdit; base/full only). Fires once per phase when a
+// PostToolUse nudge (matcher: Write|Edit|MultiEdit). Fires once per phase when a
 // phase's <NN>-SUMMARY.md is written (.ultrapowers/phases/<NN>-<slug>/<NN>-SUMMARY.md) while
 // ultrapowers is enabled (22-SPEC.md §3.3): nudges the scratch-prune skill for that phase before
 // the branch finishes. Enabled-check cascades project .claude/settings.json ->

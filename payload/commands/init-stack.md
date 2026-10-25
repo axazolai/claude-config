@@ -59,7 +59,7 @@ detection output - so the subagent must re-serialise it to a single line itself.
 list can seed which rules to select, but it is flat and root-scoped - the per-workspace attribution
 the snapshot's `stacks:`/`markers:` maps need comes from `markers`, not from it. On `"stale"`,
 name the "Updating an existing snapshot
-after drift" step (its number differs per profile) and have the subagent update additively rather
+after drift" step and have the subagent update additively rather
 than regenerate.
 
 Then re-run the check. It must now print `"ok"`. Anything else means the snapshot was written but

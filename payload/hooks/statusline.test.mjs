@@ -152,26 +152,24 @@ test("@important entry point: the same input renders the same line twice", () =>
   assert.equal(runEntry(input).stdout, runEntry(input).stdout);
 });
 
-const claudeDirWithProfile = (name, profile) => {
+const claudeDirWithManifest = (name, manifest) => {
   const d = dir(name);
-  if (profile !== undefined) write(join(d, "state", "bundle-manifest.json"), JSON.stringify({ profile }));
+  if (manifest !== undefined) write(join(d, "state", "bundle-manifest.json"), JSON.stringify(manifest));
   return d;
 };
 
-// A machine installed by a pre-`profile` bundle carries `variant` only. Without the fallback a
-// legacy lite install resolves to null, fails open, and shows the segment lite exists to suppress.
-test("@important entry point: lite suppresses the ultrapowers segment, base keeps it", () => {
+test("@important entry point: the ultrapowers segment shows whenever progress exists, whatever the manifest says", () => {
   const root = dir("up-gate");
   write(join(root, ".ultrapowers", "ROADMAP.md"), ["---", "current: null", "phases:",
     '  - { phase: "01", slug: my-plan, status: complete }', "---", "", "# Roadmap"].join("\n"));
 
-  const onLite = runEntry(payload(root), { claudeDir: claudeDirWithProfile("cd-lite", "lite") });
-  assert.doesNotMatch(strip(onLite.stdout), /my-plan/);
+  const liteEra = runEntry(payload(root), { claudeDir: claudeDirWithManifest("cd-lite", { profile: "lite", files: [] }) });
+  assert.match(strip(liteEra.stdout), /my-plan/, "a lite-era manifest must not suppress the segment");
 
-  const onBase = runEntry(payload(root), { claudeDir: claudeDirWithProfile("cd-base", "base") });
-  assert.match(strip(onBase.stdout), /my-plan/);
+  const current = runEntry(payload(root), { claudeDir: claudeDirWithManifest("cd-cur", { files: [] }) });
+  assert.match(strip(current.stdout), /my-plan/);
 
-  const noManifest = runEntry(payload(root), { claudeDir: claudeDirWithProfile("cd-nomanifest") });
+  const noManifest = runEntry(payload(root), { claudeDir: claudeDirWithManifest("cd-nomanifest") });
   assert.match(strip(noManifest.stdout), /my-plan/, "an absent manifest must fail open");
 });
 

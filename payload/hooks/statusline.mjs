@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// statusLine renderer for every profile - base, lite. Composes pending updates, model,
+// statusLine renderer. Composes pending updates, model,
 // context, project, and (when applicable) ultrapowers work status into one line, with no
 // subprocess spawned. Any error yields empty output - the statusline never breaks the prompt.
 import { readFileSync, writeFileSync, realpathSync } from "node:fs";
@@ -31,11 +31,6 @@ export function paintContext(text, opts) {
   if (!text) return "";
   const painted = colour ? `\x1b[${colour}m${text}\x1b[0m` : text;
   return icon ? `${icon} ${painted}` : painted;
-}
-
-export function installedProfile(claudeDir) {
-  const m = safe(() => JSON.parse(readFileSync(join(claudeDir, "state", "bundle-manifest.json"), "utf8")));
-  return (m && (m.profile || m.variant)) || null;
 }
 
 export function render({ updates, model, context, ds, project, up } = {}) {
@@ -89,7 +84,7 @@ async function main(raw) {
     context: safe(() => contextSegment(data), "") || "",
     ds: safe(() => dsSegment({ root, claudeDir: CLAUDE_DIR }), "") || "",
     project: basename(root),
-    up: !progress || installedProfile(CLAUDE_DIR) === "lite" ? "" : (safe(() => upState(root)) || ""),
+    up: progress ? (safe(() => upState(root)) || "") : "",
   }));
 }
 

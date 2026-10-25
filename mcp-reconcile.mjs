@@ -45,7 +45,7 @@ export const describePostAdd = (a) => postAddArgv(a)?.map(quote).join(" ") ?? nu
 export function formatMcpPlan(actions, notes) {
   const lines = actions.flatMap((a) => [`  ${a.type.padEnd(6)} ${describeMcpAction(a)}`,
     ...(postAddArgv(a) ? [`  then   ${describePostAdd(a)}`] : [])]);
-  return [...lines, ...notes.map((n) => `  NOTE: ${n}`)].join("\n") || "  (MCP servers already match the variant)";
+  return [...lines, ...notes.map((n) => `  NOTE: ${n}`)].join("\n") || "  (MCP servers already match the bundle)";
 }
 
 // cmd.exe argument for an npm `claude.cmd` shim, which only runs through a shell.

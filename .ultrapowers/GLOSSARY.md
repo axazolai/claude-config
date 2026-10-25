@@ -25,17 +25,9 @@ A set of bundle components a profile may include or omit as a unit.
 ## payload
 The source tree under `payload/` from which the bundle is assembled. Contrast `bundle`.
 
-## profile
-A named subset of the bundle: `full`, `base` or `lite`. Replaced the earlier two-variant
-allowlist model.
-
 ## protected
 A path listed in a `.protected` file, which may be read and copied from but never edited,
 deleted or moved. Enforced by a hook; the rule binds at its directory and every level below.
 
 ## tier
 A model capability level used when choosing which model runs a role.
-
-## variant
-The pre-profile name for the same idea. Retained only where old code and old documents use it;
-new text says `profile`.

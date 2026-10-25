@@ -3,10 +3,10 @@ import assert from "node:assert/strict";
 import { buildPluginPlan } from "./plugin-reconcile.mjs";
 
 const MANAGED = { superpowers: "superpowers@m", extra: "extra@m", "context-mode": "cm@m", context7: "c7@m" };
-const LITE = ["superpowers", "context-mode", "context7"];
+const REQUIRED = ["superpowers", "context-mode", "context7"];
 
 test("@important surplus plugin: uninstall + disable when installed and enabled", () => {
-  const { actions } = buildPluginPlan({ required: LITE, managed: MANAGED,
+  const { actions } = buildPluginPlan({ required: REQUIRED, managed: MANAGED,
     enabledPlugins: { "superpowers@m": true, "extra@m": true, "cm@m": true, "c7@m": true },
     installedIds: ["superpowers@m", "extra@m", "cm@m", "c7@m"] });
   assert.deepEqual(actions, [
@@ -16,7 +16,7 @@ test("@important surplus plugin: uninstall + disable when installed and enabled"
 });
 
 test("@important CLI unavailable: enabledPlugins edits still planned, install/uninstall become notes", () => {
-  const { actions, notes } = buildPluginPlan({ required: LITE, managed: MANAGED,
+  const { actions, notes } = buildPluginPlan({ required: REQUIRED, managed: MANAGED,
     enabledPlugins: { "extra@m": true }, installedIds: null });
   assert.ok(actions.every((a) => a.type === "enable" || a.type === "disable"));
   assert.ok(notes.some((n) => n.includes("claude plugin uninstall extra@m")));
@@ -24,7 +24,7 @@ test("@important CLI unavailable: enabledPlugins edits still planned, install/un
 });
 
 test("@important unknown user plugins untouched; empty enabledPlugins object preserved semantics", () => {
-  const { actions } = buildPluginPlan({ required: LITE, managed: MANAGED,
+  const { actions } = buildPluginPlan({ required: REQUIRED, managed: MANAGED,
     enabledPlugins: { "my-own@x": true, "superpowers@m": true, "cm@m": true, "c7@m": true },
     installedIds: ["my-own@x", "superpowers@m", "cm@m", "c7@m"] });
   assert.deepEqual(actions, []);   // my-own@x invisible; nothing to do

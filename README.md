@@ -20,9 +20,7 @@ node setup.mjs
 - [Порядок действий](#порядок-действий)
   - [Первичная настройка (новый ПК)](#первичная-настройка-новый-пк)
   - [Перенастройка](#перенастройка)
-- [Варианты бандла (base/lite)](#варианты-бандла-baselite)
-  - [Выбор варианта](#выбор-варианта)
-  - [Переключение варианта](#переключение-варианта)
+- [Состав бандла](#состав-бандла)
 - [Перенос `~/.claude` на другой диск](#перенос-claude-на-другой-диск)
 - [Дополнительные подсистемы (bin/команды/хуки)](#дополнительные-подсистемы-binкомандыхуки)
 - [Зачем это всё (проблема → решение)](#зачем-это-всё-проблема-решение)
@@ -118,18 +116,13 @@ notepad bootstrap.ps1; .\bootstrap.ps1
    - **7. отметка о прогоне** — `hooks/lib/mark-initstack-done.mjs` (даёт leanmode-диалу
      проекта дефолт `full`).
 
-      `fallow` теперь доезжает во все профили через плагин (дельта `001-fallow-graft` в форке
+      `fallow` доезжает через плагин (дельта `001-fallow-graft` в форке
    ultrapowers), а `claude_orchestration` снят сознательно — см. RISK-INITSTACK-001, закрыт
    2026-07-27.
 4. **Перезапусти Claude Code ещё раз** — `enabledPlugins` тоже резолвится только при старте.
 
 Итого на новый ПК: `setup.mjs` — один раз, `/init-stack` — на каждый проект (сразу после
 клонирования репозитория или когда в нём впервые понадобились плагины).
-
-> Шаг 3 и вся таблица «Перенастройка» ниже описывают **base**-профиль `/init-stack`
-> (Node-скрипт + plugin-machinery). В **lite**-варианте `/init-stack` — не то же самое: он
-> только детектит стек и собирает `.claude/stack-rules.md`, без установки/включения
-> плагинов вообще. Подробности и как выбрать/переключить вариант — «Варианты бандла» ниже.
 
 ### Перенастройка
 
@@ -147,47 +140,43 @@ notepad bootstrap.ps1; .\bootstrap.ps1
 
 ---
 
-## Варианты бандла (base/lite)
+## Состав бандла
 
-Бандл ставится в одном из двух профилей. Выбор не привязан к первой установке — переключиться
-можно в любой момент повторным запуском `setup.mjs`. Профили описаны в `variants.json`
-(`lite` наследует `base` через `extends`; `exclude` выигрывает у `include`).
+Бандл один: `setup.mjs` ставит каждый файл из `payload/`, кроме `alwaysExclude`. Состав описан в
+`bundle.json`:
 
-- **base** (дефолт) — всё, что описано в этом README: все хуки, все команды, все скиллы.
-  Плагины: `ultrapowers`, `context-mode`.
-- **lite** — base минус всё, что требует тяжёлой оснастки:
-  - плагин ровно один — `context-mode`. `ultrapowers` в lite **ставится на диск, но не
-    включается** (`variants.json → keepInstalled`), поэтому вернуть его — одна команда, а не
-    переустановка из маркетплейса;
-  - ровно 7 хуков: `secrets-gate`, `deny-curated-claude-md`, `protected-guard`,
-    `decision-records-nudge`, `inject-axes`,
-    `precompact-observe`, `session-init` (последний работает, но без подсказки
-    `/init-mcp` — см. «Авто-инициализация проектов» ниже);
-  - `leanmode`; два «ленивых» скилла
-    (`model-selection-policy`, `update-changelog`);
-  - свой `/init-stack` — только детект стека + сборка `.claude/stack-rules.md`, без
-    python/plugin-machinery (см. врезку в «Первичная настройка» выше);
-  - своя версия `rules-src/README.md` и свой `model-selection-policy` —
-    оба берутся из оверлея `payload-lite/`, который накладывается поверх `payload/`.
-    `CLAUDE.md` оверлеем НЕ подменяется: он собирается пофрагментно из `payload/claude-md/*.md`
-    по профилю (`bin/lib/assemble-claude-md.mjs`, фронтматтер `profiles:` в каждом фрагменте);
-  - **НЕТ** относительно base: `schedulewakeup`-нуджа, `prune-tests-nudge`, `ci-watch-nudge`,
-    `worktree-executor-discipline-advisor`, pnpm-phantom-guard, bg-supervision
-    (`supervise-bg.mjs`), turbopack-проверки, команд `/init-mcp` и `/pnpm-phantom-fix`, скилла
-    `/publish`.
+- `alwaysExclude` — файлы `payload/`, которые не ставятся;
+- `plugins` — `ultrapowers`, `context-mode`;
+- `mcpServers` — `scrapling`, `context7`, `deepseek`;
+- `deepseekDefault` — уровень DeepSeek-офлоада по умолчанию (`medium`);
+- `managedPlugins`, `marketplaces`, `forbiddenPlugins` — какими плагинами и маркетплейсами
+  управляет установщик и что он не допускает;
+- `keepInstalled` — плагины, которые остаются на диске выключенными (`superpowers`);
+- `sessionDefaults` — `model` и `effortLevel` в `settings.json`;
+- `managedMcpServers` — MCP-серверы уровня пользователя, которые установщик сверяет.
 
-Профиль `full` удалён. `--variant=full` или `full` в старом манифесте превращается в `base` и
-печатает `profile "full" was removed; using "base"`.
+Не ставятся (`bundle.json → alwaysExclude`): `hooks/task-lifecycle-probe*` (probe-логгер схемы
+`TaskCreated`/`TaskCompleted` — остаётся в репозитории как заготовка, но не ставится и не
+регистрируется), `claude-md/**` (фрагменты — сырьё сборки `CLAUDE.md`, а не файлы для
+`~/.claude`) и `**.test.mjs`.
 
-Ни в один профиль не входят (`variants.json → alwaysExclude`): `hooks/task-lifecycle-probe*`
-(probe-логгер схемы `TaskCreated`/`TaskCompleted` — остаётся в репозитории как заготовка, но не
-ставится и не регистрируется), `claude-md/**` (фрагменты — сырьё сборки `CLAUDE.md`, а не файлы
-для `~/.claude`) и `**.test.mjs`.
+Скилл-плагин — `ultrapowers@ultrapowers`; апстрим `superpowers` остаётся установленным, но
+выключенным (`keepInstalled`), поэтому откат — одна команда (см. «`ultrapowers` вместо
+`superpowers`» ниже).
+
+Повторный запуск `setup.mjs` удаляет файлы, вышедшие из бандла: список строится по манифесту
+`~/.claude/state/bundle-manifest.json`, перед удалением установщик спрашивает подтверждение
+(`y/N`). Файлы, которых в манифесте никогда не было (твои собственные), он не трогает; курируемые
+файлы и файлы, изменённые тобой вручную (хэш на диске не совпадает с записанным), в prune не
+попадают.
+
+После изменений `enabledPlugins`, хуков, MCP-серверов и `statusLine` **перезапусти Claude Code** —
+на лету они не подхватываются.
+
 
 ### `ultrapowers` вместо `superpowers`
 
-Базовым скилл-плагином в `base` стоит **`ultrapowers@ultrapowers`** (в `lite` он
-ставится на диск, но не включается) — наш форк
+Базовым скилл-плагином стоит **`ultrapowers@ultrapowers`** — наш форк
 [`obra/superpowers`](https://github.com/obra/superpowers) (Jesse Vincent, MIT), сужённый до
 Claude Code. Живёт в [`axazolai/ultrapowers`](https://github.com/axazolai/ultrapowers): ветка
 `original` хранит нетронутые снимки апстрима, `patch` — карту плагина, преобразование
@@ -200,7 +189,7 @@ Claude Code. Живёт в [`axazolai/ultrapowers`](https://github.com/axazolai/
 причиной на каждое правило. Файл, появившийся у апстрима и не попавший ни в один список, блокирует
 сборку до решения человека.
 
-**Апстрим выключается, но не удаляется** (`variants.json → keepInstalled`): откат — одна команда
+**Апстрим выключается, но не удаляется** (`bundle.json → keepInstalled`): откат — одна команда
 (включить `superpowers`, выключить форк), а не переустановка из маркетплейса. Одновременно
 включать оба не следует — они делят 14 имён скиллов.
 
@@ -214,53 +203,6 @@ Claude Code. Живёт в [`axazolai/ultrapowers`](https://github.com/axazolai/
 пересобирает во временном клоне и либо отказывается с указанием причины, либо готовит релиз и
 останавливается. Публикация требует явного `--publish`, а доставка на машину — отдельный
 `/plugin update`.
-
-### Выбор варианта
-
-- Интерактивно: `node setup.mjs` спрашивает `bundle profile [base/lite] (Enter = …)` — дефолт
-  (Enter) берётся из того, что уже стоит по `~/.claude/state/bundle-manifest.json` (поле
-  `variant`), а на чистой машине — `base`.
-- Флагом: `node setup.mjs --variant=lite` — пропускает вопрос.
-- Без терминала и без флага (CI, non-TTY): берётся тот же вариант, что уже установлен, иначе
-  `base`.
-- Через bootstrap: POSIX — `curl ... | bash -s -- --variant=lite`; Windows —
-  `$env:CLAUDE_SETUP_ARGS='--variant=lite'; irm ... | iex` — тот же механизм проброса флагов, что
-  и `--replace-all` (см. «Установка на новом ПК» выше). Сам bootstrap-код под вариант не менялся —
-  флаг просто доезжает до `setup.mjs` как обычно.
-
-### Переключение варианта
-
-Переустанови: `node setup.mjs` (интерактивно выбери другой вариант, или сразу
-`--variant=base`/`--variant=lite`). Установщик:
-
-- находит файлы, которых нет в новом варианте, но которые остались на диске (surplus после
-  переключения), печатает список и спрашивает подтверждение на удаление (`y/N`) — тем же
-  prune-механизмом, что чистит вообще устаревшие файлы бандла (см. «Как работает установщик»
-  выше). **Курируемые файлы и файлы, изменённые тобой вручную** (хэш на диске не совпадает с тем,
-  что записал последний `setup.mjs`), в prune не попадают — остаются как есть, даже если новый
-  вариант их не включает.
-- фильтрует записи хуков в `settings.json` под новый вариант: переход на профиль без части
-  хуков снимает их, обратный переход возвращает. Ключ `statusLine` профили больше не различают — один
-  и тот же `statusline.mjs` регистрируется на base и lite (см. «Что делает каждый хук и
-  почему» ниже), поэтому переключение варианта его не трогает; твой собственный, не-бандловый
-  `statusLine` по-прежнему не трогается.
-- сверяет набор плагинов и печатает план (что поставить/убрать, что включить/выключить) —
-  спрашивает подтверждение (`y/N`) перед вызовом `claude plugin install/uninstall`; если CLI
-  `claude` не найден в PATH, вместо выполнения печатает команды для ручного запуска.
-- сверяет MCP-серверы уровня пользователя из `managedMcpServers` в `variants.json`: base получает
-  `scrapling` (`uvx --from "scrapling[ai]" scrapling-mcp`, нужен `uv`) и `context7`
-  (HTTP; ключ берётся из переменной окружения `CONTEXT7_API_KEY`, без неё сервер
-  регистрируется без ключа), lite — ни одного. Уже настроенный сервер не перезаписывается.
-  `--replace-all` добавляет недостающие, а удаление только печатает командой для ручного
-  запуска. Сразу после добавления `scrapling` скачиваются его браузеры для stealth/dynamic
-  (`uvx --from "scrapling[ai]" scrapling install`); при сбое команда печатается для ручного
-  запуска. Дочерний профиль без `mcpServers` наследует список родителя. Значение ключа в
-  вывод не попадает.
-- **требует перезапуска Claude Code** — как и всегда, `enabledPlugins`, хуки, MCP-серверы и
-  `statusLine` не подхватываются на лету.
-
-Манифест `~/.claude/state/bundle-manifest.json` хранит поле `variant` — оно решает, какой вариант
-подставится дефолтом при следующем запуске без флага.
 
 Для тестов есть герметичный режим: `CLAUDE_SETUP_SKIP_PLUGINS=1` полностью пропускает шаг
 плагиновой реконсиляции (и сам probe `claude plugin list`), не трогая CLI;
@@ -320,7 +262,7 @@ Claude Code. Живёт в [`axazolai/ultrapowers`](https://github.com/axazolai/
   PostToolUse `prune-tests-nudge` (после `git push` — вычистить непомеченные тесты) +
   PreToolUse-нудж `schedulewakeup-loop-only-nudge` (ScheduleWakeup — только для /loop-пейсинга;
   завершение отслеживаемой фоновой задачи ре-инвокает модель само, wakeup-поллинг — впустую).
-- **Веб-доступ (base)** — секция WEB ACCESS в CLAUDE.md разводит Context7,
+- **Веб-доступ** — секция WEB ACCESS в CLAUDE.md разводит Context7,
   `ctx_fetch_and_index` и Scrapling MCP; PreToolUse-гейт `scrapling-raw-gate` запрещает
   `main_content_only=false` (он выключает санитайзер скрытого контента — защиту от
   prompt injection; обход — `CLAUDE_SCRAPLING_ALLOW_RAW=1`), а PostToolUse/PostToolUseFailure
@@ -370,8 +312,7 @@ Claude Code. Живёт в [`axazolai/ultrapowers`](https://github.com/axazolai/
   голым git без CI/CD — тогда публикация идёт только через git (мёрдж веток, push, тег, без
   шагов пайплайна). Настройки проекта — `.claude/publish.json`
   (host/remote/branches/cli/ci/version/changelog/tests/merge), пишутся первым запуском-интервью,
-  пересобираются флагом `--reconfigure`. Ставится в base, в lite — нет (см. «Варианты
-  бандла» выше).
+  пересобираются флагом `--reconfigure`. Ставится всегда.
 - **`skill-library/` и bundled стек-скиллы** — новый верхнеуровневый каталог
   `payload/skill-library/`, отдельно от `payload/skills/` (те грузятся напрямую из
   `~/.claude`): здесь лежат скиллы, которые `/init-stack` КОПИРУЕТ в конкретный проект, а не
@@ -411,13 +352,12 @@ Claude Code. Живёт в [`axazolai/ultrapowers`](https://github.com/axazolai/
 
 ## Что куда ставится
 
-Ниже — состав **base**-профиля (что из него убирает `lite` — см. «Варианты бандла»
-выше). `*.test.mjs` рядом с каждым скриптом остаются в репозитории и не ставятся.
+Ниже — состав бандла. `*.test.mjs` рядом с каждым скриптом остаются в репозитории и не ставятся.
 
 ```
 ~/.claude/
   CLAUDE.md                              # твои курируемые правила (содержит строку-маркер);
-                                          #   собирается из payload/claude-md/*.md под профиль
+                                          #   собирается из payload/claude-md/*.md
   settings.json                          # твой файл + до-мёрженные ключи (hooks, permissions.deny)
   hooks/
     deny-curated-claude-md.mjs           # блок правок курируемого CLAUDE.md (любая локация)
@@ -425,15 +365,15 @@ Claude Code. Живёт в [`axazolai/ultrapowers`](https://github.com/axazolai/
     secrets-gate.mjs                     # блок `git commit` при найденных секретах в staged
     decision-records-nudge.mjs           # PreToolUse: линт риск-регистра/ADR/глоссария на коммите
     scratchpad-layout-guard.mjs          # PreToolUse: запись/команда вне раскладки .scratchpad — deny
-    worktree-executor-discipline-advisor.mjs # (нет в lite) advisory: дисциплина worktree + backstop больших Read
+    worktree-executor-discipline-advisor.mjs # advisory: дисциплина worktree + backstop больших Read
     bg-supervision-nudge.mjs             # PreToolUse: нудж обернуть run_in_background в supervise-bg
     background-sleep-guard.mjs           # PreToolUse: запрет фонового sleep/Start-Sleep/timeout без работы
     schedulewakeup-loop-only-nudge.mjs   # PreToolUse: ScheduleWakeup — только для /loop-пейсинга
-    ci-watch-nudge.mjs                   # (нет в lite) PostToolUse: после `git push` — нудж `gh run watch`
+    ci-watch-nudge.mjs                   # PostToolUse: после `git push` — нудж `gh run watch`
     prune-tests-nudge.mjs                 # PostToolUse: после `git push` — нудж вычистить непомеченные тесты
-    scrapling-raw-gate.mjs               # PreToolUse: запрет Scrapling с main_content_only=false (нет в lite)
-    web-block-nudge.mjs                  # PostToolUse(+Failure): блок/JS-оболочка → повторить через Scrapling (нет в lite)
-    phase-end-cleanup-nudge.mjs          # PostToolUse: закрытие фазы (NN-SUMMARY.md) → нудж /scratch-prune (нет в lite)
+    scrapling-raw-gate.mjs               # PreToolUse: запрет Scrapling с main_content_only=false
+    web-block-nudge.mjs                  # PostToolUse(+Failure): блок/JS-оболочка → повторить через Scrapling
+    phase-end-cleanup-nudge.mjs          # PostToolUse: закрытие фазы (NN-SUMMARY.md) → нудж /scratch-prune
     pnpm-phantom-fix-hook.mjs            # PostToolUse: скан фантомных зависимостей после install
     inject-axes.mjs                      # SessionStart + SubagentStart: инжектор осей правил (см. ниже)
     session-init.mjs                     # SessionStart: бутстрап проекта
@@ -485,7 +425,7 @@ Claude Code. Живёт в [`axazolai/ultrapowers`](https://github.com/axazolai/
     update-changelog/SKILL.md            # /update-changelog — git-история → changelog.json (RU-записи)
     model-selection-policy/SKILL.md      # routing моделей + effort-лестница, вынесен из CLAUDE.md
     scratch-prune/SKILL.md               # /scratch-prune — раскладка, фазы, harness-сессии; три режима вызова
-    publish/SKILL.md                     # /publish — релиз через launch-keys dev|prod|fast|step (base, не lite)
+    publish/SKILL.md                     # /publish — релиз через launch-keys dev|prod|fast|step
   skill-library/postgres/                # bundled-скилл для /init-stack install.bundled — копируется
                                           #   в проект (.claude/skills/), не грузится напрямую из ~/.claude
   rules-src/                             # источник правил стека — НЕ автозагружается Claude Code;
@@ -541,7 +481,7 @@ Claude Code. Живёт в [`axazolai/ultrapowers`](https://github.com/axazolai/
     верхнеуровневый ключ `statusLine` — **но не безусловно**: перезаписывается только пустое
     значение или команда, указывающая на `statusline.mjs` бандла; значение, указывающее на
     что-то ещё (твой кастомный statusline), оставляется как есть. Записываемая команда — одна и
-    та же для обоих профилей: `node "<путь>/statusline.mjs"` (в кавычках, только прямые
+    та же: `node "<путь>/statusline.mjs"` (в кавычках, только прямые
     слэши — безопасно, даже если путь до `$HOME` содержит пробел). Подробности — «Что делает каждый хук и почему» ниже.
   - курируемый `.md`/текст — слить автоматически нельзя, дифф выше и ЕСТЬ результат мёржа.
     Ничего не пишется — ни в сам файл, ни рядом (никаких `<имя>.new`): твой файл остаётся
@@ -630,8 +570,8 @@ node setup.mjs --doctor        # проверить пути зарегистр�
 ### Дефолты сессии (`model`, `effortLevel`) → `settings.json`
 
 Сразу после сверки MCP `setup.mjs` также управляет двумя скалярными ключами в
-`~/.claude/settings.json` — `model` и `effortLevel` — по `sessionDefaults` из `variants.json`
-(сейчас `{ "model": "sonnet", "effortLevel": "medium" }`), на любом профиле — base/lite:
+`~/.claude/settings.json` — `model` и `effortLevel` — по `sessionDefaults` из `bundle.json`
+(сейчас `{ "model": "sonnet", "effortLevel": "medium" }`):
 
 - Отсутствующий ключ дописывается, без вопроса.
 - Ключ, уже равный управляемому значению, не трогается — без вывода.
@@ -651,7 +591,7 @@ node setup.mjs --doctor        # проверить пути зарегистр�
 
 `sonnet`/`medium` — это и есть собственный дефолт модели-политики бандла начиная с этой версии
 (раньше был Opus 5.5) — см. `model-selection-policy/SKILL.md` и фрагменты CLAUDE.md
-`12-model-selection.md`/`12-model-selection.lite.md`.
+`12-model-selection.md`.
 
 ---
 
@@ -673,8 +613,7 @@ node setup.mjs --doctor        # проверить пути зарегистр�
 Хук `session-init.mjs` срабатывает на старте КАЖДОЙ сессии (состояние — в
 `~/.claude/state/project-init.json`, но большинство шагов ниже НЕ одноразовые — см. почему). Он
 **детерминированно правит файлы** (не полагается на инъекцию контекста — она на свежих сессиях
-иногда теряется). В **lite**-варианте подсказка `/init-mcp` ниже пропускается
-(команда не ставится) — см. «Варианты бандла» выше:
+иногда теряется):
 
 - **авто-маркирует** немаркированный рут-`CLAUDE.md` как курируемый. **Перепроверяется каждую сессию, идемпотентно** (раньше было одноразово на
   первую сессию проекта — оказалось багом: если рут-`CLAUDE.md` на первой сессии ещё не
@@ -827,7 +766,7 @@ README (источник истины — сами `rules-src/*.md` и их `REA
   AWS-ключи, приватные ключи, токены Slack/GitHub, креды в строках подключения, явные присваивания
   секретов (env-ссылки отфильтровываются, чтобы меньше ложных). Если установлен `gitleaks` — он
   используется дополнительно. Базовый regex работает всегда, без зависимостей.
-- **worktree-executor-discipline-advisor.mjs** (PreToolUse: `Bash|Read`; base, в lite не ставится). Чисто **advisory** —
+- **worktree-executor-discipline-advisor.mjs** (PreToolUse: `Bash|Read`). Чисто **advisory** —
   никогда не блокирует и не спрашивает, любой путь резолвится в `allow`. Два независимых дешёвых
   stdin-чека в одном файле (оба — одноразовый проход, делить нечего): **(1) дисциплина
   параллельных worktree** (только `Bash`, срабатывает лишь когда cwd похож на агентский worktree
@@ -915,7 +854,7 @@ README (источник истины — сами `rules-src/*.md` и их `REA
   их watchdog по wall-clock убил бы зря), инжектит неблокирующее напоминание обернуть её в
   `bin/supervise-bg.mjs` (`--stale`/`--timeout`/`--label`) — тогда застой/таймаут убьёт задачу и
   вернёт событие завершения. Fail-open: любая ошибка → exit 0.
-- **ci-watch-nudge.mjs** (PostToolUse: `Bash`; base, в lite не ставится). После `git push` в репо с GitHub Actions
+- **ci-watch-nudge.mjs** (PostToolUse: `Bash`). После `git push` в репо с GitHub Actions
   (`.github/workflows` вверх по дереву) напоминает досмотреть CI до конца фоновым
   `gh run watch <id> --exit-status` — он ВЫХОДИТ, когда CI финиширует (pass/fail), и тем самым
   переподнимает меня: «прошёл ли CI?» становится гарантированным push-событием, а не тем, что
@@ -928,7 +867,7 @@ README (источник истины — сами `rules-src/*.md` и их `REA
   поднимает вопрос. Срабатывает, только пока непомеченные тесты реально есть, поэтому пуш самой
   чистки его уже не поднимает. Скан ограничен (400 каталогов, 300 файлов, 512 КБ на файл),
   `node_modules`/`dist`/`build` и прочая сборка пропускаются. Fail-open.
-Заготовка, которая **не ставится ни в одном профиле** (`variants.json → alwaysExclude`):
+Заготовка, которая **не ставится** (`bundle.json → alwaysExclude`):
 `hooks/task-lifecycle-probe*` — probe-логгер схемы `TaskCreated`/`TaskCompleted`. Оба события
 есть в публичных доках, но включены ли они в текущем билде харнесса — не подтверждено, поэтому
 probe только пишет по строке на каждое срабатывание, ничего не решая. Он остаётся в
@@ -938,8 +877,7 @@ probe только пишет по строке на каждое срабаты
 не `PreToolUse`/`PostToolUse`/событийные хуки выше), но тот же принцип "скрипт из этого бандла,
 управляет твоим Claude Code" — здесь же для находимости:
 
-- **statusline.mjs** (`statusLine.command`, регистрация — см. «Как работает установщик» выше;
-  **оба профиля** — `base`, `lite`, единый рендерер). Строка рисуется сама, без единого
+- **statusline.mjs** (`statusLine.command`, регистрация — см. «Как работает установщик» выше) Строка рисуется сама, без единого
   сабпроцесса — пять сегментов слева направо, разделённых тусклым `│`:
   1. **ожидающие обновления компонентов**, по **имени** (`⬆ context-mode impeccable`), крайние
      слева — не счётчик;
@@ -956,9 +894,8 @@ probe только пишет по строке на каждое срабаты
      `precompact-observe.mjs` для текущей модели (`~/.claude/state/autocompact.json`) → сама
      вместимость. Дефолт — не угаданный резерв;
   4. **проект** — только имя папки, без ветки git;
-  5. **статус работы ultrapowers** — на всех профилях, кроме `lite`. Профиль читается из
-     `~/.claude/state/bundle-manifest.json`; отсутствующий или нечитаемый манифест фейлит
-     **открыто** (сегмент показывается) — гасит его только `lite`.
+  5. **статус работы ultrapowers** — показывается, пока есть прогресс в
+     `.ultrapowers/ROADMAP.md`.
 
   Сегмент 5 выбирает фазу детерминированно: фронтматтер `current` из `.ultrapowers/ROADMAP.md`,
   иначе — единственная фаза со `status: running`. Ноль или несколько совпадений означают, что

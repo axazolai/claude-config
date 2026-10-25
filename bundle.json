@@ -1,0 +1,50 @@
+{
+  "$comment": "The one bundle setup.mjs installs. Globs are relative to payload/.",
+  "alwaysExclude": ["hooks/task-lifecycle-probe*", "claude-md/**", "**.test.mjs"],
+  "plugins": ["ultrapowers", "context-mode"],
+  "mcpServers": ["scrapling", "context7", "deepseek"],
+  "$deepseekDefault": "Default offload level written to ~/.claude/deepseek-defaults.json; the per-project .claude/deepseek.json overrides it, down to off.",
+  "deepseekDefault": "medium",
+  "managedPlugins": {
+    "ultrapowers":  "ultrapowers@ultrapowers",
+    "superpowers":  "superpowers@claude-plugins-official",
+    "gsd":          "gsd@claude-plugins-official",
+    "context-mode": "context-mode@context-mode",
+    "context7":     "context7@claude-plugins-official"
+  },
+  "$marketplaces": "Where each managed plugin's marketplace comes from, so setup.mjs can register it before installing - `claude plugin install` fails outright against an unknown marketplace. Sources are transcribed from a real ~/.claude/plugins/known_marketplaces.json; a marketplace with no entry here produces a note telling the human to add one, never an invented repo.",
+  "marketplaces": {
+    "ultrapowers":             "axazolai/ultrapowers",
+    "claude-plugins-official": "anthropics/claude-plugins-official",
+    "context-mode":            "mksglu/context-mode"
+  },
+  "$gsd": "`gsd` stays in managedPlugins and forbiddenPlugins so plugin reconciliation uninstalls it.",
+  "$context7": "Forbidden, not merely unrequired. Context7 is reached through its MCP server; the marketplace plugin of the same name shadows that, so it is removed on sight rather than left disabled. It stays in managedPlugins because a plugin nobody manages is a plugin nobody can find and remove.",
+  "$forbiddenPlugins": "Must not exist on the machine at all: plugin-reconcile refuses to install or enable these, ignores keepInstalled for them, and uninstalls (removes files) rather than disabling. Every name here must also be in managedPlugins and must not appear in plugins - both are asserted in bundle.test.mjs.",
+  "forbiddenPlugins": ["context7", "gsd"],
+  "$keepInstalled": "Managed plugins that are disabled when not required, but never uninstalled. superpowers is here because ultrapowers is our fork of it: keeping upstream on disk makes rollback one command (re-enable it, disable the fork) instead of a reinstall from the marketplace. It must stay in managedPlugins to be disabled at all. Both enabled at once is NOT the fallback: they share 14 skill names and that is undocumented behaviour we do not run in production.",
+  "keepInstalled": ["superpowers"],
+  "$sessionDefaults": "Keys setup.mjs manages in ~/.claude/settings.json. Absent: written. Different: a conflict - written under --replace-all or an interactive yes, otherwise printed.",
+  "sessionDefaults": { "model": "sonnet", "effortLevel": "medium" },
+  "$managedMcpServers": "User-scope MCP servers setup.mjs may add or remove; mcpServers lists the ones the bundle wants. A configured server is never rewritten. headerFromEnv maps a header to the environment variable holding its value - values never live here. postAdd runs once, right after a successful add, under the same consent. {{CLAUDE_DIR}} in an arg is substituted by setup.mjs to the absolute config dir.",
+  "managedMcpServers": {
+    "scrapling": {
+      "command": "uvx",
+      "args": ["--from", "scrapling[ai]", "scrapling-mcp"],
+      "requires": "uvx",
+      "postAdd": { "command": "uvx", "args": ["--from", "scrapling[ai]", "scrapling", "install"] }
+    },
+    "context7": {
+      "type": "http",
+      "url": "https://mcp.context7.com/mcp",
+      "headerFromEnv": { "CONTEXT7_API_KEY": "CONTEXT7_API_KEY" },
+      "missingEnvNote": "CONTEXT7_API_KEY not set - registered without a key (lower rate limit)"
+    },
+    "deepseek": {
+      "command": "node",
+      "args": ["{{CLAUDE_DIR}}/mcp-servers/deepseek/server.mjs"],
+      "requires": "node",
+      "missingEnvNote": "LLM_KEY not set - DeepSeek tools register but return unavailable until it is set"
+    }
+  }
+}

@@ -1,16 +1,15 @@
 // Tests for init-stack.mjs: the pure/read-only core (template inheritance resolver + gather)
-// AND the side-effecting half (apply/install/CLI dispatch) + the profile-aware plugin tier
-// filter. Mirrors payload/bin/test_init_stack.py: SyntheticFixtureTests (resolver mechanics
+// AND the side-effecting half (apply/install/CLI dispatch). Mirrors payload/bin/test_init_stack.py: SyntheticFixtureTests (resolver mechanics
 // against a throwaway template tree) + the parity cases from RealTemplatesTests (against the
 // actual setting-templates/ tree shipped in this repo), plus new coverage for the Node-only
-// apply/tier-filter/CLI additions (init-stack.py has no equivalent to port from).
+// apply/CLI additions (init-stack.py has no equivalent to port from).
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, readdirSync, rmSync, existsSync } from "node:fs";
 import { join, dirname, relative } from "node:path";
 import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
-import { resolveChain, classify, gather, cleanNonplugin, deepMerge, splitId, keepPlugin, apply, grab, main, readMaxPluginTier, gatherSkills, installSkills, installedSkillNames } from "./init-stack.mjs";
+import { resolveChain, classify, gather, cleanNonplugin, deepMerge, splitId, apply, grab, main, gatherSkills, installSkills, installedSkillNames } from "./init-stack.mjs";
 import { detect } from "./lib/stack-markers.mjs";
 
 const REPO_TEMPLATES_DIR = join(dirname(fileURLToPath(import.meta.url)), "..", "setting-templates");
@@ -122,13 +121,6 @@ test("@important deepMerge recursively merges nested objects, later values win o
 });
 
 // ---------- parity against the REAL shipped templates (payload/setting-templates) ----------
-// ---------- tier filter (spec §4) ----------
-test("@important keepPlugin: tier:full dropped under maxPluginTier core, kept under full or no cap", () => {
-  const entry = { id: "playwright@mp", tier: "full" };
-  assert.equal(keepPlugin(entry, "core"), false);
-  assert.equal(keepPlugin(entry, "full"), true);
-  assert.equal(keepPlugin(entry, undefined), true);
-});
 
 // ---------- apply ----------
 function tmpRoot() {
@@ -195,24 +187,16 @@ test("@important main: invalid installed_plugins.json is caught at the CLI bound
   assert.equal(result, 2);
 });
 
-test("@important main --apply-all respects maxPluginTier from the bundle manifest (drops tier:full)", () => {
+test("@important main --apply-all keeps a tier:full template plugin whatever the manifest says", () => {
   const configDir = mkdtempSync(join(tmpdir(), "init-stack-cfg-"));
   mkdirSync(join(configDir, "state"), { recursive: true });
-  writeFileSync(join(configDir, "state", "bundle-manifest.json"), JSON.stringify({ maxPluginTier: "core" }), "utf8");
+  writeFileSync(join(configDir, "state", "bundle-manifest.json"), JSON.stringify({ profile: "lite", maxPluginTier: "core", files: [] }), "utf8");
   const root = mkdtempSync(join(tmpdir(), "init-stack-root-"));
   writeFileSync(join(root, "package.json"), JSON.stringify({ dependencies: { react: "^18" } }), "utf8");
   withCapturedLog(() => main(["--apply-all"], { configDir, root, templatesDir: REPO_TEMPLATES_DIR }));
   const settings = JSON.parse(readFileSync(join(root, ".claude", "settings.json"), "utf8"));
   assert.equal(settings.enabledPlugins["typescript-lsp@claude-plugins-official"], true);
-  assert.ok(!("playwright@claude-plugins-official" in settings.enabledPlugins));
-});
-
-test("@important readMaxPluginTier: corrupt (invalid-JSON) manifest degrades to no cap, does not throw", () => {
-  const configDir = mkdtempSync(join(tmpdir(), "init-stack-cfg-"));
-  mkdirSync(join(configDir, "state"), { recursive: true });
-  writeFileSync(join(configDir, "state", "bundle-manifest.json"), "{ not valid json", "utf8");
-  assert.doesNotThrow(() => readMaxPluginTier(configDir));
-  assert.equal(readMaxPluginTier(configDir), undefined);
+  assert.equal(settings.enabledPlugins["playwright@claude-plugins-official"], true);
 });
 
 // Task 7: setup.mjs drives marketplace registration off these same helpers rather than a second,

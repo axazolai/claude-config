@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// SessionStart hook (all profiles). Redirects TEMP/TMP/TMPDIR into the project's own
+// SessionStart hook. Redirects TEMP/TMP/TMPDIR into the project's own
 // .claude/.scratchpad/proc/ via CLAUDE_ENV_FILE, and hints /scratch-prune when this project's
 // scratchpad needs it (.ultrapowers/22-SPEC.md §3.2). Side effects (env-file append, proc/
 // creation, .gitignore coverage) are reliable and run whether or not additionalContext survives.

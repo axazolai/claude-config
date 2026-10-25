@@ -7,7 +7,7 @@ import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { decide, matchSummaryPath, isEnabled, nudgeMessage } from "./phase-end-cleanup-nudge.mjs";
-import { resolveVariant } from "../../variants.mjs";
+import { resolveBundle } from "../../bundle.mjs";
 
 const HOOK = join(dirname(fileURLToPath(import.meta.url)), "phase-end-cleanup-nudge.mjs");
 const REPO = fileURLToPath(new URL("../../", import.meta.url));
@@ -140,11 +140,8 @@ test("@important enabled-check cascades project settings.json -> settings.local.
   rmSync(rootProject, { recursive: true, force: true });
 });
 
-test("@important lite resolves without the phase-end cleanup nudge hook; base ships it", () => {
-  const lite = resolveVariant({ repoRoot: REPO, variant: "lite" }).rels;
-  const base = resolveVariant({ repoRoot: REPO, variant: "base" }).rels;
-  assert.ok(!lite.includes("hooks/phase-end-cleanup-nudge.mjs"));
-  assert.ok(base.includes("hooks/phase-end-cleanup-nudge.mjs"));
+test("@important the bundle ships the phase-end cleanup nudge hook", () => {
+  assert.ok(resolveBundle({ repoRoot: REPO }).rels.includes("hooks/phase-end-cleanup-nudge.mjs"));
 });
 
 test("@important malformed hook input exits 0 with no output", () => {
