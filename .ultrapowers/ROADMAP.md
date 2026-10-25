@@ -29,6 +29,7 @@ phases:
   - { phase: "25", slug: deepseek-offload, status: complete, delivery: merged }
   - { phase: "26", slug: remove-gsd, status: complete, delivery: merged }
   - { phase: "27", slug: drop-profiles, status: complete, delivery: merged }
+  - { phase: "28", slug: lean-process, status: planned, delivery: none }
 ---
 
 # Roadmap
