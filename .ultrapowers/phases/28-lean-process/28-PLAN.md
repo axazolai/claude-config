@@ -114,10 +114,11 @@ list), `bundle.json` (if listed), `README.md`/`README.en.md` rows, `payload/hook
       so a git-less project inside another repo shows that repo's branch.
       Ruling: no unit tests re-added for the two rewritten hooks — neither is an install or
       rebuild path; `decide()` was exercised by hand on four ROADMAP shapes.
-- [ ] Squash-merge into `master`, push, `node setup.mjs --replace-all` from `master`; the eight
-      retired paths gone from `~/.claude`, the hook entry gone from `settings.json`.
+- [x] Squash-merged into `master` (`4216722`), pushed, deployed from `master` with
+      `--replace-all`: the eight retired paths pruned, the hook entry gone from `settings.json`,
+      `CLAUDE.md` replaced. Post-push prune: every test tagged, nothing to delete.
 
-**Result:** _(filled at stage end)_
+**Result:** `master` `86301c3..4216722`, suite 237/237, review clean after one fix pass.
 
 ---
 
@@ -171,16 +172,15 @@ and the plugin updated.
 **Why this way:** `/up-update update` rebuilds in a throwaway clone and refuses on any drift, so the
 published `main` is exactly original + patch — the same guarantee every earlier revision had.
 
-- [ ] On the user's yes: push `patch`, `main` and `+original` with the `upstream/7.0.1` tag from
-      the local clone. Ruling: `/up-update update` cannot land a release whose deltas were
-      re-authored locally (it refuses on `main` drift against the old `patch`); that gap is
-      ROADMAP row 31. `/up-update check` afterwards must report up to date with 12 deltas.
-- [ ] User runs `/plugin update ultrapowers` and restarts; `README.md`/`README.en.md` here name the
-      new base version; commit.
-- [ ] Finish the branch (squash-merge into `master`, push, prune), `ROADMAP.md` row 28 `complete`,
-      `RESUME.md`.
+- [x] On the user's yes (after the merge and deploy): pushed `patch`, `main`, `+original` and the
+      `upstream/7.0.1` tag from the local clone. Ruling: `/up-update update` cannot land a release
+      whose deltas were re-authored locally (it refuses on `main` drift against the old `patch`);
+      that gap is ROADMAP row 31. `/up-update check` reports up to date, 12 deltas.
+      Ruling: the READMEs here do not name the fork's base version, so nothing to update.
+- [ ] User runs `/plugin update ultrapowers` and restarts Claude Code.
+- [x] `ROADMAP.md` row 28 `complete`, `current` null, `deployed_through` 28; `RESUME.md`.
 
-**Result:** _(filled at stage end)_
+**Result:** fork `patch` `badd113`, `main` `ce3d563` = `7.0.1-up.1`, published.
 
 ---
 

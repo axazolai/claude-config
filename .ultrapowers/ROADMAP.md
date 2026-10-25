@@ -3,10 +3,10 @@
 # status: planned | running | blocked | complete | superseded (carries superseded_by) | abandoned
 # delivery: none | branch | merged — deployment is the deployed_through waterline, not a row field
 updated: 2026-10-26
-current: "28"
-deployed_through: "27"
+current: null
+deployed_through: "28"
 phases:
-  - { phase: "28", slug: lean-process, status: running, delivery: branch }
+  - { phase: "28", slug: lean-process, status: complete, delivery: merged }
   - { phase: "29", slug: logic-map, status: planned, delivery: none }
   - { phase: "30", slug: bundle-hardening, status: planned, delivery: none }
   - { phase: "31", slug: fork-maintenance, status: planned, delivery: none }
@@ -21,7 +21,7 @@ removed GSD). Their plans stay under `phases/`; git holds the rest.
 
 | Phase | Goal | Status | Delivery |
 |---|---|---|---|
-| 28 lean-process | one plan per phase, ROADMAP + RESUME for the tree; fork deltas rewritten on upstream 7.0.1 and published | running | branch `phase-28-lean-process` |
+| 28 lean-process | one plan per phase, ROADMAP + RESUME for the tree; fork deltas rewritten on upstream 7.0.1 and published | complete | merged `4216722`, deployed; fork `7.0.1-up.1` pushed |
 | 29 logic-map | a hand-written project logic map (modules, edges, flows, invariants) with a drift checker in the test suite; spike per `.claude/.scratchpad/adhoc/2026-10-26-logic-map-research/report.md` on the reference project copied to `phases/29-logic-map/ref-project/` (git-ignored) | planned | none |
 | 30 bundle-hardening | `setup.mjs` parse-failure note unreachable (`safe()` returns `undefined`, compared to `null`): fix and test; manual changelog bump commits never enqueued by `install-trigger.mjs`; a test that every command, skill and path named in `payload/claude-md` and `rules-src` ships | planned | none |
 | 31 fork-maintenance | `/up-update` gets a base-first, keep-clone mode so a release that needs delta re-authoring lands through the tool, moving `describesTree`/`describesTag` with it | planned | none |
